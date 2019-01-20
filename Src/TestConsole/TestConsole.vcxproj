@@ -149,6 +149,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\opcodes_and_cycle_times.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="TestConsole.cpp" />
   </ItemGroup>
