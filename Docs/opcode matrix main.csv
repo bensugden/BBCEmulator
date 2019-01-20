@@ -1,0 +1,33 @@
+,x0,x1,x2,x3,x4,x5,x6,x7,x8,x9,xA,xB,xC,xD,xE,xF
+0x,BRK,ORA,KIL,SLO,NOP,ORA,ASL,SLO,PHP,ORA,ASL,ANC,NOP,ORA,ASL,SLO
+,7,izx 6,,izx 8,zp 3,zp 3,zp 5,zp 5,3,imm 2,2,imm 2,abs 4,abs 4,abs 6,abs 6
+1x,BPL,ORA,KIL,SLO,NOP,ORA,ASL,SLO,CLC,ORA,NOP,SLO,NOP,ORA,ASL,SLO
+,rel 2*,izy 5*,,izy 8,zpx 4,zpx 4,zpx 6,zpx 6,2,aby 4*,2,aby 7,abx 4*,abx 4*,abx 7,abx 7
+2x,JSR,AND,KIL,RLA,BIT,AND,ROL,RLA,PLP,AND,ROL,ANC,BIT,AND,ROL,RLA
+,abs 6,izx 6,,izx 8,zp 3,zp 3,zp 5,zp 5,4,imm 2,2,imm 2,abs 4,abs 4,abs 6,abs 6
+3x,BMI,AND,KIL,RLA,NOP,AND,ROL,RLA,SEC,AND,NOP,RLA,NOP,AND,ROL,RLA
+,rel 2*,izy 5*,,izy 8,zpx 4,zpx 4,zpx 6,zpx 6,2,aby 4*,2,aby 7,abx 4*,abx 4*,abx 7,abx 7
+4x,RTI,EOR,KIL,SRE,NOP,EOR,LSR,SRE,PHA,EOR,LSR,ALR,JMP,EOR,LSR,SRE
+,6,izx 6,,izx 8,zp 3,zp 3,zp 5,zp 5,3,imm 2,2,imm 2,abs 3,abs 4,abs 6,abs 6
+5x,BVC,EOR,KIL,SRE,NOP,EOR,LSR,SRE,CLI,EOR,NOP,SRE,NOP,EOR,LSR,SRE
+,rel 2*,izy 5*,,izy 8,zpx 4,zpx 4,zpx 6,zpx 6,2,aby 4*,2,aby 7,abx 4*,abx 4*,abx 7,abx 7
+6x,RTS,ADC,KIL,RRA,NOP,ADC,ROR,RRA,PLA,ADC,ROR,ARR,JMP,ADC,ROR,RRA
+,6,izx 6,,izx 8,zp 3,zp 3,zp 5,zp 5,4,imm 2,2,imm 2,ind 5,abs 4,abs 6,abs 6
+7x,BVS,ADC,KIL,RRA,NOP,ADC,ROR,RRA,SEI,ADC,NOP,RRA,NOP,ADC,ROR,RRA
+,rel 2*,izy 5*,,izy 8,zpx 4,zpx 4,zpx 6,zpx 6,2,aby 4*,2,aby 7,abx 4*,abx 4*,abx 7,abx 7
+8x,NOP,STA,NOP,SAX,STY,STA,STX,SAX,DEY,NOP,TXA,XAA,STY,STA,STX,SAX
+,imm 2,izx 6,imm 2,izx 6,zp 3,zp 3,zp 3,zp 3,2,imm 2,2,imm 2,abs 4,abs 4,abs 4,abs 4
+9x,BCC,STA,KIL,AHX,STY,STA,STX,SAX,TYA,STA,TXS,TAS,SHY,STA,SHX,AHX
+,rel 2*,izy 6,,izy 6,zpx 4,zpx 4,zpy 4,zpy 4,2,aby 5,2,aby 5,abx 5,abx 5,aby 5,aby 5
+Ax,LDY,LDA,LDX,LAX,LDY,LDA,LDX,LAX,TAY,LDA,TAX,LAX,LDY,LDA,LDX,LAX
+,imm 2,izx 6,imm 2,izx 6,zp 3,zp 3,zp 3,zp 3,2,imm 2,2,imm 2,abs 4,abs 4,abs 4,abs 4
+Bx,BCS,LDA,KIL,LAX,LDY,LDA,LDX,LAX,CLV,LDA,TSX,LAS,LDY,LDA,LDX,LAX
+,rel 2*,izy 5*,,izy 5*,zpx 4,zpx 4,zpy 4,zpy 4,2,aby 4*,2,aby 4*,abx 4*,abx 4*,aby 4*,aby 4*
+Cx,CPY,CMP,NOP,DCP,CPY,CMP,DEC,DCP,INY,CMP,DEX,AXS,CPY,CMP,DEC,DCP
+,imm 2,izx 6,imm 2,izx 8,zp 3,zp 3,zp 5,zp 5,2,imm 2,2,imm 2,abs 4,abs 4,abs 6,abs 6
+Dx,BNE,CMP,KIL,DCP,NOP,CMP,DEC,DCP,CLD,CMP,NOP,DCP,NOP,CMP,DEC,DCP
+,rel 2*,izy 5*,,izy 8,zpx 4,zpx 4,zpx 6,zpx 6,2,aby 4*,2,aby 7,abx 4*,abx 4*,abx 7,abx 7
+Ex,CPX,SBC,NOP,ISC,CPX,SBC,INC,ISC,INX,SBC,NOP,SBC,CPX,SBC,INC,ISC
+,imm 2,izx 6,imm 2,izx 8,zp 3,zp 3,zp 5,zp 5,2,imm 2,2,imm 2,abs 4,abs 4,abs 6,abs 6
+Fx,BEQ,SBC,KIL,ISC,NOP,SBC,INC,ISC,SED,SBC,NOP,ISC,NOP,SBC,INC,ISC
+,rel 2*,izy 5*,,izy 8,zpx 4,zpx 4,zpx 6,zpx 6,2,aby 4*,2,aby 7,abx 4*,abx 4*,abx 7,abx 7
