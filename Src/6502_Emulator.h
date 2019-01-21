@@ -50,6 +50,7 @@ struct CommandInfo
 		memset( m_flagMode, sizeof( m_flagMode ), 0 );
 		m_addCycleIfPageBoundaryCrossed = false;
 	}
+
 	string				m_name;
 	string				m_function;
 	int					m_index;
@@ -59,5 +60,122 @@ struct CommandInfo
 	EFlagSetMode		m_flagMode[ 8 ];
 	u8					(*m_operation)(u8,u8);
 };
+
+//-------------------------------------------------------------------------------------------------
+//
+// Here's the CPU
+//
+//-------------------------------------------------------------------------------------------------
+
+struct CPUState
+{
+	u8 A;
+	u8 X;
+	u8 Y;
+	u8 S;
+	u8 P;
+	u16 PC;
+	int nTotalCycles;
+
+	CPUState()
+	{
+		// todo setup default flag values
+	}
+
+	inline u16 StackAddress( )
+	{
+		return 0x100 + S;
+	}
+
+	void Tick( )
+	{
+		nTotalCycles ++;
+	}
+};
+
+//-------------------------------------------------------------------------------------------------
+//
+// Here's our RAM
+//
+//-------------------------------------------------------------------------------------------------
+
+struct MemoryState
+{
+	MemoryState( CPUState& cpu, int nAllocation = 65536 )
+		: m_cpu( cpu )
+	{
+		m_pMemory = new u8[ nAllocation ];
+		memset( m_pMemory, 0, nAllocation );
+
+		// todo - set up default memory values for 6502
+	}
+
+	inline u8 Read( int nAddress ) const
+	{
+		return m_pMemory[ nAddress ];
+	}
+
+	inline void Write( int nAddress, u8 value )
+	{
+		m_pMemory[ nAddress ] = value;
+	}
+
+	inline void WriteHiByte( int nAddress, u16 value )
+	{
+		m_pMemory[ nAddress ] = ( value >> 8) & 0xff;
+	}
+
+	inline void WriteLoByte( int nAddress, u16 value )
+	{
+		m_pMemory[ nAddress ] = value & 0xff;
+	}
+
+	inline u16 ReadHiByte( int nAddress, u16& valueToModify ) const
+	{
+		u8 readValue = Read( nAddress );
+		valueToModify &= (0xffff00ff); 
+		valueToModify |= ( readValue & 0xff ) << 8;
+		return valueToModify;
+	}
+
+	inline u16 ReadLoByte( int nAddress, u16& valueToModify ) const
+	{
+		u8 readValue = Read( nAddress );
+		valueToModify &= (0xffffff00); 
+		valueToModify |= readValue & 0xff;
+		return valueToModify;
+	}
+
+	void LoadROM( string filename, int nAddress )
+	{
+		CFile file( filename, "rb" );
+		file.Load( m_pMemory + nAddress, file.GetLength(), 1 );
+	}
+
+	//
+	// 6502 Interrupt Vectors
+	//
+	static const int NMI_Lo		= 0xFFFA;
+	static const int NMI_Hi		= 0xFFFB;
+	static const int Reset_Lo	= 0xFFFC;
+	static const int Resetc_Hi	= 0xFFFD;
+	static const int IRQ_Lo		= 0xFFFE;
+	static const int IRQ_Hi		= 0xFFFF;
+
+	u8* m_pMemory;
+	CPUState& m_cpu;
+};
+
+//-------------------------------------------------------------------------------------------------
+extern CPUState			cpu;
+extern MemoryState		mem;
+//-------------------------------------------------------------------------------------------------
+//
+// Some Functions (need wrapping in a class or something)
+//
+//-------------------------------------------------------------------------------------------------
+
+void BuildOpcodeTables();
+int DisassemblePC( int pc, string& dissassemble );
 
 //-------------------------------------------------------------------------------------------------

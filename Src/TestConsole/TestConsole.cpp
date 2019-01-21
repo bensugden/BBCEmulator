@@ -2,15 +2,11 @@
 //
 
 #include "..\stdafx.h"
-#include <conio.h>
-#include <stdio.h>
-
-void BuildOpcodeTables();
 
 
 int main()
 {
-	BuildOpcodeTables();
+	BBC_Emulator bbcMicroModelB;
 
 	printf("Press any key to continue\n");
 	_getch();

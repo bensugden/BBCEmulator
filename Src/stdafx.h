@@ -13,10 +13,13 @@
 #include <vector>
 #include <map>
 #include <iostream>
+#include <conio.h>
 
 using namespace std;
 
 #include "Types.h"
+#include "File.h"
 #include "myAssert.h"
 #include "6502_Emulator.h"
+#include "BBC_Emulator.h"
 

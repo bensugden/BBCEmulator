@@ -38,11 +38,14 @@
     <ClInclude Include="..\targetver.h">
       <Filter>Console</Filter>
     </ClInclude>
+    <ClInclude Include="..\File.h">
+      <Filter>Misc Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\BBC_Emulator.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\6502_Emulator.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\6502_OpcodeTable.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -51,6 +54,18 @@
     </ClCompile>
     <ClCompile Include="TestConsole.cpp">
       <Filter>Console</Filter>
+    </ClCompile>
+    <ClCompile Include="..\File.cpp">
+      <Filter>Misc Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\6502_Instructions.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\6502_Emulator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\BBC_Emulator.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
