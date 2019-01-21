@@ -144,12 +144,16 @@ static inline u8 FetchPointer( )
 
 //-------------------------------------------------------------------------------------------------
 
-static inline u16 GetAddressFromPointer( u8 pointer )
+static inline u16 Get16BitAddressFromPointer( u8 pointer )
 {
 	// pointer    R  read from the address
 	u16 address = 0;
 	mem.ReadLoByte( pointer, address );
+	Tick();
+
 	mem.ReadHiByte( ( pointer + 1 ) & 0xff, address );
+	Tick();
+
 	return address;
 	//not sure
 }
@@ -444,28 +448,43 @@ namespace IndexedIndirectAddressing
 	//     Read instructions (LDA, ORA, EOR, AND, ADC, CMP, SBC, LAX)
 	//
 	//-------------------------------------------------------------------------------------------------
+	/*
+		#    address   R/W description
+		--- ----------- --- ------------------------------------------
+		1      PC       R  fetch opcode, increment PC
+		2      PC       R  fetch pointer address, increment PC
+		3    pointer    R  read from the address, add X to it
+		4   pointer+X   R  fetch effective address low
+		5  pointer+X+1  R  fetch effective address high
+		6    address    R  read from effective address
 
+		Note: The effective address is always fetched from zero page,
+				i.e. the zero page boundary crossing is not handled.
+	*/
 	void fn_ReadInstructions( const CommandInfo& command )
 	{
-		/*
-				#    address   R/W description
-			   --- ----------- --- ------------------------------------------
-				1      PC       R  fetch opcode, increment PC
-				2      PC       R  fetch pointer address, increment PC
-				3    pointer    R  read from the address, add X to it
-				4   pointer+X   R  fetch effective address low
-				5  pointer+X+1  R  fetch effective address high
-				6    address    R  read from effective address
-
-			   Note: The effective address is always fetched from zero page,
-					 i.e. the zero page boundary crossing is not handled.
-		*/
 		u8 opcode = FetchOpcode();
+		u8 pointer = FetchPointer();
+		
+		mem.Read( pointer );
+		pointer += cpu.X;
+		Tick();
 
+		u16 address = Get16BitAddressFromPointer( pointer );
+
+		u8 value = mem.Read( address );
+		Tick();
+
+		command.m_operation( value, 0 );
+		// no tick as writing to register
 	}
+	
+	//-------------------------------------------------------------------------------------------------
+	//
+	// Read-Modify-Write instructions (SLO, SRE, RLA, RRA, ISB, DCP)
+	//
+	//-------------------------------------------------------------------------------------------------
 	/*
-	Read-Modify-Write instructions (SLO, SRE, RLA, RRA, ISB, DCP)
-
         #    address   R/W description
        --- ----------- --- ------------------------------------------
         1      PC       R  fetch opcode, increment PC
@@ -480,9 +499,36 @@ namespace IndexedIndirectAddressing
 
        Note: The effective address is always fetched from zero page,
              i.e. the zero page boundary crossing is not handled.
+	*/
+	void fn_ReadModifyWriteInstructions( const CommandInfo& command )
+	{
+		u8 opcode = FetchOpcode();
+		u8 pointer = FetchPointer();
 
-     Write instructions (STA, SAX)
+		mem.Read( pointer );
+		pointer += cpu.X;
+		Tick();
 
+		u16 address = Get16BitAddressFromPointer( pointer );
+
+		u8 value = mem.Read( address );
+		Tick();
+
+		mem.Write( address, value );
+		value = command.m_operation( value, 0 );
+		Tick();
+
+		mem.Write( address, value );
+		Tick();
+	}
+
+	
+   	//-------------------------------------------------------------------------------------------------
+	//
+	// Write instructions (STA, SAX)
+	//
+   	//-------------------------------------------------------------------------------------------------
+	/*
         #    address   R/W description
        --- ----------- --- ------------------------------------------
         1      PC       R  fetch opcode, increment PC
@@ -494,5 +540,20 @@ namespace IndexedIndirectAddressing
 
        Note: The effective address is always fetched from zero page,
              i.e. the zero page boundary crossing is not handled.
-			 */
+	 */
+	void fn_WriteInstructions( const CommandInfo& command )
+	{
+		u8 opcode = FetchOpcode();
+		u8 pointer = FetchPointer();
+
+		mem.Read( pointer );
+		pointer += cpu.X;
+		Tick();
+
+		u16 address = Get16BitAddressFromPointer( pointer );
+
+		u8 value = command.m_operation( 0, 0 );
+		mem.Write( address, value );
+		Tick();
+	}
 }
