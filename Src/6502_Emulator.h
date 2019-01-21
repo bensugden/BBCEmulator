@@ -69,6 +69,7 @@ struct CPUState
 	int Y;
 	int S;
 	int P;
+	int PC;
 	bool flag[ EFlag::_COUNT ];
 };
 
