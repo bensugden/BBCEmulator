@@ -46,3 +46,4 @@ sysinfo.txt
 *.tlog
 *.VC.db
 *.VC.VC.opendb
+*.pch

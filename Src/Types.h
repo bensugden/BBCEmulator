@@ -20,3 +20,10 @@ typedef float				f32;
 typedef double				f64;
 
 typedef long double			f80;
+
+typedef unsigned char		byte;
+
+#define LOBYTE_READ(w)		((w) & 0xff)
+#define HIBYTE_READ(w)		((w) >> 8) & 0xff)
+#define LOBYTE_WRITE(w,v)	{w &= (0xffffff00); w |= ((v) & 0xff); }
+#define HIBYTE_WRITE(w,v)	{w &= (0xffff00ff); w |= (((v) & 0xff)<<8); }
