@@ -59,6 +59,7 @@ struct CommandInfo
 	bool				m_addCycleIfPageBoundaryCrossed;
 	EFlagSetMode		m_flagMode[ 8 ];
 	u8					(*m_operation)(u8,u8);
+	void				(*m_instruction)( const CommandInfo& command );
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -91,6 +92,16 @@ struct CPUState
 	{
 		nTotalCycles ++;
 	}
+	
+	//
+	// 6502 Interrupt Vectors
+	//
+	static const int c_NMI_Lo		= 0xFFFA;
+	static const int c_NMI_Hi		= 0xFFFB;
+	static const int c_Reset_Lo		= 0xFFFC;
+	static const int c_Reset_Hi		= 0xFFFD;
+	static const int c_IRQ_Lo		= 0xFFFE;
+	static const int c_IRQ_Hi		= 0xFFFF;
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -152,18 +163,18 @@ struct MemoryState
 		file.Load( m_pMemory + nAddress, file.GetLength(), 1 );
 	}
 
-	//
-	// 6502 Interrupt Vectors
-	//
-	static const int NMI_Lo		= 0xFFFA;
-	static const int NMI_Hi		= 0xFFFB;
-	static const int Reset_Lo	= 0xFFFC;
-	static const int Resetc_Hi	= 0xFFFD;
-	static const int IRQ_Lo		= 0xFFFE;
-	static const int IRQ_Hi		= 0xFFFF;
-
 	u8* m_pMemory;
 	CPUState& m_cpu;
+};
+
+//-------------------------------------------------------------------------------------------------
+
+class CPUEmulator
+{
+public:
+	CPUEmulator();
+	~CPUEmulator() {};
+	void ProcessSingleInstruction();
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -175,7 +186,8 @@ extern MemoryState		mem;
 //
 //-------------------------------------------------------------------------------------------------
 
-void BuildOpcodeTables();
-int DisassemblePC( int pc, string& dissassemble );
+void				BuildOpcodeTables	( );
+int					DisassemblePC		( int pc, string& dissassemble );
+const CommandInfo&	GetCommandForOpcode	( u8 opcode );
 
 //-------------------------------------------------------------------------------------------------

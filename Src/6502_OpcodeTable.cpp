@@ -395,6 +395,14 @@ std::string toHex( u16 i, bool bPrefix = true )
 		return "$"+outp;
 	return outp;
 }
+
+//-------------------------------------------------------------------------------------------------
+
+const CommandInfo& GetCommandForOpcode( u8 opcode )
+{
+	return g_commands[ opcode ];
+}
+
 //-------------------------------------------------------------------------------------------------
 
 int DisassemblePC( int pc_in, string& dissassemble )
@@ -405,7 +413,8 @@ int DisassemblePC( int pc_in, string& dissassemble )
 
 	u8 opcode = mem.Read( pc++ );
 
-	EAddressingMode addrmode = g_commands[ opcode ].m_addressingMode;
+	const CommandInfo& command = GetCommandForOpcode( opcode );
+	EAddressingMode addrmode = command.m_addressingMode;
 
 	dissassemble += toHex( (u8)opcode, false ) + " ";
 
@@ -415,7 +424,7 @@ int DisassemblePC( int pc_in, string& dissassemble )
 		u8 address = mem.Read( pc++ );
 
 		dissassemble += toHex( (u8)address, false ) + "    ";
-		dissassemble += "    " + g_commands[ opcode ].m_name + " ";
+		dissassemble += "    " + command.m_name + " ";
 
 		switch ( addrmode )
 		{
@@ -460,7 +469,7 @@ int DisassemblePC( int pc_in, string& dissassemble )
 
 		u16 address = lo + ( u16( hi ) <<8 );
 
-		dissassemble += "    " + g_commands[ opcode ].m_name + " ";
+		dissassemble += "    " + command.m_name + " ";
 
 		switch ( addrmode )
 		{
@@ -486,7 +495,7 @@ int DisassemblePC( int pc_in, string& dissassemble )
 	}
 	else
 	{
-		dissassemble += "          " + g_commands[ opcode ].m_name + " ";
+		dissassemble += "          " + command.m_name + " ";
 	}
 
 	return pc;
