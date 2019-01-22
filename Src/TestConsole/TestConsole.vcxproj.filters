@@ -67,6 +67,9 @@
     <ClCompile Include="..\BBC_Emulator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\6502_Operations.h">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\Docs\opcode matrix all.csv">

@@ -5,7 +5,7 @@
 using namespace std;
 //-------------------------------------------------------------------------------------------------
 
-map<string, int> g_opcodeToIndexMap;
+map<string, int> g_instructionToOpcodeMap;
 
 vector< CommandInfo > g_commands;
 
@@ -15,7 +15,7 @@ vector< CommandInfo > g_commands;
 //
 //-------------------------------------------------------------------------------------------------
 
-string g_indexToOpcode[]=
+string g_opcodeToInstructionName[]=
 {
 	"BRK","ORA","KIL","SLO","NOP","ORA","ASL","SLO","PHP","ORA","ASL","ANC","NOP","ORA","ASL","SLO",
 	"BPL","ORA","KIL","SLO","NOP","ORA","ASL","SLO","CLC","ORA","NOP","SLO","NOP","ORA","ASL","SLO",
@@ -210,10 +210,10 @@ void BuildOpcodeTables()
 {
 	for ( int i = 0 ; i < 256; i++ )
 	{
-		g_opcodeToIndexMap.insert(pair<string, int>( g_indexToOpcode[ i ], i ));
+		g_instructionToOpcodeMap.insert(pair<string, int>( g_opcodeToInstructionName[ i ], i ));
 		
 		CommandInfo command;
-		command.m_name = g_indexToOpcode[ i ];
+		command.m_name = g_opcodeToInstructionName[ i ];
 		command.m_index = i;
 
 		//
@@ -317,22 +317,22 @@ void BuildOpcodeTables()
 			// Check we have correct opcode
 			//
 			assert( opcode.compare( 0, 3, command.m_name ) == 0 );
-			command.m_opCode = (EOpCode)( i / 21 );
+			command.m_instruction = (EInstruction)( i / 21 );
 			
 			//
 			// Patch up duplicated illegal opcodes
 			//
-			if (command.m_opCode == _ANC)
-				command.m_opCode = ANC;
-			else if (command.m_opCode == _LAX)
-				command.m_opCode = LAX;
-			else if (command.m_opCode == _SBC)
-				command.m_opCode = SBC;
+			if (command.m_instruction == _ANC)
+				command.m_instruction = ANC;
+			else if (command.m_instruction == _LAX)
+				command.m_instruction = LAX;
+			else if (command.m_instruction == _SBC)
+				command.m_instruction = SBC;
 
 			//
 			// Mark flags
 			//
-			command.m_function = g_fullCommandList[ i + 13 ];
+			command.m_functionName = g_fullCommandList[ i + 13 ];
 			for ( int flag = 0; flag < 7; flag++ )
 			{
 				EFlagSetMode flagMode = flag_set_unchanged;
@@ -351,6 +351,29 @@ void BuildOpcodeTables()
 			}
 		}
 	}
+}
+
+//-------------------------------------------------------------------------------------------------
+
+bool SetFunctionHandler( EAddressingMode ea, EInstruction instruction, void (*functionHandler)( const CommandInfo& command ) )
+{
+	//
+	// Linear search - slow. Really only use at setup time
+	//
+	for ( int i = 0; i < g_commands.size(); i++ )
+	{
+		if  ( ( g_commands[ i ].m_instruction == instruction ) && 
+			  ( g_commands[ i ].m_addressingMode == ea ) )
+		{
+			g_commands[ i ].m_functionHandler = functionHandler;
+			return true;
+		}
+	}
+	//
+	// No such combination
+	//
+	assert( false );
+	return false;
 }
 
 //-------------------------------------------------------------------------------------------------

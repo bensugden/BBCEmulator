@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "stdio.h"
+#include "6502_Operations.h"
 
 //-------------------------------------------------------------------------------------------------
 //
@@ -188,14 +188,8 @@ void CPUEmulator::ProcessSingleInstruction()
 	//
 	// dispatch
 	//
-	command.m_instruction( command );
+	command.m_functionHandler( command );
 }
-
-//=================================================================================================
-//
-// Function Tables
-//
-//=================================================================================================
 
 //=================================================================================================
 //
@@ -387,19 +381,27 @@ namespace AbsoluteAddressing
 //=================================================================================================
 namespace ZeroPageAddressing
 {
-/*
-     Read instructions (LDA, LDX, LDY, EOR, AND, ORA, ADC, SBC, CMP, BIT,
-                        LAX, NOP)
-
+    //-------------------------------------------------------------------------------------------------
+	//
+	// Read instructions (LDA, LDX, LDY, EOR, AND, ORA, ADC, SBC, CMP, BIT,
+    //                    LAX, NOP)
+	//
+    //-------------------------------------------------------------------------------------------------
+	/*
         #  address R/W description
        --- ------- --- ------------------------------------------
         1    PC     R  fetch opcode, increment PC
         2    PC     R  fetch address, increment PC
         3  address  R  read from effective address
+		*/
 
-     Read-Modify-Write instructions (ASL, LSR, ROL, ROR, INC, DEC,
-                                     SLO, SRE, RLA, RRA, ISB, DCP)
-
+    //-------------------------------------------------------------------------------------------------
+	//
+	//     Read-Modify-Write instructions (ASL, LSR, ROL, ROR, INC, DEC,
+	//                                     SLO, SRE, RLA, RRA, ISB, DCP)
+	//
+	//-------------------------------------------------------------------------------------------------
+	/*
         #  address R/W description
        --- ------- --- ------------------------------------------
         1    PC     R  fetch opcode, increment PC
@@ -408,9 +410,14 @@ namespace ZeroPageAddressing
         4  address  W  write the value back to effective address,
                        and do the operation on it
         5  address  W  write the new value to effective address
+		*/
 
-     Write instructions (STA, STX, STY, SAX)
-
+	//-------------------------------------------------------------------------------------------------
+    //
+	// Write instructions (STA, STX, STY, SAX)
+	//
+	//-------------------------------------------------------------------------------------------------
+	/*
         #  address R/W description
        --- ------- --- ------------------------------------------
         1    PC     R  fetch opcode, increment PC
@@ -426,10 +433,13 @@ namespace ZeroPageAddressing
 
 namespace ZeroPageIndexedAddressing
 {
-/*
-     Read instructions (LDA, LDX, LDY, EOR, AND, ORA, ADC, SBC, CMP, BIT,
-                        LAX, NOP)
-
+	//-------------------------------------------------------------------------------------------------
+	//
+    //  Read instructions (LDA, LDX, LDY, EOR, AND, ORA, ADC, SBC, CMP, BIT,
+    //                     LAX, NOP)
+	//
+	//-------------------------------------------------------------------------------------------------
+	/*
         #   address  R/W description
        --- --------- --- ------------------------------------------
         1     PC      R  fetch opcode, increment PC
@@ -441,10 +451,32 @@ namespace ZeroPageIndexedAddressing
 
               * The high byte of the effective address is always zero,
                 i.e. page boundary crossings are not handled.
+	*/
+	template <u8&(*Index)(),u8(*Operation)(u8)>
+	void fn_ReadInstructions( const CommandInfo& command )
+	{
+		u8 address = 0;
+		address = mem.Read( cpu.PC );
+		IncPC(); 
+		Tick();
 
-     Read-Modify-Write instructions (ASL, LSR, ROL, ROR, INC, DEC,
-                                     SLO, SRE, RLA, RRA, ISB, DCP)
+		mem.Read(address);
+		address += Index();
+		Tick();
 
+		u8 value = mem.Read(address);
+		Tick();
+
+		Operation(value);
+		Tick();
+	}
+	//-------------------------------------------------------------------------------------------------
+	//
+	// Read-Modify-Write instructions (ASL, LSR, ROL, ROR, INC, DEC,
+    //                                 SLO, SRE, RLA, RRA, ISB, DCP)
+	//
+	//-------------------------------------------------------------------------------------------------
+	/*
         #   address  R/W description
        --- --------- --- ---------------------------------------------
         1     PC      R  fetch opcode, increment PC
@@ -457,9 +489,35 @@ namespace ZeroPageIndexedAddressing
 
        Note: * The high byte of the effective address is always zero,
                i.e. page boundary crossings are not handled.
+	 */
+	template <u8(*Operation)(u8)>
+	void fn_ReadModifyWriteInstructions( const CommandInfo& command )
+	{
+		u8 address = 0;
+		address = mem.Read( cpu.PC );
+		IncPC(); 
+		Tick();
 
-     Write instructions (STA, STX, STY, SAX)
+		mem.Read(address);
+		address += cpu.X;
+		Tick();
 
+		u8 value = mem.Read(address);
+		Tick();
+
+		mem.Write(address,value);
+		value = Operation(value);
+		Tick();
+
+		mem.Write(address,value);
+		Tick();
+	}
+	//-------------------------------------------------------------------------------------------------	
+	//
+    // Write instructions (STA, STX, STY, SAX)
+	//
+	//-------------------------------------------------------------------------------------------------	
+	/*
         #   address  R/W description
        --- --------- --- -------------------------------------------
         1     PC      R  fetch opcode, increment PC
@@ -471,9 +529,22 @@ namespace ZeroPageIndexedAddressing
 
               * The high byte of the effective address is always zero,
                 i.e. page boundary crossings are not handled.
+	*/
+	template <u8&(*Index)(),u8&(*Register)()>
+	void fn_WriteInstructions( const CommandInfo& command )
+	{
+		u8 address = 0;
+		address = mem.Read( cpu.PC );
+		IncPC(); 
+		Tick();
 
+		mem.Read(address);
+		address += Index();
+		Tick();
 
-*/
+		mem.Write( address, Register() );
+		Tick();
+	}
 }
 //=================================================================================================
 //
@@ -483,10 +554,13 @@ namespace ZeroPageIndexedAddressing
 
 namespace AbsoluteIndexedAddressing
 {
+	//-------------------------------------------------------------------------------------------------
+	//
+	// Read instructions (LDA, LDX, LDY, EOR, AND, ORA, ADC, SBC, CMP, BIT,
+	//					  LAX, LAE, SHS, NOP)
+	//
+	//-------------------------------------------------------------------------------------------------
 	/*
-	Read instructions (LDA, LDX, LDY, EOR, AND, ORA, ADC, SBC, CMP, BIT,
-							LAX, LAE, SHS, NOP)
-
 			#   address  R/W description
 		   --- --------- --- ------------------------------------------
 			1     PC      R  fetch opcode, increment PC
@@ -506,61 +580,39 @@ namespace AbsoluteIndexedAddressing
 				  + This cycle will be executed only if the effective address
 					was invalid during cycle #4, i.e. page boundary was crossed.
 		*/
-
+	template <u8&(*Index)(),u8(*Operation)(u8)>
 	void fn_ReadInstructions( const CommandInfo& command )
 	{
+		u16 address = 0;
+		mem.ReadLoByte( cpu.PC, address );
+		IncPC(); 
+		Tick();
+
+		mem.ReadHiByte( cpu.PC, address );
+		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + Index() ) & 0xff );
+		IncPC(); 
+		Tick();
+
+		u8 value = mem.Read( temp_address );
+		address = address + Index(); 
+		Tick();
+
+		if ( address != temp_address )
+		{ 
+			value = mem.Read( address );
+			Tick();
+		}
+		Operation(value);
+		Tick();
 	}
 
 	//-------------------------------------------------------------------------------------------------
 	//
 	// Read-Modify-Write instructions (ASL, LSR, ROL, ROR, INC, DEC,
-	//                                     SLO, SRE, RLA, RRA, ISB, DCP)
+	//                                 SLO, SRE, RLA, RRA, ISB, DCP)
 	//
 	//-------------------------------------------------------------------------------------------------
-	void ASL(u8& val)
-	{
-		cpu.SetFlagValue(flag_C, (val & 0x80));
-		val <<= 1;
-		cpu.SetZN(val);
-	}
-	//-------------------------------------------------------------------------------------------------
-	void LSR(u8& val)
-	{
-		cpu.SetFlagValue(flag_C, (val & 0x1));
-		val >>= 1;
-		cpu.SetZN(val);
-	}
-	//-------------------------------------------------------------------------------------------------
-	void ROL(u8& val)
-	{
-		u8 C = cpu.IsFlagSet(flag_C);
-		cpu.SetFlagValue(flag_C, (val & 0x80));
-		val <<= 1;
-		val |= C;
-		cpu.SetZN( val );
-	}
-	//-------------------------------------------------------------------------------------------------
-	void ROR(u8& val)
-	{
-		u8 C = cpu.IsFlagSet(flag_C);
-		cpu.SetFlagValue(flag_C, (val & 0x1));
-		val >>= 1;
-		val |= C<<7;
-		cpu.SetZN(val);
-	}
-	//-------------------------------------------------------------------------------------------------
-	void INC(u8& val)
-	{
-		val ++;
-		cpu.SetZN(val);
-	}
-	//-------------------------------------------------------------------------------------------------
-	void DEC(u8& val)
-	{
-		val--;
-		cpu.SetZN(val);
-	}
-	template <void(*T)(u8 &)>
+	template <u8(*Operation)(u8)>
 	void fn_ReadModifyWriteInstructions( const CommandInfo& command )
 	{
 		/*
@@ -587,47 +639,121 @@ namespace AbsoluteIndexedAddressing
 		Tick();
 
 		mem.ReadHiByte( cpu.PC, address );
-		address = ( address & 0xffffff00 ) + ( address + cpu.X ) & 0xff;
+		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + cpu.X ) & 0xff );
 		IncPC(); 
 		Tick();
 
-		u8 value = mem.Read( address );
+		u8 value = mem.Read( temp_address );
 		address = address + cpu.X;
 		Tick();
 
+		value = mem.Read( temp_address );
+		Tick();
+
 		mem.Write( address, value );
-		T(value);
+		Operation(value);
 		Tick();
 
 		mem.Write( address, value );
 		Tick();
 	}
-	// ben look at this!
-	void(*testFn0)(const CommandInfo& command) = fn_ReadModifyWriteInstructions<ASL>;
-	void(*testFn1)(const CommandInfo& command) = fn_ReadModifyWriteInstructions<LSR>;
 
-	/*
-	
-     Write instructions (STA, STX, STY, SHA, SHX, SHY)
+	//-------------------------------------------------------------------------------------------------
+	template <u8&(*Index)(),u8&(*Register)()>
+	void fn_WriteInstructions( const CommandInfo& command )
+	{
+		//-------------------------------------------------------------------------------------------------
+		//	
+		// Write instructions (STA, STX, STY, SHA, SHX, SHY)
+		//
+		//-------------------------------------------------------------------------------------------------
+		/*
+			#   address  R/W description
+		   --- --------- --- ------------------------------------------
+			1     PC      R  fetch opcode, increment PC
+			2     PC      R  fetch low byte of address, increment PC
+			3     PC      R  fetch high byte of address,
+							 add index register to low address byte,
+							 increment PC
+			4  address+I* R  read from effective address,
+							 fix the high byte of effective address
+			5  address+I  W  write to effective address
 
-        #   address  R/W description
-       --- --------- --- ------------------------------------------
-        1     PC      R  fetch opcode, increment PC
-        2     PC      R  fetch low byte of address, increment PC
-        3     PC      R  fetch high byte of address,
-                         add index register to low address byte,
-                         increment PC
-        4  address+I* R  read from effective address,
-                         fix the high byte of effective address
-        5  address+I  W  write to effective address
+		   Notes: I denotes either index register (X or Y).
 
-       Notes: I denotes either index register (X or Y).
+				  * The high byte of the effective address may be invalid
+					at this time, i.e. it may be smaller by $100. Because
+					the processor cannot undo a write to an invalid
+					address, it always reads from the address first.
+					*/
 
-              * The high byte of the effective address may be invalid
-                at this time, i.e. it may be smaller by $100. Because
-                the processor cannot undo a write to an invalid
-                address, it always reads from the address first.
-				*/
+		u16 address = 0;
+		mem.ReadLoByte( cpu.PC, address );
+		IncPC(); 
+		Tick();
+
+		mem.ReadHiByte( cpu.PC, address );
+		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + Index() ) & 0xff );
+		IncPC(); 
+		Tick();
+
+		u8 value = mem.Read( temp_address );
+		address = address + Index(); 
+		Tick();
+
+		mem.Write( address, Register() );
+		Tick();
+	}
+	//-------------------------------------------------------------------------------------------------
+	void RegisterInstructions()
+	{
+		SetFunctionHandler( mode_abx, LDA, fn_ReadInstructions<reg_cpuX,op_LDA> );
+		SetFunctionHandler( mode_abx, LDX, fn_ReadInstructions<reg_cpuX,op_LDX> );
+		SetFunctionHandler( mode_abx, LDY, fn_ReadInstructions<reg_cpuX,op_LDY> );
+		SetFunctionHandler( mode_abx, EOR, fn_ReadInstructions<reg_cpuX,op_EOR> );
+		SetFunctionHandler( mode_abx, AND, fn_ReadInstructions<reg_cpuX,op_AND> );
+		SetFunctionHandler( mode_abx, ORA, fn_ReadInstructions<reg_cpuX,op_ORA> );
+		SetFunctionHandler( mode_abx, ADC, fn_ReadInstructions<reg_cpuX,op_ADC> );
+		SetFunctionHandler( mode_abx, SBC, fn_ReadInstructions<reg_cpuX,op_SBC> );
+		SetFunctionHandler( mode_abx, CMP, fn_ReadInstructions<reg_cpuX,op_CMP> );
+		SetFunctionHandler( mode_abx, BIT, fn_ReadInstructions<reg_cpuX,op_BIT> );
+		SetFunctionHandler( mode_abx, NOP, fn_ReadInstructions<reg_cpuX,op_NOP> );
+		// Not implemented: LAX, LAE, SHS
+		
+		SetFunctionHandler( mode_aby, LDA, fn_ReadInstructions<reg_cpuY,op_LDA> );
+		SetFunctionHandler( mode_aby, LDX, fn_ReadInstructions<reg_cpuY,op_LDX> );
+		SetFunctionHandler( mode_aby, LDY, fn_ReadInstructions<reg_cpuY,op_LDY> );
+		SetFunctionHandler( mode_aby, EOR, fn_ReadInstructions<reg_cpuY,op_EOR> );
+		SetFunctionHandler( mode_aby, AND, fn_ReadInstructions<reg_cpuY,op_AND> );
+		SetFunctionHandler( mode_aby, ORA, fn_ReadInstructions<reg_cpuY,op_ORA> );
+		SetFunctionHandler( mode_aby, ADC, fn_ReadInstructions<reg_cpuY,op_ADC> );
+		SetFunctionHandler( mode_aby, SBC, fn_ReadInstructions<reg_cpuY,op_SBC> );
+		SetFunctionHandler( mode_aby, CMP, fn_ReadInstructions<reg_cpuY,op_CMP> );
+		SetFunctionHandler( mode_aby, BIT, fn_ReadInstructions<reg_cpuY,op_BIT> );
+		SetFunctionHandler( mode_aby, NOP, fn_ReadInstructions<reg_cpuY,op_NOP> );
+		// Not implemented: LAX, LAE, SHS
+
+		SetFunctionHandler( mode_abx, ASL, fn_ReadModifyWriteInstructions<op_ASL> );
+		SetFunctionHandler( mode_abx, LSR, fn_ReadModifyWriteInstructions<op_LSR> );
+		SetFunctionHandler( mode_abx, ROL, fn_ReadModifyWriteInstructions<op_ROL> );
+		SetFunctionHandler( mode_abx, ROR, fn_ReadModifyWriteInstructions<op_ROR> );
+		SetFunctionHandler( mode_abx, INC, fn_ReadModifyWriteInstructions<op_INC> );
+		SetFunctionHandler( mode_abx, DEC, fn_ReadModifyWriteInstructions<op_DEC> );
+		// Not implemented: SLO, SRE, RLA, RRA, ISB, DCP
+
+		SetFunctionHandler( mode_abx, STA, fn_WriteInstructions<reg_cpuX,reg_cpuA> );
+		SetFunctionHandler( mode_abx, STX, fn_WriteInstructions<reg_cpuX,reg_cpuX> );
+		SetFunctionHandler( mode_abx, STY, fn_WriteInstructions<reg_cpuX,reg_cpuY> );
+		// Not implemented: SHA, SHX, SHY
+		
+		SetFunctionHandler( mode_aby, STA, fn_WriteInstructions<reg_cpuY,reg_cpuA> );
+		SetFunctionHandler( mode_aby, STX, fn_WriteInstructions<reg_cpuY,reg_cpuX> );
+		SetFunctionHandler( mode_aby, STY, fn_WriteInstructions<reg_cpuY,reg_cpuY> );
+		// Not implemented: SHA, SHX, SHY
+
+	}
+	//-------------------------------------------------------------------------------------------------
+
 };
 //=================================================================================================
 //
@@ -637,9 +763,12 @@ namespace AbsoluteIndexedAddressing
 
 namespace RelativeAddressing
 {
-/*
-Relative addressing (BCC, BCS, BNE, BEQ, BPL, BMI, BVC, BVS)
-
+	//-------------------------------------------------------------------------------------------------
+	//
+	// Relative addressing (BCC, BCS, BNE, BEQ, BPL, BMI, BVC, BVS)
+	//
+	//-------------------------------------------------------------------------------------------------
+	/*
         #   address  R/W description
        --- --------- --- ---------------------------------------------
         1     PC      R  fetch opcode, increment PC
@@ -692,6 +821,7 @@ namespace IndexedIndirectAddressing
 		Note: The effective address is always fetched from zero page,
 				i.e. the zero page boundary crossing is not handled.
 	*/
+	template <u8(*Operation)(u8)>
 	void fn_ReadInstructions( const CommandInfo& command )
 	{
 		u8 pointer = FetchPointer();
@@ -705,7 +835,7 @@ namespace IndexedIndirectAddressing
 		u8 value = mem.Read( address );
 		Tick();
 
-		command.m_operation( value, 0 );
+		Operation( value );
 		// no tick as writing to register
 	}
 	
@@ -730,6 +860,7 @@ namespace IndexedIndirectAddressing
        Note: The effective address is always fetched from zero page,
              i.e. the zero page boundary crossing is not handled.
 	*/
+	template <u8(*Operation)(u8)>
 	void fn_ReadModifyWriteInstructions( const CommandInfo& command )
 	{
 		u8 pointer = FetchPointer();
@@ -744,7 +875,7 @@ namespace IndexedIndirectAddressing
 		Tick();
 
 		mem.Write( address, value );
-		value = command.m_operation( value, 0 );
+		value = Operation( value );
 		Tick();
 
 		mem.Write( address, value );

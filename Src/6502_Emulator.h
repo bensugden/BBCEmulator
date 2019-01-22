@@ -27,23 +27,23 @@ enum EFlag
 enum EAddressingMode
 {
 	mode_imp = 0,
-	mode_imm ,
-	mode_zp  ,
-	mode_zpx ,
-	mode_zpy ,
-	mode_izx ,
-	mode_izy ,
-	mode_abs ,
-	mode_abx ,
-	mode_aby ,
-	mode_ind ,
-	mode_rel ,
+	mode_imm ,	//"imm = #$00"
+	mode_zp  ,	//"zp = $00"
+	mode_zpx ,	//"zpx = $00,X"
+	mode_zpy ,	//"zpy = $00,Y"
+	mode_izx ,	//"izx = ($00,X)" 
+	mode_izy ,	//"izy = ($00),Y"
+	mode_abs ,	//"abs = $0000"
+	mode_abx ,	//"abx = $0000,X" absolute indexed addresing
+	mode_aby ,	//"aby = $0000,Y" absolute indexed addresing
+	mode_ind ,	//"ind = ($0000)"
+	mode_rel ,	//"rel = $0000 (PC-relative)"
 	mode_invalid
 };
 
 //-------------------------------------------------------------------------------------------------
 
-enum EOpCode
+enum EInstruction
 {
 	ORA = 0, AND, EOR, ADC, SBC, CMP, CPX, CPY, DEC,
 	DEX, DEY, INC, INX, INY, ASL, ROL, LSR, ROR,
@@ -67,15 +67,15 @@ struct CommandInfo
 	}
 
 	string				m_name;
-	string				m_function;
+	string				m_functionName;
 	int					m_index;
 	int					m_cycles;
 	EAddressingMode		m_addressingMode;
 	bool				m_addCycleIfPageBoundaryCrossed;
 	EFlagSetMode		m_flagMode[ 8 ];
 	u8					(*m_operation)(u8,u8);
-	void				(*m_instruction)( const CommandInfo& command );
-	EOpCode				m_opCode;
+	void				(*m_functionHandler)( const CommandInfo& command );
+	EInstruction		m_instruction;
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -104,14 +104,14 @@ struct CPUState
 		return 0x100 + S;
 	}
 
-	void SetFlagValue(EFlag flag, u8 val)
+	void SetFlag(EFlag flag, u8 val)
 	{
 		P &= ~flag;
 		if (val!=0)
 			P |= flag;
 	}
 
-	u8 IsFlagSet(EFlag flag)
+	u8 GetFlag(EFlag flag)
 	{
 		if (P&flag)
 			return 1;
@@ -120,8 +120,8 @@ struct CPUState
 
 	void SetZN( u8 val )
 	{
-		SetFlagValue(flag_Z, val == 0);
-		SetFlagValue(flag_N, (val & 0x80));
+		SetFlag(flag_Z, val == 0);
+		SetFlag(flag_N, (val & 0x80));
 	}
 
 	void Tick( )
@@ -225,5 +225,6 @@ extern MemoryState		mem;
 void				BuildOpcodeTables	( );
 int					DisassemblePC		( int pc, string& dissassemble );
 const CommandInfo&	GetCommandForOpcode	( u8 opcode );
+bool				SetFunctionHandler	( EAddressingMode ea, EInstruction instruction, void (*functionHandler)( const CommandInfo& command ) );
 
 //-------------------------------------------------------------------------------------------------
