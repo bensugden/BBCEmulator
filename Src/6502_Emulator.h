@@ -43,6 +43,21 @@ enum EAddressingMode
 
 //-------------------------------------------------------------------------------------------------
 
+enum EOpCode
+{
+	ORA = 0, AND, EOR, ADC, SBC, CMP, CPX, CPY, DEC,
+	DEX, DEY, INC, INX, INY, ASL, ROL, LSR, ROR,
+	LDA, STA, LDX, STX, LDY, STY, TAX, TXA, TAY,
+	TYA, TSX, TXS, PLA, PHA, PLP, PHP, BPL, BMI,
+	BVC, BVS, BCC, BCS, BNE, BEQ, BRK, RTI, JSR,
+	RTS, JMP, BIT, CLC, SEC, CLD, SED, CLI, SEI,
+	CLV, NOP, SLO, RLA, SRE, RRA, SAX, LAX, DCP,
+	ISC, ANC, _ANC, ALR, ARR, XAA, _LAX, AXS, _SBC,
+	AHX, SHY, SHX, TAS, LAS
+};
+
+//-------------------------------------------------------------------------------------------------
+
 struct CommandInfo
 {
 	CommandInfo()
@@ -60,6 +75,7 @@ struct CommandInfo
 	EFlagSetMode		m_flagMode[ 8 ];
 	u8					(*m_operation)(u8,u8);
 	void				(*m_instruction)( const CommandInfo& command );
+	EOpCode				m_opCode;
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -86,6 +102,26 @@ struct CPUState
 	inline u16 StackAddress( )
 	{
 		return 0x100 + S;
+	}
+
+	void SetFlagValue(EFlag flag, u8 val)
+	{
+		P &= ~flag;
+		if (val!=0)
+			P |= flag;
+	}
+
+	u8 IsFlagSet(EFlag flag)
+	{
+		if (P&flag)
+			return 1;
+		return 0;
+	}
+
+	void SetZN( u8 val )
+	{
+		SetFlagValue(flag_Z, val == 0);
+		SetFlagValue(flag_N, (val & 0x80));
 	}
 
 	void Tick( )

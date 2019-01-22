@@ -261,7 +261,11 @@ namespace StackInstructions
 			5  $0100,S  R  pull PCH from stack
 			6    PC     R  increment PC
 			*/
-		//todo
+		DiscardNextPC();
+		IncS(); Tick();
+		PullPCL();
+		PullPCH();
+		IncPC(); Tick();
 	}
 	//-------------------------------------------------------------------------------------------------
 	/*
@@ -513,7 +517,50 @@ namespace AbsoluteIndexedAddressing
 	//                                     SLO, SRE, RLA, RRA, ISB, DCP)
 	//
 	//-------------------------------------------------------------------------------------------------
-
+	void ASL(u8& val)
+	{
+		cpu.SetFlagValue(flag_C, (val & 0x80));
+		val <<= 1;
+		cpu.SetZN(val);
+	}
+	//-------------------------------------------------------------------------------------------------
+	void LSR(u8& val)
+	{
+		cpu.SetFlagValue(flag_C, (val & 0x1));
+		val >>= 1;
+		cpu.SetZN(val);
+	}
+	//-------------------------------------------------------------------------------------------------
+	void ROL(u8& val)
+	{
+		u8 C = cpu.IsFlagSet(flag_C);
+		cpu.SetFlagValue(flag_C, (val & 0x80));
+		val <<= 1;
+		val |= C;
+		cpu.SetZN( val );
+	}
+	//-------------------------------------------------------------------------------------------------
+	void ROR(u8& val)
+	{
+		u8 C = cpu.IsFlagSet(flag_C);
+		cpu.SetFlagValue(flag_C, (val & 0x1));
+		val >>= 1;
+		val |= C<<7;
+		cpu.SetZN(val);
+	}
+	//-------------------------------------------------------------------------------------------------
+	void INC(u8& val)
+	{
+		val ++;
+		cpu.SetZN(val);
+	}
+	//-------------------------------------------------------------------------------------------------
+	void DEC(u8& val)
+	{
+		val--;
+		cpu.SetZN(val);
+	}
+	template <void(*T)(u8 &)>
 	void fn_ReadModifyWriteInstructions( const CommandInfo& command )
 	{
 		/*
@@ -549,12 +596,15 @@ namespace AbsoluteIndexedAddressing
 		Tick();
 
 		mem.Write( address, value );
-		value = command.m_operation( value, 0 );
+		T(value);
 		Tick();
 
 		mem.Write( address, value );
 		Tick();
 	}
+	// ben look at this!
+	void(*testFn0)(const CommandInfo& command) = fn_ReadModifyWriteInstructions<ASL>;
+	void(*testFn1)(const CommandInfo& command) = fn_ReadModifyWriteInstructions<LSR>;
 
 	/*
 	

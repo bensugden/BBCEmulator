@@ -71,7 +71,7 @@ string g_addressingModesAndCycleTimes[256]={
 //	"*" : add 1 cycle if page boundary is crossed.			
 //	add 1 cycle on branches if taken.			
 
-//-------------------------------------------------------------------------------------------------
+
 
 string g_fullCommandList[77*21]=
 {
@@ -157,13 +157,11 @@ string g_fullCommandList[77*21]=
 	"ISC","","","$E7","$F7","","$E3","$F3","$EF","$FF","$FB","","","{adr}:={adr}+1 A:=A-{adr}","*","*","","","","*","*",
 	"ANC","","$0B","","","","","","","","","","","A:=A&#{imm}","*","","","","","*","*",
 	"ANC","","$2B","","","","","","","","","","","A:=A&#{imm}","*","","","","","*","*",
-
 	"ALR","","$4B","","","","","","","","","","","A:=(A&#{imm})/2","*","","","","","*","*",
 	"ARR","","$6B","","","","","","","","","","","A:=(A&#{imm})/2","*","*","","","","*","*",
 	"XAA²","","$8B","","","","","","","","","","","A:=X&#{imm}","*","","","","","*","",
 	"LAX²","","$AB","","","","","","","","","","","A,X:=#{imm}","*","","","","","*","",
 	"AXS","","$CB","","","","","","","","","","","X:=A&X-#{imm}","*","","","","","*","*",
-
 	"SBC","","$EB","","","","","","","","","","","A:=A-#{imm}","*","*","","","","*","*",
 	"AHX¹","","","","","","","$93 ","","","$9F","","","{adr}:=A&X&H","","","","","","","",
 	"SHY¹","","","","","","","","","$9C","","","","{adr}:=Y&H","","","","","","","",
@@ -319,6 +317,17 @@ void BuildOpcodeTables()
 			// Check we have correct opcode
 			//
 			assert( opcode.compare( 0, 3, command.m_name ) == 0 );
+			command.m_opCode = (EOpCode)( i / 21 );
+			
+			//
+			// Patch up duplicated illegal opcodes
+			//
+			if (command.m_opCode == _ANC)
+				command.m_opCode = ANC;
+			else if (command.m_opCode == _LAX)
+				command.m_opCode = LAX;
+			else if (command.m_opCode == _SBC)
+				command.m_opCode = SBC;
 
 			//
 			// Mark flags
