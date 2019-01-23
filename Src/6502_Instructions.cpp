@@ -188,7 +188,7 @@ void CPUEmulator::ProcessSingleInstruction()
 	//
 	// dispatch
 	//
-	command.m_functionHandler( command );
+	command.m_functionHandler( );
 }
 
 //=================================================================================================
@@ -199,7 +199,7 @@ void CPUEmulator::ProcessSingleInstruction()
 
 namespace StackInstructions
 {
-	void fn_BRK( const CommandInfo& command )
+	void fn_BRK( )
 	{
 		/*
 		--- ------- --- -----------------------------------------------
@@ -222,7 +222,7 @@ namespace StackInstructions
 
 	//-------------------------------------------------------------------------------------------------
 
-	void fn_RTI( const CommandInfo& command )
+	void fn_RTI( )
 	{
 		/*
 			#  address R/W description
@@ -243,7 +243,7 @@ namespace StackInstructions
 
 	//-------------------------------------------------------------------------------------------------
 
-	void fn_RTS( const CommandInfo& command )
+	void fn_RTS( )
 	{    
 		/*
 			#  address R/W description
@@ -489,7 +489,7 @@ namespace ZeroPageIndexedAddressing
                 i.e. page boundary crossings are not handled.
 	*/
 	template <u8&(*Index)(),u8(*Operation)(u8)>
-	void fn_ReadInstructions( const CommandInfo& command )
+	void fn_ReadInstructions( )
 	{
 		u8 address = 0;
 		address = mem.Read( cpu.PC );
@@ -528,7 +528,7 @@ namespace ZeroPageIndexedAddressing
                i.e. page boundary crossings are not handled.
 	 */
 	template <u8(*Operation)(u8)>
-	void fn_ReadModifyWriteInstructions( const CommandInfo& command )
+	void fn_ReadModifyWriteInstructions( )
 	{
 		u8 address = 0;
 		address = mem.Read( cpu.PC );
@@ -568,7 +568,7 @@ namespace ZeroPageIndexedAddressing
                 i.e. page boundary crossings are not handled.
 	*/
 	template <u8&(*Index)(),u8&(*Register)()>
-	void fn_WriteInstructions( const CommandInfo& command )
+	void fn_WriteInstructions( )
 	{
 		u8 address = 0;
 		address = mem.Read( cpu.PC );
@@ -667,7 +667,7 @@ namespace AbsoluteIndexedAddressing
 					was invalid during cycle #4, i.e. page boundary was crossed.
 		*/
 	template <u8&(*Index)(),u8(*Operation)(u8)>
-	void fn_ReadInstructions( const CommandInfo& command )
+	void fn_ReadInstructions( )
 	{
 		u16 address = 0;
 		mem.ReadLoByte( cpu.PC, address );
@@ -699,7 +699,7 @@ namespace AbsoluteIndexedAddressing
 	//
 	//-------------------------------------------------------------------------------------------------
 	template <u8(*Operation)(u8)>
-	void fn_ReadModifyWriteInstructions( const CommandInfo& command )
+	void fn_ReadModifyWriteInstructions( )
 	{
 		/*
 			#   address  R/W description
@@ -746,7 +746,7 @@ namespace AbsoluteIndexedAddressing
 
 	//-------------------------------------------------------------------------------------------------
 	template <u8&(*Index)(),u8&(*Register)()>
-	void fn_WriteInstructions( const CommandInfo& command )
+	void fn_WriteInstructions( )
 	{
 		//-------------------------------------------------------------------------------------------------
 		//	
@@ -908,7 +908,7 @@ namespace IndexedIndirectAddressing
 				i.e. the zero page boundary crossing is not handled.
 	*/
 	template <u8(*Operation)(u8)>
-	void fn_ReadInstructions( const CommandInfo& command )
+	void fn_ReadInstructions( )
 	{
 		u8 pointer = FetchPointer();
 		
@@ -946,7 +946,7 @@ namespace IndexedIndirectAddressing
              i.e. the zero page boundary crossing is not handled.
 	*/
 	template <u8(*Operation)(u8)>
-	void fn_ReadModifyWriteInstructions( const CommandInfo& command )
+	void fn_ReadModifyWriteInstructions( )
 	{
 		u8 pointer = FetchPointer();
 
@@ -986,7 +986,7 @@ namespace IndexedIndirectAddressing
              i.e. the zero page boundary crossing is not handled.
 	 */
 	template <u8&(*Register)()>
-	void fn_WriteInstructions( const CommandInfo& command )
+	void fn_WriteInstructions( )
 	{
 		u8 pointer = FetchPointer();
 

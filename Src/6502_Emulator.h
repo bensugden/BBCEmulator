@@ -74,7 +74,7 @@ struct CommandInfo
 	bool				m_addCycleIfPageBoundaryCrossed;
 	EFlagSetMode		m_flagMode[ 8 ];
 	u8					(*m_operation)(u8,u8);
-	void				(*m_functionHandler)( const CommandInfo& command );
+	void				(*m_functionHandler)( );
 	EInstruction		m_instruction;
 };
 
@@ -225,6 +225,6 @@ extern MemoryState		mem;
 void				BuildOpcodeTables	( );
 int					DisassemblePC		( int pc, string& dissassemble );
 const CommandInfo&	GetCommandForOpcode	( u8 opcode );
-bool				SetFunctionHandler	( EAddressingMode ea, EInstruction instruction, void (*functionHandler)( const CommandInfo& command ) );
+bool				SetFunctionHandler	( EAddressingMode ea, EInstruction instruction, void (*functionHandler)( ) );
 
 //-------------------------------------------------------------------------------------------------

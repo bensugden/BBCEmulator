@@ -355,12 +355,12 @@ void BuildOpcodeTables()
 
 //-------------------------------------------------------------------------------------------------
 
-bool SetFunctionHandler( EAddressingMode ea, EInstruction instruction, void (*functionHandler)( const CommandInfo& command ) )
+bool SetFunctionHandler( EAddressingMode ea, EInstruction instruction, void (*functionHandler)( ) )
 {
 	//
 	// Linear search - slow. Really only use at setup time
 	//
-	for ( int i = 0; i < g_commands.size(); i++ )
+	for ( u32 i = 0; i < g_commands.size(); i++ )
 	{
 		if  ( ( g_commands[ i ].m_instruction == instruction ) && 
 			  ( g_commands[ i ].m_addressingMode == ea ) )
