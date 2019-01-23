@@ -262,26 +262,42 @@ namespace StackInstructions
 		IncPC(); Tick();
 	}
 	//-------------------------------------------------------------------------------------------------
+	
+	//-------------------------------------------------------------------------------------------------
+	//
+	// PHA, PHP
+	//
+	//-------------------------------------------------------------------------------------------------
 	/*
-	PHA, PHP
-
         #  address R/W description
        --- ------- --- -----------------------------------------------
         1    PC     R  fetch opcode, increment PC
         2    PC     R  read next instruction byte (and throw it away)
         3  $0100,S  W  push register on stack, decrement S
+	*/
 
-     PLA, PLP
 
+	//-------------------------------------------------------------------------------------------------
+	//
+    // PLA, PLP
+	//
+	//-------------------------------------------------------------------------------------------------
+	/*
         #  address R/W description
        --- ------- --- -----------------------------------------------
         1    PC     R  fetch opcode, increment PC
         2    PC     R  read next instruction byte (and throw it away)
         3  $0100,S  R  increment S
         4  $0100,S  R  pull register from stack
+	*/
 
-     JSR
-
+    
+	//-------------------------------------------------------------------------------------------------
+	//
+	// JSR
+	//
+	//-------------------------------------------------------------------------------------------------
+	/*
         #  address R/W description
        --- ------- --- -------------------------------------------------
         1    PC     R  fetch opcode, increment PC
@@ -291,7 +307,7 @@ namespace StackInstructions
         5  $0100,S  W  push PCL on stack, decrement S
         6    PC     R  copy low address byte to PCL, fetch high address
                        byte to PCH
-					   */
+   */
 };
 
 //=================================================================================================
@@ -331,8 +347,13 @@ namespace ImmediateAddressing
 //=================================================================================================
 namespace AbsoluteAddressing
 {
-/*
-     JMP
+
+    //-------------------------------------------------------------------------------------------------
+	//
+	// JMP
+	//
+    //-------------------------------------------------------------------------------------------------
+	/*
 
         #  address R/W description
        --- ------- --- -------------------------------------------------
@@ -340,20 +361,30 @@ namespace AbsoluteAddressing
         2    PC     R  fetch low address byte, increment PC
         3    PC     R  copy low address byte to PCL, fetch high address
                        byte to PCH
+   */
 
-     Read instructions (LDA, LDX, LDY, EOR, AND, ORA, ADC, SBC, CMP, BIT,
-                        LAX, NOP)
-
+    //-------------------------------------------------------------------------------------------------
+	//
+    // Read instructions (LDA, LDX, LDY, EOR, AND, ORA, ADC, SBC, CMP, BIT,
+    //                    LAX, NOP)
+	//
+	//-------------------------------------------------------------------------------------------------
+	/*
         #  address R/W description
        --- ------- --- ------------------------------------------
         1    PC     R  fetch opcode, increment PC
         2    PC     R  fetch low byte of address, increment PC
         3    PC     R  fetch high byte of address, increment PC
         4  address  R  read from effective address
+	*/
 
-     Read-Modify-Write instructions (ASL, LSR, ROL, ROR, INC, DEC,
-                                     SLO, SRE, RLA, RRA, ISB, DCP)
-
+	//-------------------------------------------------------------------------------------------------
+	//
+    // Read-Modify-Write instructions (ASL, LSR, ROL, ROR, INC, DEC,
+	//                                 SLO, SRE, RLA, RRA, ISB, DCP)
+	//
+	//-------------------------------------------------------------------------------------------------
+	/*
         #  address R/W description
        --- ------- --- ------------------------------------------
         1    PC     R  fetch opcode, increment PC
@@ -363,16 +394,21 @@ namespace AbsoluteAddressing
         5  address  W  write the value back to effective address,
                        and do the operation on it
         6  address  W  write the new value to effective address
+	*/
 
-     Write instructions (STA, STX, STY, SAX)
-
+	//-------------------------------------------------------------------------------------------------
+	//
+    // Write instructions (STA, STX, STY, SAX)
+	//
+	//-------------------------------------------------------------------------------------------------
+	/*
         #  address R/W description
        --- ------- --- ------------------------------------------
         1    PC     R  fetch opcode, increment PC
         2    PC     R  fetch low byte of address, increment PC
         3    PC     R  fetch high byte of address, increment PC
         4  address  W  write register to effective address
-		*/
+	*/
 }
 //=================================================================================================
 //
@@ -470,6 +506,7 @@ namespace ZeroPageIndexedAddressing
 		Operation(value);
 		Tick();
 	}
+
 	//-------------------------------------------------------------------------------------------------
 	//
 	// Read-Modify-Write instructions (ASL, LSR, ROL, ROR, INC, DEC,
@@ -544,6 +581,55 @@ namespace ZeroPageIndexedAddressing
 
 		mem.Write( address, Register() );
 		Tick();
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
+	void RegisterInstructions()
+	{
+		SetFunctionHandler( mode_zpx, LDA, fn_ReadInstructions<reg_cpuX,op_LDA> );
+		SetFunctionHandler( mode_zpx, LDX, fn_ReadInstructions<reg_cpuX,op_LDX> );
+		SetFunctionHandler( mode_zpx, LDY, fn_ReadInstructions<reg_cpuX,op_LDY> );
+		SetFunctionHandler( mode_zpx, EOR, fn_ReadInstructions<reg_cpuX,op_EOR> );
+		SetFunctionHandler( mode_zpx, AND, fn_ReadInstructions<reg_cpuX,op_AND> );
+		SetFunctionHandler( mode_zpx, ORA, fn_ReadInstructions<reg_cpuX,op_ORA> );
+		SetFunctionHandler( mode_zpx, ADC, fn_ReadInstructions<reg_cpuX,op_ADC> );
+		SetFunctionHandler( mode_zpx, SBC, fn_ReadInstructions<reg_cpuX,op_SBC> );
+		SetFunctionHandler( mode_zpx, CMP, fn_ReadInstructions<reg_cpuX,op_CMP> );
+		SetFunctionHandler( mode_zpx, BIT, fn_ReadInstructions<reg_cpuX,op_BIT> );
+		SetFunctionHandler( mode_zpx, NOP, fn_ReadInstructions<reg_cpuX,op_NOP> );
+		// Not implemented: LAX
+
+		SetFunctionHandler( mode_zpy, LDA, fn_ReadInstructions<reg_cpuY,op_LDA> );
+		SetFunctionHandler( mode_zpy, LDX, fn_ReadInstructions<reg_cpuY,op_LDX> );
+		SetFunctionHandler( mode_zpy, LDY, fn_ReadInstructions<reg_cpuY,op_LDY> );
+		SetFunctionHandler( mode_zpy, EOR, fn_ReadInstructions<reg_cpuY,op_EOR> );
+		SetFunctionHandler( mode_zpy, AND, fn_ReadInstructions<reg_cpuY,op_AND> );
+		SetFunctionHandler( mode_zpy, ORA, fn_ReadInstructions<reg_cpuY,op_ORA> );
+		SetFunctionHandler( mode_zpy, ADC, fn_ReadInstructions<reg_cpuY,op_ADC> );
+		SetFunctionHandler( mode_zpy, SBC, fn_ReadInstructions<reg_cpuY,op_SBC> );
+		SetFunctionHandler( mode_zpy, CMP, fn_ReadInstructions<reg_cpuY,op_CMP> );
+		SetFunctionHandler( mode_zpy, BIT, fn_ReadInstructions<reg_cpuY,op_BIT> );
+		SetFunctionHandler( mode_zpy, NOP, fn_ReadInstructions<reg_cpuY,op_NOP> );
+		// Not implemented: LAX
+
+		SetFunctionHandler( mode_zpx, ASL, fn_ReadModifyWriteInstructions<op_ASL> );
+		SetFunctionHandler( mode_zpx, LSR, fn_ReadModifyWriteInstructions<op_LSR> );
+		SetFunctionHandler( mode_zpx, ROL, fn_ReadModifyWriteInstructions<op_ROL> );
+		SetFunctionHandler( mode_zpx, ROR, fn_ReadModifyWriteInstructions<op_ROR> );
+		SetFunctionHandler( mode_zpx, INC, fn_ReadModifyWriteInstructions<op_INC> );
+		SetFunctionHandler( mode_zpx, DEC, fn_ReadModifyWriteInstructions<op_DEC> );
+		// Not implemented: SLO, SRE, RLA, RRA, ISB, DCP
+
+		SetFunctionHandler( mode_zpx, STA, fn_WriteInstructions<reg_cpuX,reg_cpuA> );
+		SetFunctionHandler( mode_zpx, STX, fn_WriteInstructions<reg_cpuX,reg_cpuX> );
+		SetFunctionHandler( mode_zpx, STY, fn_WriteInstructions<reg_cpuX,reg_cpuY> );
+		// Not implemented: SAX
+		
+		SetFunctionHandler( mode_zpy, STA, fn_WriteInstructions<reg_cpuY,reg_cpuA> );
+		SetFunctionHandler( mode_zpy, STX, fn_WriteInstructions<reg_cpuY,reg_cpuX> );
+		SetFunctionHandler( mode_zpy, STY, fn_WriteInstructions<reg_cpuY,reg_cpuY> );
+		// Not implemented: SAX
 	}
 }
 //=================================================================================================
@@ -838,7 +924,6 @@ namespace IndexedIndirectAddressing
 		Operation( value );
 		// no tick as writing to register
 	}
-	
 	//-------------------------------------------------------------------------------------------------
 	//
 	// Read-Modify-Write instructions (SLO, SRE, RLA, RRA, ISB, DCP)
@@ -881,7 +966,6 @@ namespace IndexedIndirectAddressing
 		mem.Write( address, value );
 		Tick();
 	}
-
 	
    	//-------------------------------------------------------------------------------------------------
 	//
@@ -901,6 +985,7 @@ namespace IndexedIndirectAddressing
        Note: The effective address is always fetched from zero page,
              i.e. the zero page boundary crossing is not handled.
 	 */
+	template <u8&(*Register)()>
 	void fn_WriteInstructions( const CommandInfo& command )
 	{
 		u8 pointer = FetchPointer();
@@ -911,10 +996,29 @@ namespace IndexedIndirectAddressing
 
 		u16 address = Get16BitAddressFromPointer( pointer );
 
-		u8 value = command.m_operation( 0, 0 );
+		u8 value = Register();
 		mem.Write( address, value );
 		Tick();
 	}
+
+	//-------------------------------------------------------------------------------------------------
+	void RegisterInstructions()
+	{
+		SetFunctionHandler( mode_izx, LDA, fn_ReadInstructions<op_LDA> );
+		SetFunctionHandler( mode_izx, ORA, fn_ReadInstructions<op_ORA> );
+		SetFunctionHandler( mode_izx, EOR, fn_ReadInstructions<op_EOR> );
+		SetFunctionHandler( mode_izx, AND, fn_ReadInstructions<op_AND> );
+		SetFunctionHandler( mode_izx, ADC, fn_ReadInstructions<op_ADC> );
+		SetFunctionHandler( mode_izx, CMP, fn_ReadInstructions<op_CMP> );
+		SetFunctionHandler( mode_izx, SBC, fn_ReadInstructions<op_SBC> );
+		// Not implemented: LAX
+
+		// Read-Modify-Write instructions (SLO, SRE, RLA, RRA, ISB, DCP)
+
+		SetFunctionHandler( mode_izx, STA, fn_WriteInstructions<reg_cpuA> );
+		// Not implemented: SAX
+	}
+
 };
 
 //=================================================================================================
@@ -1027,6 +1131,8 @@ namespace AbsoluteIndirectAddressing
 			   */
 };
 
+
+//=================================================================================================
 /*
                 How Real Programmers Acknowledge Interrupts
 
