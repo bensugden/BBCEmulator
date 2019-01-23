@@ -47,7 +47,6 @@ static inline u8 FetchPointer( )
 	//    PC       R  fetch pointer address, increment PC
 	u8 location = mem.Read( cpu.PC );
 	IncPC(); 
-	Tick();
 	return location;
 }
 
@@ -72,8 +71,8 @@ static inline void DiscardNextPC( )
 {
 	//    PC     R  read next instruction byte (and throw it away),
 	//			increment PC
+	mem.Read(cpu.PC);
 	IncPC(); 
-	Tick();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -81,17 +80,18 @@ static inline void PushP( )
 {
 	//  $0100,S  W  push P on stack, decrement S
 	mem.Write( cpu.StackAddress( ), cpu.P );
-	DecS(); 
-	Tick();
 }
-
+//-------------------------------------------------------------------------------------------------
+static inline void PushA()
+{
+	//  $0100,S  W  push A on stack, decrement S
+	mem.Write(cpu.StackAddress(), cpu.A);
+}
 //-------------------------------------------------------------------------------------------------
 static inline void PushPCH( )
 {
 	//  $0100,S  W  push PCH on stack (with B flag set), decrement S
 	mem.WriteHiByte( cpu.StackAddress( ), cpu.PC );
-	DecS(); 
-	Tick();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -99,8 +99,6 @@ static inline void PushPCL( )
 {
 	//  $0100,S  W  push PCL on stack, decrement S
 	mem.WriteLoByte( cpu.StackAddress( ), cpu.PC );
-	DecS(); 
-	Tick();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -108,8 +106,13 @@ static inline void PullP( )
 {
     //  $0100,S  R  pull P from stack, increment S
 	cpu.P = mem.Read( cpu.StackAddress( ) );
-	IncS();
-	Tick();
+}
+
+//-------------------------------------------------------------------------------------------------
+static inline void PullA()
+{
+	//  $0100,S  R  pull A from stack, increment S
+	cpu.A = mem.Read(cpu.StackAddress());
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -117,15 +120,12 @@ static inline void PullPCL( )
 {
     //  $0100,S  R  pull PCL from stack, increment S
 	cpu.PC = mem.ReadLoByte( cpu.StackAddress( ), cpu.PC );
-	IncS(); 
-	Tick();
 }
 //-------------------------------------------------------------------------------------------------
 static inline void PullPCH( )
 {
     //  $0100,S  R  pull PCH from stack
 	cpu.PC = mem.ReadHiByte( cpu.StackAddress( ), cpu.PC );
-	Tick();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -133,7 +133,6 @@ static inline void FetchPCL( u16 address )
 {
 	//   $FFFE   R  fetch PCL
 	mem.ReadLoByte( address, cpu.PC );
-	Tick();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -141,7 +140,6 @@ static inline void FetchPCH( u16 address )
 {
 	//   $FFFF   R  fetch PCH
 	mem.ReadHiByte( address, cpu.PC );
-	Tick();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -212,12 +210,27 @@ namespace StackInstructions
 		6   $FFFE   R  fetch PCL
 		7   $FFFF   R  fetch PCH
 		*/
-		DiscardNextPC();
-		SetFlags( flag_B ); PushPCH( ); 
-		PushPCL( ); 
+		DiscardNextPC(); 
+		Tick();
+		
+		SetFlags( flag_B ); 
+		PushPCH( ); 
+		DecS(); 
+		Tick();
+
+		PushPCL(); 
+		DecS(); 
+		Tick();
+
 		PushP( ); 
+		DecS(); 
+		Tick();
+
 		FetchPCL( cpu.c_IRQ_Lo ); 
+		Tick();
+
 		FetchPCH( cpu.c_IRQ_Hi ); 
+		Tick();
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -234,11 +247,22 @@ namespace StackInstructions
 			5  $0100,S  R  pull PCL from stack, increment S
 			6  $0100,S  R  pull PCH from stack
 			*/
-		DiscardNextPC();
-		IncS(); Tick();
-		PullP();
-		PullPCL();
-		PullPCH();
+		DiscardNextPC(); 
+		Tick();
+		
+		IncS(); 
+		Tick();
+
+		PullP(); 
+		IncS(); 
+		Tick();
+
+		PullPCL(); 
+		IncS(); 
+		Tick();
+
+		PullPCH(); 
+		Tick();
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -255,11 +279,21 @@ namespace StackInstructions
 			5  $0100,S  R  pull PCH from stack
 			6    PC     R  increment PC
 			*/
-		DiscardNextPC();
-		IncS(); Tick();
-		PullPCL();
-		PullPCH();
-		IncPC(); Tick();
+		DiscardNextPC(); 
+		Tick();
+		
+		IncS(); 
+		Tick();
+		
+		PullPCL(); 
+		IncS(); 
+		Tick();
+		
+		PullPCH(); 
+		Tick();
+		
+		IncPC(); 
+		Tick();
 	}
 	//-------------------------------------------------------------------------------------------------
 	
@@ -275,8 +309,25 @@ namespace StackInstructions
         2    PC     R  read next instruction byte (and throw it away)
         3  $0100,S  W  push register on stack, decrement S
 	*/
-
-
+	void fn_PHA()
+	{
+		DiscardNextPC();  
+		Tick();
+		
+		PushA(); 
+		DecS(); 
+		Tick();
+	}
+	//-------------------------------------------------------------------------------------------------
+	void fn_PHP()
+	{
+		DiscardNextPC(); 
+		Tick();
+		
+		PushP(); 
+		DecS(); 
+		Tick();
+	}
 	//-------------------------------------------------------------------------------------------------
 	//
     // PLA, PLP
@@ -290,8 +341,29 @@ namespace StackInstructions
         3  $0100,S  R  increment S
         4  $0100,S  R  pull register from stack
 	*/
+	void fn_PLA()
+	{
+		DiscardNextPC(); 
+		Tick();
+		
+		IncS(); 
+		Tick();
+		
+		PullA(); 
+		Tick();
+	}
+	//-------------------------------------------------------------------------------------------------
+	void fn_PLP()
+	{
+		DiscardNextPC(); 
+		Tick();
+		
+		IncS(); 
+		Tick();
 
-    
+		PullP(); 
+		Tick();
+	}
 	//-------------------------------------------------------------------------------------------------
 	//
 	// JSR
@@ -308,6 +380,28 @@ namespace StackInstructions
         6    PC     R  copy low address byte to PCL, fetch high address
                        byte to PCH
    */
+	void fn_JSR()
+	{
+		u8 lo = mem.Read(cpu.PC);
+		IncPC();
+		Tick();
+
+		// internal operation?
+		DecS();
+		Tick();
+
+		PushPCH();
+		DecS();
+		Tick();
+
+		PushPCL();
+		DecS();
+		Tick();
+
+		cpu.PC = lo;
+		FetchPCH(cpu.PC);
+		Tick();
+	}
 };
 
 //=================================================================================================
@@ -317,12 +411,21 @@ namespace StackInstructions
 //=================================================================================================
 namespace AccumulatorOrImpliedAddressing
 {
-/*
+	/*
         #  address R/W description
        --- ------- --- -----------------------------------------------
         1    PC     R  fetch opcode, increment PC
         2    PC     R  read next instruction byte (and throw it away)
-		*/
+	*/
+	template <void(*Operation)()>
+	void fn_Immediate()
+	{
+		DiscardNextPC();
+		Tick();
+
+		Operation();
+		Tick();
+	}
 }
 //=================================================================================================
 //
@@ -331,13 +434,22 @@ namespace AccumulatorOrImpliedAddressing
 //=================================================================================================
 namespace ImmediateAddressing
 {
-  /*
-
+	/*
         #  address R/W description
        --- ------- --- ------------------------------------------
         1    PC     R  fetch opcode, increment PC
         2    PC     R  fetch value, increment PC
-		*/
+	*/
+	template <u8(*Operation)(u8)>
+	void fn_Immediate()
+	{
+		u8 value = mem.Read(cpu.PC);
+		IncPC();
+		Tick();
+
+		Operation(value);
+		Tick();
+	}
 }
 
 //=================================================================================================
@@ -362,7 +474,16 @@ namespace AbsoluteAddressing
         3    PC     R  copy low address byte to PCL, fetch high address
                        byte to PCH
    */
+	void fn_JMP()
+	{
+		u8 lo = mem.Read(cpu.PC);
+		IncPC();
+		Tick();
 
+		cpu.PC = lo;
+		FetchPCH(cpu.PC);
+		Tick();
+	}
     //-------------------------------------------------------------------------------------------------
 	//
     // Read instructions (LDA, LDX, LDY, EOR, AND, ORA, ADC, SBC, CMP, BIT,
@@ -377,7 +498,23 @@ namespace AbsoluteAddressing
         3    PC     R  fetch high byte of address, increment PC
         4  address  R  read from effective address
 	*/
+	template <u8(*Operation)(u8)>
+	void fn_ReadInstructions()
+	{
+		u16 address = 0;
+		address = mem.ReadLoByte(cpu.PC, address);
+		IncPC();
+		Tick();
 
+		address = mem.ReadHiByte(cpu.PC, address);
+		IncPC();
+		Tick();
+
+		u8 value = mem.Read(address);
+		Tick();
+
+		Operation(value);
+	}
 	//-------------------------------------------------------------------------------------------------
 	//
     // Read-Modify-Write instructions (ASL, LSR, ROL, ROR, INC, DEC,
@@ -395,7 +532,28 @@ namespace AbsoluteAddressing
                        and do the operation on it
         6  address  W  write the new value to effective address
 	*/
+	template <u8(*Operation)(u8)>
+	void fn_ReadModifyWriteInstructions()
+	{
+		u16 address = 0;
+		address = mem.ReadLoByte(cpu.PC, address);
+		IncPC();
+		Tick();
 
+		address = mem.ReadHiByte(cpu.PC, address);
+		IncPC();
+		Tick();
+
+		u8 value = mem.Read(address);
+		Tick();
+
+		mem.Write(address, value);
+		value = Operation(value);
+		Tick();
+
+		mem.Write(address, value);
+		Tick();
+	}
 	//-------------------------------------------------------------------------------------------------
 	//
     // Write instructions (STA, STX, STY, SAX)
@@ -408,7 +566,22 @@ namespace AbsoluteAddressing
         2    PC     R  fetch low byte of address, increment PC
         3    PC     R  fetch high byte of address, increment PC
         4  address  W  write register to effective address
-	*/
+	*/	
+	template <u8&(*Register)()>
+	void fn_WriteInstructions()
+	{
+		u16 address = 0;
+		address = mem.ReadLoByte(cpu.PC, address);
+		IncPC();
+		Tick();
+
+		address = mem.ReadHiByte(cpu.PC, address);
+		IncPC();
+		Tick();
+
+		mem.Write(address, Register());
+		Tick();
+	}
 }
 //=================================================================================================
 //
@@ -429,12 +602,26 @@ namespace ZeroPageAddressing
         1    PC     R  fetch opcode, increment PC
         2    PC     R  fetch address, increment PC
         3  address  R  read from effective address
-		*/
+	*/
+	template <u8&(*Index)(), u8(*Operation)(u8)>
+	void fn_ReadInstructions()
+	{
+		u8 address = 0;
+		address = mem.Read(cpu.PC);
+		IncPC();
+		Tick();
+
+		u8 value = mem.Read(address);
+		Tick();
+
+		Operation(value);
+		Tick();
+	}
 
     //-------------------------------------------------------------------------------------------------
 	//
-	//     Read-Modify-Write instructions (ASL, LSR, ROL, ROR, INC, DEC,
-	//                                     SLO, SRE, RLA, RRA, ISB, DCP)
+	// Read-Modify-Write instructions (ASL, LSR, ROL, ROR, INC, DEC,
+	//                                 SLO, SRE, RLA, RRA, ISB, DCP)
 	//
 	//-------------------------------------------------------------------------------------------------
 	/*
@@ -446,8 +633,25 @@ namespace ZeroPageAddressing
         4  address  W  write the value back to effective address,
                        and do the operation on it
         5  address  W  write the new value to effective address
-		*/
+	*/
+	template <u8(*Operation)(u8)>
+	void fn_ReadModifyWriteInstructions()
+	{
+		u8 address = 0;
+		address = mem.Read(cpu.PC);
+		IncPC();
+		Tick();
 
+		u8 value = mem.Read(address);
+		Tick();
+
+		mem.Write(address, value);
+		value = Operation(value);
+		Tick();
+
+		mem.Write(address, value);
+		Tick();
+	}
 	//-------------------------------------------------------------------------------------------------
     //
 	// Write instructions (STA, STX, STY, SAX)
@@ -459,7 +663,50 @@ namespace ZeroPageAddressing
         1    PC     R  fetch opcode, increment PC
         2    PC     R  fetch address, increment PC
         3  address  W  write register to effective address
-		*/
+	*/
+	template <u8&(*Index)(), u8&(*Register)()>
+	void fn_WriteInstructions()
+	{
+		u8 address = 0;
+		address = mem.Read(cpu.PC);
+		IncPC();
+		Tick();
+
+		mem.Write(address, Register());
+		Tick();
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
+	void RegisterInstructions()
+	{
+		SetFunctionHandler(mode_zp, LDA, fn_ReadInstructions<reg_cpuX, op_LDA>);
+		SetFunctionHandler(mode_zp, LDX, fn_ReadInstructions<reg_cpuX, op_LDX>);
+		SetFunctionHandler(mode_zp, LDY, fn_ReadInstructions<reg_cpuX, op_LDY>);
+		SetFunctionHandler(mode_zp, EOR, fn_ReadInstructions<reg_cpuX, op_EOR>);
+		SetFunctionHandler(mode_zp, AND, fn_ReadInstructions<reg_cpuX, op_AND>);
+		SetFunctionHandler(mode_zp, ORA, fn_ReadInstructions<reg_cpuX, op_ORA>);
+		SetFunctionHandler(mode_zp, ADC, fn_ReadInstructions<reg_cpuX, op_ADC>);
+		SetFunctionHandler(mode_zp, SBC, fn_ReadInstructions<reg_cpuX, op_SBC>);
+		SetFunctionHandler(mode_zp, CMP, fn_ReadInstructions<reg_cpuX, op_CMP>);
+		SetFunctionHandler(mode_zp, BIT, fn_ReadInstructions<reg_cpuX, op_BIT>);
+		SetFunctionHandler(mode_zp, NOP, fn_ReadInstructions<reg_cpuX, op_NOP>);
+		// Not implemented: LAX
+
+		SetFunctionHandler(mode_zp, ASL, fn_ReadModifyWriteInstructions<op_ASL>);
+		SetFunctionHandler(mode_zp, LSR, fn_ReadModifyWriteInstructions<op_LSR>);
+		SetFunctionHandler(mode_zp, ROL, fn_ReadModifyWriteInstructions<op_ROL>);
+		SetFunctionHandler(mode_zp, ROR, fn_ReadModifyWriteInstructions<op_ROR>);
+		SetFunctionHandler(mode_zp, INC, fn_ReadModifyWriteInstructions<op_INC>);
+		SetFunctionHandler(mode_zp, DEC, fn_ReadModifyWriteInstructions<op_DEC>);
+		// Not implemented: SLO, SRE, RLA, RRA, ISB, DCP
+
+		SetFunctionHandler(mode_zp, STA, fn_WriteInstructions<reg_cpuX, reg_cpuA>);
+		SetFunctionHandler(mode_zp, STX, fn_WriteInstructions<reg_cpuX, reg_cpuX>);
+		SetFunctionHandler(mode_zp, STY, fn_WriteInstructions<reg_cpuX, reg_cpuY>);
+		// Not implemented: SAX
+	}
+
 }
 //=================================================================================================
 //
@@ -911,7 +1158,8 @@ namespace IndexedIndirectAddressing
 	void fn_ReadInstructions( )
 	{
 		u8 pointer = FetchPointer();
-		
+		Tick();
+
 		mem.Read( pointer );
 		pointer += cpu.X;
 		Tick();
@@ -922,7 +1170,7 @@ namespace IndexedIndirectAddressing
 		Tick();
 
 		Operation( value );
-		// no tick as writing to register
+		Tick();
 	}
 	//-------------------------------------------------------------------------------------------------
 	//
@@ -949,6 +1197,7 @@ namespace IndexedIndirectAddressing
 	void fn_ReadModifyWriteInstructions( )
 	{
 		u8 pointer = FetchPointer();
+		Tick();
 
 		mem.Read( pointer );
 		pointer += cpu.X;
@@ -989,6 +1238,7 @@ namespace IndexedIndirectAddressing
 	void fn_WriteInstructions( )
 	{
 		u8 pointer = FetchPointer();
+		Tick();
 
 		mem.Read( pointer );
 		pointer += cpu.X;
