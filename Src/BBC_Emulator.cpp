@@ -38,7 +38,6 @@ void BBC_Emulator::Run( )
 		printf( "\n" );
 		_getch();
 		emu.ProcessSingleInstruction();
-	//	assert( nextpc == cpu.PC );
 	}
 }
 

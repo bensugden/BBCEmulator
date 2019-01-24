@@ -175,7 +175,7 @@ string g_fullCommandList[77*21]=
 
 	¹ = unstable in certain matters
 	² = highly unstable (results are not predictable on some machines)
-	A = Akkumulator
+	A = Accumulator
 	X = X-Register
 	Y = Y-Register
 	S = Stack-Pointer
@@ -190,15 +190,15 @@ string g_fullCommandList[77*21]=
 	N = negative flag (1 when result is negative)
 	V = overflow flag (1 on signed overflow)
 	# = unused (always 1)
-	B = break flag (1 when interupt was caused by a BRK)
+	B = break flag (1 when interrupt was caused by a BRK)
 	D = decimal flag (1 when CPU in BCD mode)
-	"I = IRQ flag (when 1"," no interupts will occur (exceptions are IRQs forced by BRK and NMIs))"
+	"I = IRQ flag (when 1"," no interrupts will occur (exceptions are IRQs forced by BRK and NMIs))"
 	Z = zero flag (1 when all bits of a result are 0)
 	C = carry flag (1 on unsigned overflow)
 
 	Hardware vectors:
 
-	$FFFA = NMI vector (NMI=not maskable interupts)
+	$FFFA = NMI vector (NMI=not maskable interrupts)
 	$FFFC = Reset vector
 	$FFFE = IRQ vector
 
@@ -440,7 +440,7 @@ const CommandInfo& GetCommandForOpcode( u8 opcode )
 
 //-------------------------------------------------------------------------------------------------
 
-int DisassemblePC( int pc_in, string& dissassemble )
+int DisassemblePC( int pc_in, string& dissassemble, const CommandInfo** ppOutCommand )
 {
 	int pc = pc_in;
 
@@ -532,7 +532,10 @@ int DisassemblePC( int pc_in, string& dissassemble )
 	{
 		dissassemble += "          " + command.m_name + " ";
 	}
-
+	if ( ppOutCommand != nullptr )
+	{
+		*ppOutCommand = &command;
+	}
 	return pc;
 }
 

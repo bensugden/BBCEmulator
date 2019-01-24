@@ -235,7 +235,7 @@ extern MemoryState		mem;
 //-------------------------------------------------------------------------------------------------
 
 void				BuildOpcodeTables	( );
-int					DisassemblePC		( int pc, string& dissassemble );
+int					DisassemblePC		( int pc, string& dissassemble, const CommandInfo** ppOutCommand = nullptr );
 const CommandInfo&	GetCommandForOpcode	( u8 opcode );
 bool				SetFunctionHandler	( EAddressingMode ea, EInstruction instruction, void (*functionHandler)( ) );
 void				RegisterInstructionHandlers();
