@@ -124,6 +124,16 @@ struct CPUState
 		SetFlag(flag_N, (val & 0x80));
 	}
 
+	void SetPCL( u8 val )
+	{
+		PC = (PC&0xff00)|val; 
+	}
+
+	void SetPCH( u8 val )
+	{
+		PC = (PC&0xff)|(u16( val ) << 8);
+	}
+
 	void Tick( )
 	{
 		nTotalCycles ++;
@@ -209,13 +219,15 @@ class CPUEmulator
 {
 public:
 	CPUEmulator();
-	~CPUEmulator() {};
+	~CPUEmulator();
 	void ProcessSingleInstruction();
 };
 
 //-------------------------------------------------------------------------------------------------
+
 extern CPUState			cpu;
 extern MemoryState		mem;
+
 //-------------------------------------------------------------------------------------------------
 //
 // Some Functions (need wrapping in a class or something)
@@ -226,5 +238,6 @@ void				BuildOpcodeTables	( );
 int					DisassemblePC		( int pc, string& dissassemble );
 const CommandInfo&	GetCommandForOpcode	( u8 opcode );
 bool				SetFunctionHandler	( EAddressingMode ea, EInstruction instruction, void (*functionHandler)( ) );
+void				RegisterInstructionHandlers();
 
 //-------------------------------------------------------------------------------------------------

@@ -31,13 +31,9 @@ static inline void Tick( )
 }
 //-------------------------------------------------------------------------------------------------
 
-static inline u8 FetchOpcode( )
+static inline void LastTick( )
 {
-	//    PC     R  fetch opcode, increment PC
-	u8 opcode = mem.Read( cpu.PC );
-	IncPC(); 
-	Tick();
-	return opcode;
+	// do nothing - pipelines with next opcode fetch instruction
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -49,7 +45,15 @@ static inline u8 FetchPointer( )
 	IncPC(); 
 	return location;
 }
+//-------------------------------------------------------------------------------------------------
 
+static inline u8 FetchOperand( )
+{
+	//    PC       R  fetch operand, increment PC
+	u8 operand = mem.Read( cpu.PC );
+	IncPC(); 
+	return operand;
+}
 //-------------------------------------------------------------------------------------------------
 
 static inline u16 Get16BitAddressFromPointer( u8 pointer )
@@ -128,18 +132,12 @@ static inline void PullPCH( )
 	cpu.PC = mem.ReadHiByte( cpu.StackAddress( ), cpu.PC );
 }
 
-//-------------------------------------------------------------------------------------------------
-static inline void FetchPCL( u16 address )
-{
-	//   $FFFE   R  fetch PCL
-	mem.ReadLoByte( address, cpu.PC );
-}
 
 //-------------------------------------------------------------------------------------------------
-static inline void FetchPCH( u16 address )
+static inline void SetPC( u8 lo, u8 hi )
 {
 	//   $FFFF   R  fetch PCH
-	mem.ReadHiByte( address, cpu.PC );
+	cpu.PC = lo | ( u16( hi ) << 8 );
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -160,8 +158,10 @@ void ClearFlags( u8 flags )
 // Main 6502 Execution Loop
 //
 //=================================================================================================
+
 CPUEmulator::CPUEmulator()
 {
+	RegisterInstructionHandlers();
 	//
 	// Perform Reset
 	//
@@ -171,13 +171,21 @@ CPUEmulator::CPUEmulator()
 
 //-------------------------------------------------------------------------------------------------
 
+CPUEmulator::~CPUEmulator() 
+{
+}
+
+//-------------------------------------------------------------------------------------------------
+
 void CPUEmulator::ProcessSingleInstruction()
 {
 	//
 	// fetch
 	//
-	u8 opcode = FetchOpcode(); 
-	
+	u8 opcode = mem.Read( cpu.PC );
+	IncPC(); 
+	Tick();
+
 	//
 	// decode
 	//
@@ -226,11 +234,11 @@ namespace StackInstructions
 		DecS(); 
 		Tick();
 
-		FetchPCL( cpu.c_IRQ_Lo ); 
+		cpu.SetPCL( mem.Read( cpu.c_IRQ_Lo ) );  
 		Tick();
 
-		FetchPCH( cpu.c_IRQ_Hi ); 
-		Tick();
+		cpu.SetPCH( mem.Read( cpu.c_IRQ_Hi ) ); 
+		LastTick();
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -262,7 +270,7 @@ namespace StackInstructions
 		Tick();
 
 		PullPCH(); 
-		Tick();
+		LastTick();
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -293,7 +301,7 @@ namespace StackInstructions
 		Tick();
 		
 		IncPC(); 
-		Tick();
+		LastTick();
 	}
 	//-------------------------------------------------------------------------------------------------
 	
@@ -316,7 +324,7 @@ namespace StackInstructions
 		
 		PushA(); 
 		DecS(); 
-		Tick();
+		LastTick();
 	}
 	//-------------------------------------------------------------------------------------------------
 	void fn_PHP()
@@ -326,7 +334,7 @@ namespace StackInstructions
 		
 		PushP(); 
 		DecS(); 
-		Tick();
+		LastTick();
 	}
 	//-------------------------------------------------------------------------------------------------
 	//
@@ -350,7 +358,7 @@ namespace StackInstructions
 		Tick();
 		
 		PullA(); 
-		Tick();
+		LastTick();
 	}
 	//-------------------------------------------------------------------------------------------------
 	void fn_PLP()
@@ -362,7 +370,7 @@ namespace StackInstructions
 		Tick();
 
 		PullP(); 
-		Tick();
+		LastTick();
 	}
 	//-------------------------------------------------------------------------------------------------
 	//
@@ -398,9 +406,22 @@ namespace StackInstructions
 		DecS();
 		Tick();
 
-		cpu.PC = lo;
-		FetchPCH(cpu.PC);
-		Tick();
+		u8 hi = mem.Read(cpu.PC);
+		SetPC( lo, hi );
+		LastTick();
+	}
+
+	//-------------------------------------------------------------------------------------------------
+	void RegisterInstructions()
+	{
+		SetFunctionHandler( mode_imp, BRK, fn_BRK );
+		SetFunctionHandler( mode_imp, RTI, fn_RTI );
+		SetFunctionHandler( mode_imp, RTS, fn_RTS );
+		SetFunctionHandler( mode_imp, PHA, fn_PHA );
+		SetFunctionHandler( mode_imp, PHP, fn_PHP );
+		SetFunctionHandler( mode_imp, PLA, fn_PLA );
+		SetFunctionHandler( mode_imp, PLP, fn_PLP );
+		SetFunctionHandler( mode_imp, JSR, fn_JSR );
 	}
 };
 
@@ -417,14 +438,40 @@ namespace AccumulatorOrImpliedAddressing
         1    PC     R  fetch opcode, increment PC
         2    PC     R  read next instruction byte (and throw it away)
 	*/
-	template <void(*Operation)()>
-	void fn_Immediate()
+	template <u8(*Operation)(u8)>
+	void fn_Implied()
 	{
 		DiscardNextPC();
 		Tick();
 
-		Operation();
-		Tick();
+		Operation(0);
+		LastTick();
+	}
+	//-------------------------------------------------------------------------------------------------
+	void RegisterInstructions()
+	{
+		SetFunctionHandler( mode_imp, DEX, fn_Implied<op_DEX> );
+		SetFunctionHandler( mode_imp, INX, fn_Implied<op_INX> );
+		SetFunctionHandler( mode_imp, DEY, fn_Implied<op_DEY> );
+		SetFunctionHandler( mode_imp, INY, fn_Implied<op_INY> );
+		SetFunctionHandler( mode_imp, ASL, fn_Implied<op_ASL> );
+		SetFunctionHandler( mode_imp, ROL, fn_Implied<op_ROL> );
+		SetFunctionHandler( mode_imp, LSR, fn_Implied<op_LSR> );
+		SetFunctionHandler( mode_imp, ROR, fn_Implied<op_ROR> );
+		SetFunctionHandler( mode_imp, TAX, fn_Implied<op_TAX> );
+		SetFunctionHandler( mode_imp, TXA, fn_Implied<op_TXA> );
+		SetFunctionHandler( mode_imp, TAY, fn_Implied<op_TAY> );
+		SetFunctionHandler( mode_imp, TYA, fn_Implied<op_TYA> );
+		SetFunctionHandler( mode_imp, TSX, fn_Implied<op_TSX> );
+		SetFunctionHandler( mode_imp, TXS, fn_Implied<op_TXS> );
+		SetFunctionHandler( mode_imp, CLC, fn_Implied<op_CLC> );
+		SetFunctionHandler( mode_imp, SEC, fn_Implied<op_SEC> );
+		SetFunctionHandler( mode_imp, CLD, fn_Implied<op_CLD> );
+		SetFunctionHandler( mode_imp, SED, fn_Implied<op_SED> );
+		SetFunctionHandler( mode_imp, CLI, fn_Implied<op_CLI> );
+		SetFunctionHandler( mode_imp, SEI, fn_Implied<op_SEI> );
+		SetFunctionHandler( mode_imp, CLV, fn_Implied<op_CLV> );
+		SetFunctionHandler( mode_imp, NOP, fn_Implied<op_NOP> );
 	}
 }
 //=================================================================================================
@@ -448,7 +495,23 @@ namespace ImmediateAddressing
 		Tick();
 
 		Operation(value);
-		Tick();
+		LastTick();
+	}
+
+	//-------------------------------------------------------------------------------------------------
+	void RegisterInstructions()
+	{
+		SetFunctionHandler( mode_imm, ORA, fn_Immediate<op_ORA> );
+		SetFunctionHandler( mode_imm, AND, fn_Immediate<op_AND> );
+		SetFunctionHandler( mode_imm, EOR, fn_Immediate<op_EOR> );
+		SetFunctionHandler( mode_imm, ADC, fn_Immediate<op_ADC> );
+		SetFunctionHandler( mode_imm, SBC, fn_Immediate<op_SBC> );
+		SetFunctionHandler( mode_imm, CMP, fn_Immediate<op_CMP> );
+		SetFunctionHandler( mode_imm, CPX, fn_Immediate<op_CPX> );
+		SetFunctionHandler( mode_imm, CPY, fn_Immediate<op_CPY> );
+		SetFunctionHandler( mode_imm, LDA, fn_Immediate<op_LDA> );
+		SetFunctionHandler( mode_imm, LDX, fn_Immediate<op_LDX> );
+		SetFunctionHandler( mode_imm, LDY, fn_Immediate<op_LDY> );
 	}
 }
 
@@ -480,9 +543,9 @@ namespace AbsoluteAddressing
 		IncPC();
 		Tick();
 
-		cpu.PC = lo;
-		FetchPCH(cpu.PC);
-		Tick();
+		u8 hi = mem.Read(cpu.PC);
+		SetPC( lo, hi );
+		LastTick();
 	}
     //-------------------------------------------------------------------------------------------------
 	//
@@ -514,6 +577,7 @@ namespace AbsoluteAddressing
 		Tick();
 
 		Operation(value);
+		LastTick();
 	}
 	//-------------------------------------------------------------------------------------------------
 	//
@@ -552,7 +616,7 @@ namespace AbsoluteAddressing
 		Tick();
 
 		mem.Write(address, value);
-		Tick();
+		LastTick();
 	}
 	//-------------------------------------------------------------------------------------------------
 	//
@@ -580,7 +644,39 @@ namespace AbsoluteAddressing
 		Tick();
 
 		mem.Write(address, Register());
-		Tick();
+		LastTick();
+	}
+
+	//-------------------------------------------------------------------------------------------------
+	void RegisterInstructions()
+	{
+		SetFunctionHandler( mode_abs, JMP, fn_JMP );
+
+		SetFunctionHandler(mode_abs, LDA, fn_ReadInstructions<op_LDA>);
+		SetFunctionHandler(mode_abs, LDX, fn_ReadInstructions<op_LDX>);
+		SetFunctionHandler(mode_abs, LDY, fn_ReadInstructions<op_LDY>);
+		SetFunctionHandler(mode_abs, EOR, fn_ReadInstructions<op_EOR>);
+		SetFunctionHandler(mode_abs, AND, fn_ReadInstructions<op_AND>);
+		SetFunctionHandler(mode_abs, ORA, fn_ReadInstructions<op_ORA>);
+		SetFunctionHandler(mode_abs, ADC, fn_ReadInstructions<op_ADC>);
+		SetFunctionHandler(mode_abs, SBC, fn_ReadInstructions<op_SBC>);
+		SetFunctionHandler(mode_abs, CMP, fn_ReadInstructions<op_CMP>);
+		SetFunctionHandler(mode_abs, BIT, fn_ReadInstructions<op_BIT>);
+		SetFunctionHandler(mode_abs, NOP, fn_ReadInstructions<op_NOP>);
+		// Not implemented: LAX
+
+		SetFunctionHandler(mode_abs, ASL, fn_ReadModifyWriteInstructions<op_ASL>);
+		SetFunctionHandler(mode_abs, LSR, fn_ReadModifyWriteInstructions<op_LSR>);
+		SetFunctionHandler(mode_abs, ROL, fn_ReadModifyWriteInstructions<op_ROL>);
+		SetFunctionHandler(mode_abs, ROR, fn_ReadModifyWriteInstructions<op_ROR>);
+		SetFunctionHandler(mode_abs, INC, fn_ReadModifyWriteInstructions<op_INC>);
+		SetFunctionHandler(mode_abs, DEC, fn_ReadModifyWriteInstructions<op_DEC>);
+		// Not implemented: SLO, SRE, RLA, RRA, ISB, DCP
+
+		SetFunctionHandler(mode_abs, STA, fn_WriteInstructions<reg_cpuA>);
+		SetFunctionHandler(mode_abs, STX, fn_WriteInstructions<reg_cpuX>);
+		SetFunctionHandler(mode_abs, STY, fn_WriteInstructions<reg_cpuY>);
+		// Not implemented: SAX
 	}
 }
 //=================================================================================================
@@ -615,7 +711,7 @@ namespace ZeroPageAddressing
 		Tick();
 
 		Operation(value);
-		Tick();
+		LastTick();
 	}
 
     //-------------------------------------------------------------------------------------------------
@@ -650,7 +746,7 @@ namespace ZeroPageAddressing
 		Tick();
 
 		mem.Write(address, value);
-		Tick();
+		LastTick();
 	}
 	//-------------------------------------------------------------------------------------------------
     //
@@ -673,7 +769,7 @@ namespace ZeroPageAddressing
 		Tick();
 
 		mem.Write(address, Register());
-		Tick();
+		LastTick();
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -751,7 +847,7 @@ namespace ZeroPageIndexedAddressing
 		Tick();
 
 		Operation(value);
-		Tick();
+		LastTick();
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -794,7 +890,7 @@ namespace ZeroPageIndexedAddressing
 		Tick();
 
 		mem.Write(address,value);
-		Tick();
+		LastTick();
 	}
 	//-------------------------------------------------------------------------------------------------	
 	//
@@ -827,7 +923,7 @@ namespace ZeroPageIndexedAddressing
 		Tick();
 
 		mem.Write( address, Register() );
-		Tick();
+		LastTick();
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -936,7 +1032,7 @@ namespace AbsoluteIndexedAddressing
 			Tick();
 		}
 		Operation(value);
-		Tick();
+		LastTick();
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -988,7 +1084,7 @@ namespace AbsoluteIndexedAddressing
 		Tick();
 
 		mem.Write( address, value );
-		Tick();
+		LastTick();
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -1035,7 +1131,7 @@ namespace AbsoluteIndexedAddressing
 		Tick();
 
 		mem.Write( address, Register() );
-		Tick();
+		LastTick();
 	}
 	//-------------------------------------------------------------------------------------------------
 	void RegisterInstructions()
@@ -1127,6 +1223,38 @@ namespace RelativeAddressing
               ! If branch occurs to different page, this cycle will be
                 executed.
 				*/
+	template <bool(*CheckBranch)()>
+	void fn_BranchInstructions( )
+	{
+		u8 operand = FetchOperand();
+		Tick();
+
+		if ( CheckBranch() )
+		{
+			u16 newPC = cpu.PC + operand;
+			cpu.SetPCL( operand );
+			
+			if ( newPC != cpu.PC )
+			{
+				Tick();
+				cpu.PC = newPC;
+			}
+		}
+		LastTick();
+	}
+	
+	//-------------------------------------------------------------------------------------------------
+	void RegisterInstructions()
+	{
+		SetFunctionHandler( mode_rel, BCC, fn_BranchInstructions<op_BCC> );
+		SetFunctionHandler( mode_rel, BCS, fn_BranchInstructions<op_BCS> );
+		SetFunctionHandler( mode_rel, BNE, fn_BranchInstructions<op_BNE> );
+		SetFunctionHandler( mode_rel, BEQ, fn_BranchInstructions<op_BEQ> );
+		SetFunctionHandler( mode_rel, BPL, fn_BranchInstructions<op_BPL> );
+		SetFunctionHandler( mode_rel, BMI, fn_BranchInstructions<op_BMI> );
+		SetFunctionHandler( mode_rel, BVC, fn_BranchInstructions<op_BVC> );
+		SetFunctionHandler( mode_rel, BVS, fn_BranchInstructions<op_BVS> );
+	}
 };
 //=================================================================================================
 //
@@ -1170,7 +1298,7 @@ namespace IndexedIndirectAddressing
 		Tick();
 
 		Operation( value );
-		Tick();
+		LastTick();
 	}
 	//-------------------------------------------------------------------------------------------------
 	//
@@ -1213,7 +1341,7 @@ namespace IndexedIndirectAddressing
 		Tick();
 
 		mem.Write( address, value );
-		Tick();
+		LastTick();
 	}
 	
    	//-------------------------------------------------------------------------------------------------
@@ -1248,7 +1376,7 @@ namespace IndexedIndirectAddressing
 
 		u8 value = Register();
 		mem.Write( address, value );
-		Tick();
+		LastTick();
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -1263,7 +1391,8 @@ namespace IndexedIndirectAddressing
 		SetFunctionHandler( mode_izx, SBC, fn_ReadInstructions<op_SBC> );
 		// Not implemented: LAX
 
-		// Read-Modify-Write instructions (SLO, SRE, RLA, RRA, ISB, DCP)
+		// Read-Modify-Write instructions 
+		// Not implemented : (SLO, SRE, RLA, RRA, ISB, DCP)
 
 		SetFunctionHandler( mode_izx, STA, fn_WriteInstructions<reg_cpuA> );
 		// Not implemented: SAX
@@ -1277,7 +1406,7 @@ namespace IndexedIndirectAddressing
 //
 //=================================================================================================
 
-namespace IndexedIndirectAddressing
+namespace IndirectIndexedAddressing
 {
    	//-------------------------------------------------------------------------------------------------
 	//
@@ -1305,6 +1434,31 @@ namespace IndexedIndirectAddressing
               + This cycle will be executed only if the effective address
                 was invalid during cycle #5, i.e. page boundary was crossed.
 	*/
+	template <u8(*Operation)(u8)>
+	void fn_ReadInstructions( )
+	{
+		u8 pointer = FetchPointer();
+		Tick();
+
+		mem.Read( pointer );
+		Tick();
+
+		u16 address = Get16BitAddressFromPointer( pointer );
+
+		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + cpu.Y ) & 0xff );
+		address += cpu.Y;
+
+		Tick();
+
+		u8 value = mem.Read( temp_address );
+		if ( temp_address != address )
+		{
+			u8 value = mem.Read( address );
+			Tick();
+		}
+		Operation( value );
+		LastTick();
+	}
     //-------------------------------------------------------------------------------------------------
 	//
 	// Read-Modify-Write instructions (SLO, SRE, RLA, RRA, ISB, DCP)
@@ -1331,7 +1485,34 @@ namespace IndexedIndirectAddressing
               * The high byte of the effective address may be invalid
                 at this time, i.e. it may be smaller by $100.
 	*/
+	template <u8(*Operation)(u8)>
+	void fn_ReadModifyWriteInstructions( )
+	{
+		u8 pointer = FetchPointer();
+		Tick();
 
+		mem.Read( pointer );
+		Tick();
+		u16 address = Get16BitAddressFromPointer( pointer );
+
+		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + Index() ) & 0xff );
+		address += cpu.Y;
+
+		Tick();
+
+		u8 value = mem.Read( temp_address );
+		if ( temp_address != address )
+		{
+			u8 value = mem.Read( address );
+			Tick();
+		}
+		mem.Write( address, value );
+		value = Operation( value );
+		Tick();
+
+		mem.Write( address, value );
+		LastTick();
+	}
 	//-------------------------------------------------------------------------------------------------
 	//
     // Write instructions (STA, SHA)
@@ -1355,6 +1536,49 @@ namespace IndexedIndirectAddressing
               * The high byte of the effective address may be invalid
                 at this time, i.e. it may be smaller by $100.
 	*/
+	template <u8&(*Register)()>
+	void fn_WriteInstructions( )
+	{
+		u8 pointer = FetchPointer();
+		Tick();
+
+		mem.Read( pointer );
+		Tick();
+		u16 address = Get16BitAddressFromPointer( pointer );
+
+		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + cpu.Y ) & 0xff );
+		address += cpu.Y;
+
+		Tick();
+
+		u8 value = mem.Read( temp_address );
+		if ( temp_address != address )
+		{
+			u8 value = mem.Read( address );
+			Tick();
+		}
+		mem.Write( address, Register() );
+		LastTick();
+	}
+
+	//-------------------------------------------------------------------------------------------------
+	void RegisterInstructions()
+	{
+		SetFunctionHandler( mode_izx, LDA, fn_ReadInstructions<op_LDA> );
+		SetFunctionHandler( mode_izx, ORA, fn_ReadInstructions<op_ORA> );
+		SetFunctionHandler( mode_izx, EOR, fn_ReadInstructions<op_EOR> );
+		SetFunctionHandler( mode_izx, AND, fn_ReadInstructions<op_AND> );
+		SetFunctionHandler( mode_izx, ADC, fn_ReadInstructions<op_ADC> );
+		SetFunctionHandler( mode_izx, CMP, fn_ReadInstructions<op_CMP> );
+		SetFunctionHandler( mode_izx, SBC, fn_ReadInstructions<op_SBC> );
+		// Not implemented: LAX
+
+		// Read-Modify-Write instructions 
+		// Not implemented : (SLO, SRE, RLA, RRA, ISB, DCP)
+
+		SetFunctionHandler( mode_izx, STA, fn_WriteInstructions<reg_cpuA> );
+		// Not implemented: SAX
+	}
 };
 
 //=================================================================================================
@@ -1365,9 +1589,7 @@ namespace IndexedIndirectAddressing
 
 namespace AbsoluteIndirectAddressing
 {
-/*
-
-
+	/*
         #   address  R/W description
        --- --------- --- ------------------------------------------
         1     PC      R  fetch opcode, increment PC
@@ -1378,10 +1600,50 @@ namespace AbsoluteIndirectAddressing
 
        Note: * The PCH will always be fetched from the same page
                than PCL, i.e. page boundary crossing is not handled.
-			   */
+   */
+
+	void fn_JMP()
+	{
+		u8 lo = mem.Read(cpu.PC);
+		IncPC();
+		Tick();
+
+		u8 hi = mem.Read(cpu.PC);
+		SetPC( lo, hi );
+		Tick();
+
+		lo = mem.Read(cpu.PC);
+		IncPC();
+		Tick();
+
+		hi = mem.Read(cpu.PC);
+		SetPC( lo, hi );
+		LastTick();
+	}
+
+	//-------------------------------------------------------------------------------------------------
+	void RegisterInstructions()
+	{
+		SetFunctionHandler( mode_ind, JMP, fn_JMP );
+	}
 };
 
+//=================================================================================================
 
+void RegisterInstructionHandlers()
+{
+	StackInstructions				::RegisterInstructions();
+	AccumulatorOrImpliedAddressing	::RegisterInstructions();
+	ImmediateAddressing				::RegisterInstructions();
+	AbsoluteAddressing				::RegisterInstructions();
+	ZeroPageAddressing				::RegisterInstructions();
+	ZeroPageIndexedAddressing		::RegisterInstructions();
+	AbsoluteIndexedAddressing		::RegisterInstructions();
+	RelativeAddressing				::RegisterInstructions();
+	AbsoluteIndirectAddressing		::RegisterInstructions();
+	IndirectIndexedAddressing		::RegisterInstructions();
+	IndexedIndirectAddressing		::RegisterInstructions();
+}
 //=================================================================================================
 /*
                 How Real Programmers Acknowledge Interrupts
