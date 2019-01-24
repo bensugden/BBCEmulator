@@ -1202,13 +1202,13 @@ namespace RelativeAddressing
 	template <bool(*CheckBranch)()>
 	void fn_BranchInstructions( )
 	{
-		u8 operand = FetchOperand();
+		s8 operand = FetchOperand();
 		Tick();
 
 		if ( CheckBranch() )
 		{
 			u16 newPC = cpu.PC + operand;
-			cpu.SetPCL( operand );
+			cpu.PC = ( cpu.PC & 0xff00 ) | (( operand + cpu.PC )&0xff );
 			
 			if ( newPC != cpu.PC )
 			{

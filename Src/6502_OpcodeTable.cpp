@@ -489,7 +489,7 @@ int DisassemblePC( int pc_in, string& dissassemble )
 			break;
 		case mode_rel:
 			//"rel = $0000 (PC-relative)"
-			dissassemble += toHex( (u16)(pc + address) )+" (PC-relative)"; 
+			dissassemble += toHex( (u16)(pc + ((s8)address)) )+" (PC-relative)"; 
 			break;
 		default:
 			break;
