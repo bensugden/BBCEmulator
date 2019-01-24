@@ -64,6 +64,7 @@ struct CommandInfo
 	{
 		memset( m_flagMode, sizeof( m_flagMode ), 0 );
 		m_addCycleIfPageBoundaryCrossed = false;
+		m_functionHandler = nullptr;
 	}
 
 	string				m_name;
@@ -73,7 +74,6 @@ struct CommandInfo
 	EAddressingMode		m_addressingMode;
 	bool				m_addCycleIfPageBoundaryCrossed;
 	EFlagSetMode		m_flagMode[ 8 ];
-	u8					(*m_operation)(u8,u8);
 	void				(*m_functionHandler)( );
 	EInstruction		m_instruction;
 };

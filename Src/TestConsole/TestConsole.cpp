@@ -8,7 +8,7 @@ int main()
 {
 	BBC_Emulator bbcMicroModelB;
 
-	//bbcMicroModelB.Run();
+	bbcMicroModelB.Run();
 
 	int pc = 0x8023;
 	while ( pc < 0xffff )

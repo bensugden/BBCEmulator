@@ -354,6 +354,7 @@ void BuildOpcodeTables()
 }
 
 //-------------------------------------------------------------------------------------------------
+int g_iRegisteredInstructionCount = 0;
 
 bool SetFunctionHandler( EAddressingMode ea, EInstruction instruction, void (*functionHandler)( ) )
 {
@@ -365,7 +366,9 @@ bool SetFunctionHandler( EAddressingMode ea, EInstruction instruction, void (*fu
 		if  ( ( g_commands[ i ].m_instruction == instruction ) && 
 			  ( g_commands[ i ].m_addressingMode == ea ) )
 		{
+			assert( g_commands[ i ].m_functionHandler == nullptr );
 			g_commands[ i ].m_functionHandler = functionHandler;
+			g_iRegisteredInstructionCount++;
 			return true;
 		}
 	}

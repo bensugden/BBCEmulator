@@ -74,9 +74,7 @@ static inline u16 Get16BitAddressFromPointer( u8 pointer )
 static inline void DiscardNextPC( )
 {
 	//    PC     R  read next instruction byte (and throw it away),
-	//			increment PC
 	mem.Read(cpu.PC);
-	IncPC(); 
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -219,6 +217,7 @@ namespace StackInstructions
 		7   $FFFF   R  fetch PCH
 		*/
 		DiscardNextPC(); 
+		IncPC();
 		Tick();
 		
 		SetFlags( flag_B ); 
@@ -421,7 +420,8 @@ namespace StackInstructions
 		SetFunctionHandler( mode_imp, PHP, fn_PHP );
 		SetFunctionHandler( mode_imp, PLA, fn_PLA );
 		SetFunctionHandler( mode_imp, PLP, fn_PLP );
-		SetFunctionHandler( mode_imp, JSR, fn_JSR );
+
+		SetFunctionHandler( mode_abs, JSR, fn_JSR );
 	}
 };
 
@@ -661,8 +661,9 @@ namespace AbsoluteAddressing
 		SetFunctionHandler(mode_abs, ADC, fn_ReadInstructions<op_ADC>);
 		SetFunctionHandler(mode_abs, SBC, fn_ReadInstructions<op_SBC>);
 		SetFunctionHandler(mode_abs, CMP, fn_ReadInstructions<op_CMP>);
+		SetFunctionHandler(mode_abs, CPX, fn_ReadInstructions<op_CPX>);
+		SetFunctionHandler(mode_abs, CPY, fn_ReadInstructions<op_CPY>);
 		SetFunctionHandler(mode_abs, BIT, fn_ReadInstructions<op_BIT>);
-		SetFunctionHandler(mode_abs, NOP, fn_ReadInstructions<op_NOP>);
 		// Not implemented: LAX
 
 		SetFunctionHandler(mode_abs, ASL, fn_ReadModifyWriteInstructions<op_ASL>);
@@ -785,8 +786,9 @@ namespace ZeroPageAddressing
 		SetFunctionHandler(mode_zp, ADC, fn_ReadInstructions<reg_cpuX, op_ADC>);
 		SetFunctionHandler(mode_zp, SBC, fn_ReadInstructions<reg_cpuX, op_SBC>);
 		SetFunctionHandler(mode_zp, CMP, fn_ReadInstructions<reg_cpuX, op_CMP>);
+		SetFunctionHandler(mode_zp, CPX, fn_ReadInstructions<reg_cpuX, op_CPX>);
+		SetFunctionHandler(mode_zp, CPY, fn_ReadInstructions<reg_cpuX, op_CPY>);
 		SetFunctionHandler(mode_zp, BIT, fn_ReadInstructions<reg_cpuX, op_BIT>);
-		SetFunctionHandler(mode_zp, NOP, fn_ReadInstructions<reg_cpuX, op_NOP>);
 		// Not implemented: LAX
 
 		SetFunctionHandler(mode_zp, ASL, fn_ReadModifyWriteInstructions<op_ASL>);
@@ -931,7 +933,6 @@ namespace ZeroPageIndexedAddressing
 	void RegisterInstructions()
 	{
 		SetFunctionHandler( mode_zpx, LDA, fn_ReadInstructions<reg_cpuX,op_LDA> );
-		SetFunctionHandler( mode_zpx, LDX, fn_ReadInstructions<reg_cpuX,op_LDX> );
 		SetFunctionHandler( mode_zpx, LDY, fn_ReadInstructions<reg_cpuX,op_LDY> );
 		SetFunctionHandler( mode_zpx, EOR, fn_ReadInstructions<reg_cpuX,op_EOR> );
 		SetFunctionHandler( mode_zpx, AND, fn_ReadInstructions<reg_cpuX,op_AND> );
@@ -939,21 +940,9 @@ namespace ZeroPageIndexedAddressing
 		SetFunctionHandler( mode_zpx, ADC, fn_ReadInstructions<reg_cpuX,op_ADC> );
 		SetFunctionHandler( mode_zpx, SBC, fn_ReadInstructions<reg_cpuX,op_SBC> );
 		SetFunctionHandler( mode_zpx, CMP, fn_ReadInstructions<reg_cpuX,op_CMP> );
-		SetFunctionHandler( mode_zpx, BIT, fn_ReadInstructions<reg_cpuX,op_BIT> );
-		SetFunctionHandler( mode_zpx, NOP, fn_ReadInstructions<reg_cpuX,op_NOP> );
 		// Not implemented: LAX
 
-		SetFunctionHandler( mode_zpy, LDA, fn_ReadInstructions<reg_cpuY,op_LDA> );
 		SetFunctionHandler( mode_zpy, LDX, fn_ReadInstructions<reg_cpuY,op_LDX> );
-		SetFunctionHandler( mode_zpy, LDY, fn_ReadInstructions<reg_cpuY,op_LDY> );
-		SetFunctionHandler( mode_zpy, EOR, fn_ReadInstructions<reg_cpuY,op_EOR> );
-		SetFunctionHandler( mode_zpy, AND, fn_ReadInstructions<reg_cpuY,op_AND> );
-		SetFunctionHandler( mode_zpy, ORA, fn_ReadInstructions<reg_cpuY,op_ORA> );
-		SetFunctionHandler( mode_zpy, ADC, fn_ReadInstructions<reg_cpuY,op_ADC> );
-		SetFunctionHandler( mode_zpy, SBC, fn_ReadInstructions<reg_cpuY,op_SBC> );
-		SetFunctionHandler( mode_zpy, CMP, fn_ReadInstructions<reg_cpuY,op_CMP> );
-		SetFunctionHandler( mode_zpy, BIT, fn_ReadInstructions<reg_cpuY,op_BIT> );
-		SetFunctionHandler( mode_zpy, NOP, fn_ReadInstructions<reg_cpuY,op_NOP> );
 		// Not implemented: LAX
 
 		SetFunctionHandler( mode_zpx, ASL, fn_ReadModifyWriteInstructions<op_ASL> );
@@ -965,13 +954,10 @@ namespace ZeroPageIndexedAddressing
 		// Not implemented: SLO, SRE, RLA, RRA, ISB, DCP
 
 		SetFunctionHandler( mode_zpx, STA, fn_WriteInstructions<reg_cpuX,reg_cpuA> );
-		SetFunctionHandler( mode_zpx, STX, fn_WriteInstructions<reg_cpuX,reg_cpuX> );
 		SetFunctionHandler( mode_zpx, STY, fn_WriteInstructions<reg_cpuX,reg_cpuY> );
 		// Not implemented: SAX
 		
-		SetFunctionHandler( mode_zpy, STA, fn_WriteInstructions<reg_cpuY,reg_cpuA> );
 		SetFunctionHandler( mode_zpy, STX, fn_WriteInstructions<reg_cpuY,reg_cpuX> );
-		SetFunctionHandler( mode_zpy, STY, fn_WriteInstructions<reg_cpuY,reg_cpuY> );
 		// Not implemented: SAX
 	}
 }
@@ -1137,7 +1123,6 @@ namespace AbsoluteIndexedAddressing
 	void RegisterInstructions()
 	{
 		SetFunctionHandler( mode_abx, LDA, fn_ReadInstructions<reg_cpuX,op_LDA> );
-		SetFunctionHandler( mode_abx, LDX, fn_ReadInstructions<reg_cpuX,op_LDX> );
 		SetFunctionHandler( mode_abx, LDY, fn_ReadInstructions<reg_cpuX,op_LDY> );
 		SetFunctionHandler( mode_abx, EOR, fn_ReadInstructions<reg_cpuX,op_EOR> );
 		SetFunctionHandler( mode_abx, AND, fn_ReadInstructions<reg_cpuX,op_AND> );
@@ -1145,21 +1130,16 @@ namespace AbsoluteIndexedAddressing
 		SetFunctionHandler( mode_abx, ADC, fn_ReadInstructions<reg_cpuX,op_ADC> );
 		SetFunctionHandler( mode_abx, SBC, fn_ReadInstructions<reg_cpuX,op_SBC> );
 		SetFunctionHandler( mode_abx, CMP, fn_ReadInstructions<reg_cpuX,op_CMP> );
-		SetFunctionHandler( mode_abx, BIT, fn_ReadInstructions<reg_cpuX,op_BIT> );
-		SetFunctionHandler( mode_abx, NOP, fn_ReadInstructions<reg_cpuX,op_NOP> );
 		// Not implemented: LAX, LAE, SHS
 		
 		SetFunctionHandler( mode_aby, LDA, fn_ReadInstructions<reg_cpuY,op_LDA> );
 		SetFunctionHandler( mode_aby, LDX, fn_ReadInstructions<reg_cpuY,op_LDX> );
-		SetFunctionHandler( mode_aby, LDY, fn_ReadInstructions<reg_cpuY,op_LDY> );
 		SetFunctionHandler( mode_aby, EOR, fn_ReadInstructions<reg_cpuY,op_EOR> );
 		SetFunctionHandler( mode_aby, AND, fn_ReadInstructions<reg_cpuY,op_AND> );
 		SetFunctionHandler( mode_aby, ORA, fn_ReadInstructions<reg_cpuY,op_ORA> );
 		SetFunctionHandler( mode_aby, ADC, fn_ReadInstructions<reg_cpuY,op_ADC> );
 		SetFunctionHandler( mode_aby, SBC, fn_ReadInstructions<reg_cpuY,op_SBC> );
 		SetFunctionHandler( mode_aby, CMP, fn_ReadInstructions<reg_cpuY,op_CMP> );
-		SetFunctionHandler( mode_aby, BIT, fn_ReadInstructions<reg_cpuY,op_BIT> );
-		SetFunctionHandler( mode_aby, NOP, fn_ReadInstructions<reg_cpuY,op_NOP> );
 		// Not implemented: LAX, LAE, SHS
 
 		SetFunctionHandler( mode_abx, ASL, fn_ReadModifyWriteInstructions<op_ASL> );
@@ -1171,13 +1151,9 @@ namespace AbsoluteIndexedAddressing
 		// Not implemented: SLO, SRE, RLA, RRA, ISB, DCP
 
 		SetFunctionHandler( mode_abx, STA, fn_WriteInstructions<reg_cpuX,reg_cpuA> );
-		SetFunctionHandler( mode_abx, STX, fn_WriteInstructions<reg_cpuX,reg_cpuX> );
-		SetFunctionHandler( mode_abx, STY, fn_WriteInstructions<reg_cpuX,reg_cpuY> );
 		// Not implemented: SHA, SHX, SHY
 		
 		SetFunctionHandler( mode_aby, STA, fn_WriteInstructions<reg_cpuY,reg_cpuA> );
-		SetFunctionHandler( mode_aby, STX, fn_WriteInstructions<reg_cpuY,reg_cpuX> );
-		SetFunctionHandler( mode_aby, STY, fn_WriteInstructions<reg_cpuY,reg_cpuY> );
 		// Not implemented: SHA, SHX, SHY
 
 	}
@@ -1564,19 +1540,19 @@ namespace IndirectIndexedAddressing
 	//-------------------------------------------------------------------------------------------------
 	void RegisterInstructions()
 	{
-		SetFunctionHandler( mode_izx, LDA, fn_ReadInstructions<op_LDA> );
-		SetFunctionHandler( mode_izx, ORA, fn_ReadInstructions<op_ORA> );
-		SetFunctionHandler( mode_izx, EOR, fn_ReadInstructions<op_EOR> );
-		SetFunctionHandler( mode_izx, AND, fn_ReadInstructions<op_AND> );
-		SetFunctionHandler( mode_izx, ADC, fn_ReadInstructions<op_ADC> );
-		SetFunctionHandler( mode_izx, CMP, fn_ReadInstructions<op_CMP> );
-		SetFunctionHandler( mode_izx, SBC, fn_ReadInstructions<op_SBC> );
+		SetFunctionHandler( mode_izy, LDA, fn_ReadInstructions<op_LDA> );
+		SetFunctionHandler( mode_izy, ORA, fn_ReadInstructions<op_ORA> );
+		SetFunctionHandler( mode_izy, EOR, fn_ReadInstructions<op_EOR> );
+		SetFunctionHandler( mode_izy, AND, fn_ReadInstructions<op_AND> );
+		SetFunctionHandler( mode_izy, ADC, fn_ReadInstructions<op_ADC> );
+		SetFunctionHandler( mode_izy, CMP, fn_ReadInstructions<op_CMP> );
+		SetFunctionHandler( mode_izy, SBC, fn_ReadInstructions<op_SBC> );
 		// Not implemented: LAX
 
 		// Read-Modify-Write instructions 
 		// Not implemented : (SLO, SRE, RLA, RRA, ISB, DCP)
 
-		SetFunctionHandler( mode_izx, STA, fn_WriteInstructions<reg_cpuA> );
+		SetFunctionHandler( mode_izy, STA, fn_WriteInstructions<reg_cpuA> );
 		// Not implemented: SAX
 	}
 };

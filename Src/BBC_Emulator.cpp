@@ -31,7 +31,13 @@ void BBC_Emulator::Run( )
 
 	while ( true )
 	{
+		string dissassemble;
+		u16 nextpc = DisassemblePC( cpu.PC, dissassemble );
+		printf( dissassemble.c_str() );
+		printf( "\n" );
+		_getch();
 		emu.ProcessSingleInstruction();
+		assert( nextpc == cpu.PC );
 	}
 }
 
