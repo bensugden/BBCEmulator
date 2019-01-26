@@ -7,9 +7,16 @@
 
 #include "targetver.h"
 
+#define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
+// Windows Header Files:
 #include <windows.h>
-#include <stdio.h>
+
+// C RunTime Header Files
+#include <stdlib.h>
+#include <malloc.h>
+#include <memory.h>
 #include <tchar.h>
+#include <stdio.h>
 #include <string>
 #include <vector>
 #include <map>
@@ -24,3 +31,8 @@ using namespace std;
 #include "6502_Emulator.h"
 #include "BBC_Emulator.h"
 
+#include <d3d11.h>
+#include <d3dx11.h>
+#include <d3dcompiler.h>
+#include "resource.h"
+#include "DirectX.h"
