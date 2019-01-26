@@ -29,6 +29,7 @@ using namespace std;
 #include "File.h"
 #include "myAssert.h"
 #include "6502_Emulator.h"
+#include "6502_OpcodeTable.h"
 #include "BBC_Emulator.h"
 
 #include <d3d11.h>

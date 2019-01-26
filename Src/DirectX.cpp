@@ -50,7 +50,7 @@ HRESULT CompileShaderFromFile( WCHAR* szFileName, LPCSTR szEntryPoint, LPCSTR sz
 
 //-------------------------------------------------------------------------------------------------
 
-u32* LockFB()
+u32* LockFB( )
 {
 	D3D11_MAPPED_SUBRESOURCE mappedTex;
 
@@ -61,7 +61,7 @@ u32* LockFB()
 
 //-------------------------------------------------------------------------------------------------
 
-void UnlockFB( u32 mip_level, u32 array_slice )
+void UnlockFB( )
 {
 	g_pImmediateContext->Unmap( g_2DTexture, D3D11CalcSubresource( 0, 0, 1 ) );
 }

@@ -51,6 +51,9 @@
     <ClInclude Include="DirectX.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="6502_OpcodeTable.h">
+      <Filter>Emulator</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

@@ -3,11 +3,6 @@
 #include <sstream>
 #include <iomanip>
 using namespace std;
-//-------------------------------------------------------------------------------------------------
-
-map<string, int> g_instructionToOpcodeMap;
-
-vector< CommandInfo > g_commands;
 
 //-------------------------------------------------------------------------------------------------
 //
@@ -206,11 +201,13 @@ string g_fullCommandList[77*21]=
 
 //-------------------------------------------------------------------------------------------------
 
-void BuildOpcodeTables()
+OpcodeTable::OpcodeTable()
 {
+	m_iRegisteredInstructionCount = 0;
+
 	for ( int i = 0 ; i < 256; i++ )
 	{
-		g_instructionToOpcodeMap.insert(pair<string, int>( g_opcodeToInstructionName[ i ], i ));
+		m_instructionToOpcodeMap.insert(pair<string, int>( g_opcodeToInstructionName[ i ], i ));
 		
 		CommandInfo command;
 		command.m_name = g_opcodeToInstructionName[ i ];
@@ -294,7 +291,7 @@ void BuildOpcodeTables()
 
 		command.m_cycles = p[iCycleIndex]- 48;
 		command.m_addCycleIfPageBoundaryCrossed = ( s.find("*")!=string::npos);
-		g_commands.push_back( command );
+		m_commands.push_back( command );
 	}
 	//
 	// Finally iterate command lists to get flags etc set
@@ -311,7 +308,7 @@ void BuildOpcodeTables()
 			hexValue[1]='x';
 
 			int opcodeWithEAIndex = std::stoi( hexValue, nullptr, 0 ); 
-			CommandInfo& command = g_commands[ opcodeWithEAIndex ];
+			CommandInfo& command = m_commands[ opcodeWithEAIndex ];
 
 			//
 			// Check we have correct opcode
@@ -354,21 +351,20 @@ void BuildOpcodeTables()
 }
 
 //-------------------------------------------------------------------------------------------------
-int g_iRegisteredInstructionCount = 0;
 
-bool SetFunctionHandler( EAddressingMode ea, EInstruction instruction, void (*functionHandler)( ) )
+bool OpcodeTable::SetFunctionHandler( EAddressingMode ea, EInstruction instruction, void (*functionHandler)( ) )
 {
 	//
 	// Linear search - slow. Really only use at setup time
 	//
-	for ( u32 i = 0; i < g_commands.size(); i++ )
+	for ( u32 i = 0; i < m_commands.size(); i++ )
 	{
-		if  ( ( g_commands[ i ].m_instruction == instruction ) && 
-			  ( g_commands[ i ].m_addressingMode == ea ) )
+		if  ( ( m_commands[ i ].m_instruction == instruction ) && 
+			  ( m_commands[ i ].m_addressingMode == ea ) )
 		{
-			assert( g_commands[ i ].m_functionHandler == nullptr );
-			g_commands[ i ].m_functionHandler = functionHandler;
-			g_iRegisteredInstructionCount++;
+			assert( m_commands[ i ].m_functionHandler == nullptr );
+			m_commands[ i ].m_functionHandler = functionHandler;
+			m_iRegisteredInstructionCount++;
 			return true;
 		}
 	}
@@ -381,162 +377,9 @@ bool SetFunctionHandler( EAddressingMode ea, EInstruction instruction, void (*fu
 
 //-------------------------------------------------------------------------------------------------
 
-static inline int GetMemSizePerEA( EAddressingMode mode )
+const CommandInfo& OpcodeTable::GetCommandForOpcode( u8 opcode )
 {
-	if ( mode == mode_imp || mode == mode_invalid )
-		return 0;
-	if ( mode >= mode_abs && mode < mode_rel )
-		return 2;
-	return 1;
-};
-
-//-------------------------------------------------------------------------------------------------
-std::string toHex( u8 i, bool bPrefix = true )
-{
-	char buffer[256];
-	_itoa( i, buffer, 16 );
-	string outp = string(buffer);
-	while ( outp.length() < 2 )	
-	{
-		outp = "0" + outp;
-	}
-	for ( u32 i = 0 ; i < outp.length(); i++ )
-	{
-		if ( outp[i]>='a'&&outp[i]<='z')
-			outp[i]+='A'-'a';
-	}
-
-	if ( bPrefix )
-		return "$"+outp;
-	return outp;
-}
-//-------------------------------------------------------------------------------------------------
-std::string toHex( u16 i, bool bPrefix = true )
-{
-	char buffer[256];
-	_itoa( i, buffer, 16 );
-	string outp = string(buffer);
-	while ( outp.length() < 4 )	
-	{
-		outp = "0" + outp;
-	}
-	for ( u32 i = 0 ; i < outp.length(); i++ )
-	{
-		if ( outp[i]>='a'&&outp[i]<='z')
-			outp[i]+='A'-'a';
-	}
-
-	if ( bPrefix )
-		return "$"+outp;
-	return outp;
-}
-
-//-------------------------------------------------------------------------------------------------
-
-const CommandInfo& GetCommandForOpcode( u8 opcode )
-{
-	return g_commands[ opcode ];
-}
-
-//-------------------------------------------------------------------------------------------------
-
-int DisassemblePC( int pc_in, string& dissassemble, const CommandInfo** ppOutCommand )
-{
-	int pc = pc_in;
-
-	dissassemble = toHex( (u16)pc, false ) + " ";
-
-	u8 opcode = mem.Read( pc++ );
-
-	const CommandInfo& command = GetCommandForOpcode( opcode );
-	EAddressingMode addrmode = command.m_addressingMode;
-
-	dissassemble += toHex( (u8)opcode, false ) + " ";
-
-	int nSize = GetMemSizePerEA( addrmode );
-	if ( nSize == 1 )
-	{
-		u8 address = mem.Read( pc++ );
-
-		dissassemble += toHex( (u8)address, false ) + "    ";
-		dissassemble += "    " + command.m_name + " ";
-
-		switch ( addrmode )
-		{
-		case mode_imm:
-			//"imm = #$00"
-			dissassemble += "#"+toHex( address ); 
-			break;
-		case mode_zp:
-			//"zp = $00"
-			dissassemble += toHex( address );
-			break;
-		case mode_zpx:
-			//"zpx = $00,X"
-			dissassemble += toHex( address )+",X";
-			break;
-		case mode_zpy:
-			//"zpy = $00,Y"
-			dissassemble += toHex( address )+",Y";
-			break;
-		case mode_izx:
-			//"izx = ($00,X)"
-			dissassemble += "("+toHex( address )+",X)";
-			break;
-		case mode_izy:
-			//"izy = ($00),Y"
-			dissassemble += "("+toHex( address )+",Y)";
-			break;
-		case mode_rel:
-			//"rel = $0000 (PC-relative)"
-			dissassemble += toHex( (u16)(pc + ((s8)address)) )+" (PC-relative)"; 
-			break;
-		default:
-			break;
-		}
-	}
-	else if ( nSize == 2 )
-	{
-		u8 lo = mem.Read( pc++ );
-		u8 hi = mem.Read( pc++ );
-
-		dissassemble += toHex( (u8)lo, false ) + " " +toHex( (u8)hi, false ) + " ";
-
-		u16 address = lo + ( u16( hi ) <<8 );
-
-		dissassemble += "    " + command.m_name + " ";
-
-		switch ( addrmode )
-		{
-		case mode_abs:
-			//"abs = $0000"
-			dissassemble += toHex( address ); 
-			break;
-		case mode_abx:
-			//"abx = $0000,X"
-			dissassemble += toHex( address )+",X"; 
-			break;
-		case mode_aby:
-			//"aby = $0000,Y"
-			dissassemble += toHex( address )+",Y"; 
-			break;
-		case mode_ind:
-			//"ind = ($0000)"
-			dissassemble += "("+toHex( address )+")"; 
-			break;
-		default:
-			break;
-		}
-	}
-	else
-	{
-		dissassemble += "          " + command.m_name + " ";
-	}
-	if ( ppOutCommand != nullptr )
-	{
-		*ppOutCommand = &command;
-	}
-	return pc;
+	return m_commands[ opcode ];
 }
 
 //-------------------------------------------------------------------------------------------------

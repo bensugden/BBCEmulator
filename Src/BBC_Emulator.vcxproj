@@ -155,6 +155,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="6502_Emulator.h" />
+    <ClInclude Include="6502_OpcodeTable.h" />
     <ClInclude Include="6502_Operations.h" />
     <ClInclude Include="BBC_Emulator.h" />
     <ClInclude Include="DirectX.h" />
