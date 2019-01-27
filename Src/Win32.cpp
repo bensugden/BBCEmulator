@@ -4,9 +4,6 @@
 #include "stdafx.h"
 #include "Win32.h"
 
-
-
-
 //--------------------------------------------------------------------------------------
 // Forward declarations
 //--------------------------------------------------------------------------------------
@@ -18,6 +15,13 @@
 HINSTANCE hInst;                                // current instance
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
+HWND g_debuggerHWND = nullptr;
+HWND g_debuggerSpewHWND = nullptr;
+bool g_bDebuggerActive = false;
+BBC_Emulator* g_emulator = nullptr;
+int g_nStep = 0;
+bool g_bRun = false;
+
 //-------------------------------------------------------------------------------------------------
 
 // Forward declarations of functions included in this code module:
@@ -51,6 +55,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_BBC_EMULATOR));
     MSG msg;
 
+	static const int nNumSpewLines = 32;
+	std::string debugSpew;
+
     // Main message loop:
     while (GetMessage(&msg, nullptr, 0, 0))
     {
@@ -59,9 +66,23 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
-        else
-        {
-        }
+		if ( g_bDebuggerActive )
+		{
+			if ( g_bRun )
+			{
+				if ( g_emulator->RunFrame( &debugSpew ) )
+				{
+					SetWindowTextA( g_debuggerSpewHWND, debugSpew.c_str() );
+				}
+			}
+			else
+			if ( g_nStep > 0 )
+			{
+				g_emulator->ProcessInstructions( g_nStep, &debugSpew );
+				SetWindowTextA( g_debuggerSpewHWND, debugSpew.c_str() );
+				g_nStep = 0;
+			}
+		}
     }
 
     CleanupDevice();
@@ -111,29 +132,38 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 //
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
-   hInst = hInstance; // Store instance handle in our global variable
-       // Create window
-    RECT rc = { 0, 0, 640, 512 };
-    AdjustWindowRect( &rc, WS_OVERLAPPEDWINDOW, FALSE );
+	hInst = hInstance; // Store instance handle in our global variable
+		// Create window
+	RECT rc = { 0, 0, 640, 512 };
+	AdjustWindowRect( &rc, WS_OVERLAPPEDWINDOW, FALSE );
 
-   HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+	HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT, rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hInstance,nullptr );
 
-   if (!hWnd)
-   {
-      return FALSE;
-   }
+	if (!hWnd)
+	{
+		return FALSE;
+	}
    
-    if( FAILED( InitDevice(hWnd) ) )
-    {
-        CleanupDevice();
-        return 0;
-    }
+	if( FAILED( InitDevice(hWnd) ) )
+	{
+		CleanupDevice();
+		return 0;
+	}
 
-   ShowWindow(hWnd, nCmdShow);
-   UpdateWindow(hWnd);
+	ShowWindow(hWnd, nCmdShow);
+	UpdateWindow(hWnd);
 
-   return TRUE;
+	g_debuggerHWND = CreateDialog(hInst, MAKEINTRESOURCE(IDD_DEBUGGER), hWnd, Debugger);
+	g_bDebuggerActive = true;
+	g_debuggerSpewHWND = GetDlgItem( g_debuggerHWND, IDC_DEBUG_SPEW );
+
+	ShowWindow( g_debuggerHWND, nCmdShow&&g_bDebuggerActive );
+	CheckMenuItem( GetMenu(hWnd), IDM_SHOW_DEBUGGER, g_bDebuggerActive ? MF_CHECKED : MF_UNCHECKED );
+
+	g_emulator = new BBC_Emulator();
+
+	return TRUE;
 }
 
 
@@ -164,7 +194,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
                 break;
 			case IDM_SHOW_DEBUGGER:
-                CreateDialog(hInst, MAKEINTRESOURCE(IDD_DEBUGGER), hWnd, Debugger);
+				g_bDebuggerActive = !g_bDebuggerActive;
+				ShowWindow( g_debuggerHWND, g_bDebuggerActive );
+				CheckMenuItem( GetMenu(hWnd), IDM_SHOW_DEBUGGER, g_bDebuggerActive ? MF_CHECKED : MF_UNCHECKED );
                 break;
             case IDM_EXIT:
                 DestroyWindow(hWnd);
@@ -208,6 +240,27 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
         }
+		switch( HIWORD( wParam ) )
+		{
+			case BN_CLICKED:
+				if ( LOWORD( wParam ) == IDC_STEP )
+				{
+					g_nStep = 1;
+				}
+				if ( LOWORD( wParam ) == IDC_STEP_1000 )
+				{
+					g_nStep = 1000;
+				}
+				else if ( LOWORD( wParam ) == IDC_PLAY )
+				{
+					g_bRun = true;
+				}
+				else if ( LOWORD( wParam ) == IDC_PAUSE )
+				{
+					g_bRun = false;
+				}
+				break;
+		}
         break;
     }
     return (INT_PTR)FALSE;
@@ -227,7 +280,8 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         {
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
-        }
+		}
+
         break;
     }
     return (INT_PTR)FALSE;

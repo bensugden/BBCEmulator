@@ -20,7 +20,12 @@ struct CPUState
 
 	CPUState()
 	{
-		// todo setup default flag values
+		nTotalCycles = 0;
+		S = 0xFF;
+		A = X = Y = 0;
+		PC = c_Reset_Lo;
+		P = 0;
+		SetFlag( flag_I, 1 );
 	}
 
 	inline u16 StackAddress( )
@@ -40,6 +45,13 @@ struct CPUState
 		if (P&flag)
 			return 1;
 		return 0;
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
+	int GetCycleCount() 
+	{
+		return nTotalCycles;
 	}
 
 	//-------------------------------------------------------------------------------------------------

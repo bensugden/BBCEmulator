@@ -2,7 +2,6 @@
 
 //-------------------------------------------------------------------------------------------------
 
-
 enum EFlagSetMode
 {
 	flag_set_unchanged = 0,
@@ -37,8 +36,8 @@ enum EAddressingMode
 	mode_izx ,	//"izx = ($00,X)" 
 	mode_izy ,	//"izy = ($00),Y"
 	mode_abs ,	//"abs = $0000"
-	mode_abx ,	//"abx = $0000,X" absolute indexed addresing
-	mode_aby ,	//"aby = $0000,Y" absolute indexed addresing
+	mode_abx ,	//"abx = $0000,X" absolute indexed addressing
+	mode_aby ,	//"aby = $0000,Y" absolute indexed addressing
 	mode_ind ,	//"ind = ($0000)"
 	mode_rel ,	//"rel = $0000 (PC-relative)"
 	mode_invalid

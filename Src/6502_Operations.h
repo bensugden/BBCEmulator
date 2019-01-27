@@ -159,12 +159,14 @@ inline u8 op_DEC(u8 val)
 inline u8 op_DEX(u8 val)
 {
 	cpu.X--;
+	cpu.SetZN(cpu.X);
 	return cpu.X;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_DEY(u8 val)
 {
 	cpu.Y--;
+	cpu.SetZN(cpu.Y);
 	return cpu.Y;
 }
 //-------------------------------------------------------------------------------------------------
@@ -185,12 +187,14 @@ inline u8 op_INC(u8 val)
 inline u8 op_INX(u8 val)
 {
 	cpu.X++;
+	cpu.SetZN(cpu.X);
 	return cpu.X;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_INY(u8 val)
 {
 	cpu.Y++;
+	cpu.SetZN(cpu.Y);
 	return cpu.Y;
 }
 //-------------------------------------------------------------------------------------------------
@@ -296,24 +300,28 @@ inline u8 op_STY(u8 val)
 inline u8 op_TAX(u8 val)
 {
 	cpu.X = cpu.A;
+	cpu.SetZN(cpu.X);
 	return cpu.A;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_TAY(u8 val)
 {
 	cpu.Y = cpu.A;
+	cpu.SetZN(cpu.Y);
 	return cpu.A;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_TSX(u8 val)
 {
 	cpu.X = cpu.S;
+	cpu.SetZN(cpu.X);
 	return cpu.X;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_TXA(u8 val)
 {
 	cpu.A = cpu.X;
+	cpu.SetZN(cpu.A);
 	return cpu.A;
 }
 //-------------------------------------------------------------------------------------------------
@@ -326,6 +334,7 @@ inline u8 op_TXS(u8 val)
 inline u8 op_TYA(u8 val)
 {
 	cpu.A = cpu.Y;
+	cpu.SetZN(cpu.A);
 	return cpu.A;
 }
 

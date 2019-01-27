@@ -988,7 +988,7 @@ namespace AbsoluteIndexedAddressing
 		cpu.Tick();
 
 		mem.Write( address, value );
-		Operation(value);
+		value = Operation(value);
 		cpu.Tick();
 
 		mem.Write( address, value );
