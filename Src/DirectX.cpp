@@ -148,7 +148,7 @@ HRESULT InitDevice( HWND hWnd )
 
     UINT createDeviceFlags = 0;
 #ifdef _DEBUG
-    createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
+   // createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
 
     D3D_DRIVER_TYPE driverTypes[] =
@@ -336,8 +336,11 @@ void Render()
 	g_pImmediateContext->PSSetSamplers(0, 1, &g_framebufferSamplerState);
 
 	// Set shader texture resource in the pixel shader.
-	g_pImmediateContext->PSSetShaderResources(0, 1, &s_pCurrentTexture->m_textureRV);
-    g_pImmediateContext->Draw( 6, 0 );
+	if ( s_pCurrentTexture != nullptr )
+	{
+		g_pImmediateContext->PSSetShaderResources(0, 1, &s_pCurrentTexture->m_textureRV);
+		g_pImmediateContext->Draw( 6, 0 );
+	}
 
     // Present the information rendered to the back buffer to the front buffer (the screen)
     g_pSwapChain->Present( 0, 0 );
