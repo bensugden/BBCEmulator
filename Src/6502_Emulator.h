@@ -136,36 +136,97 @@ struct CPUState
 
 struct MemoryState
 {
-	MemoryState( CPUState& cpu, int nAllocation = 65536 )
-		: m_cpu( cpu )
+	MemoryState( u16 nUserMemory = 32768, u32 nAllocation = 65536 )
+		: m_nEndUserMemory( nUserMemory )
+		, m_maxAllocatedMemory( nAllocation )
 	{
 		m_pMemory = new u8[ nAllocation ];
 		memset( m_pMemory, 0, nAllocation );
 
+		//
+		// This is a list of IDs for listener sub-systems 
+		// i.e. areas which are memory mapped
+		//
+		m_pListenerIDs = new u8[ nUserMemory ];
+		memset( m_pListenerIDs, 0, nUserMemory );
+		m_nNumListeners = 0; //[0 indicates no listener]
+
+		memset( m_listenerFunctionForSystem, 0, sizeof( m_listenerFunctionForSystem )) ;
+
 		// todo - set up default memory values for 6502
 	}
+
+	//-------------------------------------------------------------------------------------------------
+	//
+	// Note: Inclusive memory address range 
+	//
+	void RegisterMemoryMappedSystem( u16 addressStart, u16 addressEnd, void (*listenerFunction)( u16 address, u8 value ) )
+	{
+		assert( m_nNumListeners < 255 );
+		m_listenerFunctionForSystem[ ++m_nNumListeners ] = listenerFunction; // 0 will indicate no listener registered for this memory location
+		for ( int i = addressStart; i <= addressEnd; i++ )
+		{
+			m_pListenerIDs[ addressStart - m_nEndUserMemory ] = m_nNumListeners;
+		}
+	}
+
+	//-------------------------------------------------------------------------------------------------
 
 	inline u8 Read( int nAddress ) const
 	{
 		return m_pMemory[ nAddress ];
 	}
 
-	inline void Write( int nAddress, u8 value )
+	//-------------------------------------------------------------------------------------------------
+
+	inline void CheckWriteMemoryMapped( u16 nAddress, u8 value )
+	{
+		//
+		// Is this write in user memory ? If so, not memory mapped.
+		//
+		if ( nAddress < m_nEndUserMemory )
+			return;
+
+		//
+		// Check if a system registered this address as a memory mapped address
+		//
+		u8 nListenerID = m_pListenerIDs[ nAddress - m_nEndUserMemory ];
+		if ( nListenerID == 0 )
+			return;
+
+		// 
+		// Call system that is memory mapped to this address
+		//
+		m_listenerFunctionForSystem[ nListenerID ]( nAddress, value );
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
+	inline void Write( u16 nAddress, u8 value )
 	{
 		m_pMemory[ nAddress ] = value;
+		CheckWriteMemoryMapped( nAddress, value );
 	}
 
-	inline void WriteHiByte( int nAddress, u16 value )
+	//-------------------------------------------------------------------------------------------------
+
+	inline void WriteHiByte( u16 nAddress, u16 value )
 	{
 		m_pMemory[ nAddress ] = ( value >> 8) & 0xff;
+		CheckWriteMemoryMapped( nAddress, m_pMemory[ nAddress ] );
 	}
 
-	inline void WriteLoByte( int nAddress, u16 value )
+	//-------------------------------------------------------------------------------------------------
+
+	inline void WriteLoByte( u16 nAddress, u16 value )
 	{
 		m_pMemory[ nAddress ] = value & 0xff;
+		CheckWriteMemoryMapped( nAddress, m_pMemory[ nAddress ] );
 	}
 
-	inline u16 ReadHiByte( int nAddress, u16& valueToModify ) const
+	//-------------------------------------------------------------------------------------------------
+
+	inline u16 ReadHiByte( u16 nAddress, u16& valueToModify ) const
 	{
 		u8 readValue = Read( nAddress );
 		valueToModify &= (0xffff00ff); 
@@ -173,7 +234,9 @@ struct MemoryState
 		return valueToModify;
 	}
 
-	inline u16 ReadLoByte( int nAddress, u16& valueToModify ) const
+	//-------------------------------------------------------------------------------------------------
+
+	inline u16 ReadLoByte( u16 nAddress, u16& valueToModify ) const
 	{
 		u8 readValue = Read( nAddress );
 		valueToModify &= (0xffffff00); 
@@ -181,14 +244,22 @@ struct MemoryState
 		return valueToModify;
 	}
 
-	void LoadROM( string filename, int nAddress )
+	//-------------------------------------------------------------------------------------------------
+
+	void LoadROM( string filename, u16 nAddress )
 	{
 		CFile file( filename, "rb" );
 		file.Load( m_pMemory + nAddress, file.GetLength(), 1 );
 	}
 
-	u8* m_pMemory;
-	CPUState& m_cpu;
+	//-------------------------------------------------------------------------------------------------
+
+	u8*			m_pMemory;
+	u16			m_nEndUserMemory;		// everything up to this point is guaranteed to NOT be memory mapped
+	u32			m_maxAllocatedMemory; 
+	u8*			m_pListenerIDs;
+	void (*m_listenerFunctionForSystem[256])( u16 address, u8 value );
+	u8			m_nNumListeners;
 };
 
 //-------------------------------------------------------------------------------------------------

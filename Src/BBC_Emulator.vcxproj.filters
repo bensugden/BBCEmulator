@@ -54,6 +54,18 @@
     <ClInclude Include="6502_OpcodeTable.h">
       <Filter>Emulator</Filter>
     </ClInclude>
+    <ClInclude Include="SHEILA.h">
+      <Filter>Emulator</Filter>
+    </ClInclude>
+    <ClInclude Include="TeletextFont.h">
+      <Filter>Emulator</Filter>
+    </ClInclude>
+    <ClInclude Include="VideoULA.h">
+      <Filter>Emulator</Filter>
+    </ClInclude>
+    <ClInclude Include="SAA5050.h">
+      <Filter>Emulator</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -79,6 +91,18 @@
     </ClCompile>
     <ClCompile Include="DirectX.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="6845_CRTC.cpp">
+      <Filter>Emulator</Filter>
+    </ClCompile>
+    <ClCompile Include="SHEILA.cpp">
+      <Filter>Emulator</Filter>
+    </ClCompile>
+    <ClCompile Include="SAA5050.cpp">
+      <Filter>Emulator</Filter>
+    </ClCompile>
+    <ClCompile Include="VideoULA.cpp">
+      <Filter>Emulator</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

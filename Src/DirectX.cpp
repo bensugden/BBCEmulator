@@ -3,6 +3,13 @@
 //--------------------------------------------------------------------------------------
 // Global Variables
 //--------------------------------------------------------------------------------------
+struct Texture
+{
+	ID3D11Texture2D*			m_pTexture2D;
+	ID3D11ShaderResourceView*   m_textureRV;
+	D3D11_TEXTURE2D_DESC		m_2DDesc;
+};
+
 D3D_DRIVER_TYPE				g_driverType = D3D_DRIVER_TYPE_NULL;
 D3D_FEATURE_LEVEL			g_featureLevel = D3D_FEATURE_LEVEL_11_0;
 ID3D11Device*				g_pd3dDevice = NULL;
@@ -13,9 +20,11 @@ ID3D11VertexShader*			g_pVertexShader = NULL;
 ID3D11PixelShader*			g_pPixelShader = NULL;
 ID3D11InputLayout*			g_pVertexLayout = NULL;
 ID3D11Buffer*				g_pVertexBuffer = NULL;
-ID3D11Texture2D*			g_2DTexture;
-ID3D11ShaderResourceView*   g_textureRV;
-ID3D11SamplerState*			g_samplerState;
+ID3D11SamplerState*			g_framebufferSamplerState;
+std::vector<Texture*>		g_framebufferTextures;
+
+static Texture* s_pLockedTexture = nullptr;
+static Texture* s_pCurrentTexture = nullptr;
 
 //--------------------------------------------------------------------------------------
 // Helper for compiling shaders with D3DX11
@@ -50,68 +59,79 @@ HRESULT CompileShaderFromFile( WCHAR* szFileName, LPCSTR szEntryPoint, LPCSTR sz
 
 //-------------------------------------------------------------------------------------------------
 
-u32* LockFB( )
+static Texture* FindOrAllocateTexture( u32 width, u32 height ) 
 {
-	D3D11_MAPPED_SUBRESOURCE mappedTex;
+	for ( size_t i = 0; i < g_framebufferTextures.size(); i++ )
+	{
+		if ( g_framebufferTextures[i]->m_2DDesc.Width != width )
+			continue;
+		if ( g_framebufferTextures[i]->m_2DDesc.Height != height )
+			continue;
+		return g_framebufferTextures[i];
+	}
 
-	g_pImmediateContext->Map( g_2DTexture, D3D11CalcSubresource( 0, 0, 1 ), D3D11_MAP_WRITE_DISCARD, 0, &mappedTex );
+	Texture* pTexture = new Texture();
 
-	return (u32*)mappedTex.pData;
-}
+	D3D11_TEXTURE2D_DESC desc;
+	desc.Width				= width;
+	desc.Height				= height;
+	desc.MipLevels			= 1;
+	desc.ArraySize			= 1;
+	desc.Format				= DXGI_FORMAT_R8G8B8A8_UNORM;
+	desc.SampleDesc.Count	= 1;
+	desc.SampleDesc.Quality	= 0;
+	desc.Usage				= D3D11_USAGE_DYNAMIC;
+	desc.BindFlags			= D3D11_BIND_SHADER_RESOURCE;
+	desc.CPUAccessFlags		= D3D11_CPU_ACCESS_WRITE;
+	desc.MiscFlags			= 0;
 
-//-------------------------------------------------------------------------------------------------
-
-void UnlockFB( )
-{
-	g_pImmediateContext->Unmap( g_2DTexture, D3D11CalcSubresource( 0, 0, 1 ) );
-}
-
-//-------------------------------------------------------------------------------------------------
-
-void CreateFBTexture( int width, int height )
-{
-	D3D11_TEXTURE2D_DESC m_2DDesc;
-	m_2DDesc.Width				= width;
-	m_2DDesc.Height				= height;
-	m_2DDesc.MipLevels			= 1;
-	m_2DDesc.ArraySize			= 1;
-	m_2DDesc.Format				= DXGI_FORMAT_R8G8B8A8_UNORM;
-	m_2DDesc.SampleDesc.Count	= 1;
-	m_2DDesc.SampleDesc.Quality	= 0;
-	m_2DDesc.Usage				= D3D11_USAGE_DYNAMIC;
-	m_2DDesc.BindFlags			= D3D11_BIND_SHADER_RESOURCE;
-	m_2DDesc.CPUAccessFlags		= D3D11_CPU_ACCESS_WRITE;
-	m_2DDesc.MiscFlags			= 0;
-
-	g_pd3dDevice->CreateTexture2D( &m_2DDesc, NULL, &g_2DTexture );
+	g_pd3dDevice->CreateTexture2D( &desc, NULL, &pTexture->m_pTexture2D );
 
 	D3D11_SHADER_RESOURCE_VIEW_DESC		descSRV;
 	ZeroMemory( &descSRV, sizeof( D3D11_SHADER_RESOURCE_VIEW_DESC ) );
-	descSRV.Format = m_2DDesc.Format;	
+	descSRV.Format = desc.Format;	
 	descSRV.ViewDimension				= D3D11_SRV_DIMENSION_TEXTURE2D;
 	descSRV.Texture2D.MipLevels			= 1;
 	descSRV.Texture2D.MostDetailedMip	= 0;
 
-	g_pd3dDevice->CreateShaderResourceView( g_2DTexture, &descSRV, &g_textureRV );
+	g_pd3dDevice->CreateShaderResourceView( pTexture->m_pTexture2D, &descSRV, &pTexture->m_textureRV );
 
-	D3D11_SAMPLER_DESC samplerDesc;
-	// Create a texture sampler state description.
-	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-	samplerDesc.MipLODBias = 0.0f;
-	samplerDesc.MaxAnisotropy = 1;
-	samplerDesc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
-	samplerDesc.BorderColor[0] = 0;
-	samplerDesc.BorderColor[1] = 0;
-	samplerDesc.BorderColor[2] = 0;
-	samplerDesc.BorderColor[3] = 0;
-	samplerDesc.MinLOD = 0;
-	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+	pTexture->m_2DDesc = desc;
+	g_framebufferTextures.push_back( pTexture );
+	return pTexture;
+}
 
-	// Create the texture sampler state.
-	HRESULT result = g_pd3dDevice->CreateSamplerState(&samplerDesc, &g_samplerState);
+//-------------------------------------------------------------------------------------------------
+
+FrameBufferInfo LockFrameBuffer( u32 width, u32 height )
+{
+	assert( s_pLockedTexture == nullptr ); // need to unlock currently locked texture before locking another one
+
+	s_pLockedTexture = FindOrAllocateTexture( width, height );
+	D3D11_MAPPED_SUBRESOURCE mappedTex;
+
+	g_pImmediateContext->Map( s_pLockedTexture->m_pTexture2D, D3D11CalcSubresource( 0, 0, 1 ), D3D11_MAP_WRITE_DISCARD, 0, &mappedTex );
+
+	FrameBufferInfo info;
+
+	info.m_pData = (u32*)mappedTex.pData;
+	info.m_pitch = mappedTex.RowPitch;
+	info.m_width = width;
+	info.m_height = height;
+	info.m_pixelStride = 4;
+	s_pCurrentTexture = s_pLockedTexture;
+	return info;
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void UnlockFrameBuffer( )
+{
+	assert( s_pLockedTexture != nullptr ); // need to unlock currently locked texture before locking another one
+
+	g_pImmediateContext->Unmap( s_pLockedTexture->m_pTexture2D, D3D11CalcSubresource( 0, 0, 1 ) );
+
+	s_pLockedTexture = nullptr;
 }
 
 //--------------------------------------------------------------------------------------
@@ -279,7 +299,24 @@ HRESULT InitDevice( HWND hWnd )
     // Set primitive topology
     g_pImmediateContext->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
 
-	CreateFBTexture( 640, 256 );
+	D3D11_SAMPLER_DESC samplerDesc;
+	// Create a texture sampler state description.
+	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+	samplerDesc.MipLODBias = 0.0f;
+	samplerDesc.MaxAnisotropy = 1;
+	samplerDesc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
+	samplerDesc.BorderColor[0] = 0;
+	samplerDesc.BorderColor[1] = 0;
+	samplerDesc.BorderColor[2] = 0;
+	samplerDesc.BorderColor[3] = 0;
+	samplerDesc.MinLOD = 0;
+	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+	// Create the texture sampler state.
+	HRESULT result = g_pd3dDevice->CreateSamplerState(&samplerDesc, &g_framebufferSamplerState);
 
     return S_OK;
 
@@ -296,10 +333,10 @@ void Render()
     // Render a triangle
 	g_pImmediateContext->VSSetShader( g_pVertexShader, NULL, 0 );
 	g_pImmediateContext->PSSetShader( g_pPixelShader, NULL, 0 );
-	g_pImmediateContext->PSSetSamplers(0, 1, &g_samplerState);
+	g_pImmediateContext->PSSetSamplers(0, 1, &g_framebufferSamplerState);
 
 	// Set shader texture resource in the pixel shader.
-	g_pImmediateContext->PSSetShaderResources(0, 1, &g_textureRV);
+	g_pImmediateContext->PSSetShaderResources(0, 1, &s_pCurrentTexture->m_textureRV);
     g_pImmediateContext->Draw( 6, 0 );
 
     // Present the information rendered to the back buffer to the front buffer (the screen)
@@ -322,7 +359,10 @@ void CleanupDevice()
     if ( g_pSwapChain ) g_pSwapChain->Release();
     if ( g_pImmediateContext ) g_pImmediateContext->Release();
     if ( g_pd3dDevice ) g_pd3dDevice->Release();
-	if ( g_textureRV ) g_textureRV->Release();
-	if ( g_2DTexture ) g_2DTexture->Release();
+	for ( size_t i = 0; i < g_framebufferTextures.size(); i++ )
+	{
+		g_framebufferTextures[i]->m_pTexture2D->Release();
+		g_framebufferTextures[i]->m_textureRV->Release();
+	}
 }
 

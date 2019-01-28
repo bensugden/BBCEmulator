@@ -2,13 +2,24 @@
 
 //-------------------------------------------------------------------------------------------------
 
-HRESULT InitDevice( HWND hwnd );
-void CleanupDevice();
-void Render();
+struct FrameBufferInfo
+{
+	u32* m_pData;
+	u32  m_width;
+	u32  m_height;
+	u32  m_pixelStride;
+	u32  m_pitch;
+};
 
 //-------------------------------------------------------------------------------------------------
 
-u32* LockFB( );
-void UnlockFB( );
+HRESULT			InitDevice( HWND hwnd );
+void			CleanupDevice();
+
+void			Render();
+
+FrameBufferInfo LockFrameBuffer( u32 width, u32 height );
+void			UnlockFrameBuffer( );
+
 
 //-------------------------------------------------------------------------------------------------

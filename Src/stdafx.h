@@ -26,14 +26,19 @@
 using namespace std;
 
 #include "Types.h"
-#include "File.h"
-#include "myAssert.h"
-#include "6502_Emulator.h"
-#include "6502_OpcodeTable.h"
-#include "BBC_Emulator.h"
 
 #include <d3d11.h>
 #include <d3dx11.h>
 #include <d3dcompiler.h>
 #include "resource.h"
 #include "DirectX.h"
+
+#include "File.h"
+#include "myAssert.h"
+#include "6502_Emulator.h"
+#include "6502_OpcodeTable.h"
+#include "BBC_Emulator.h"
+#include "SHEILA.h"
+#include "VideoULA.h"
+#include "SAA5050.h"
+
