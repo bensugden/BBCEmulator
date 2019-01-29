@@ -40,11 +40,11 @@ BBC_Emulator::~BBC_Emulator( )
 
 bool BBC_Emulator::RunFrame( std::string* pDebugOutput )
 {
-	if ( bPaused )
+	if ( m_bPaused )
 	{
 		return false;
 	}
-	if ( bStarted )
+	if ( m_bStarted )
 	{
 		//
 		// Return if 1/50th of a second hasn't elapsed since the beginning of last frame
@@ -66,7 +66,7 @@ bool BBC_Emulator::RunFrame( std::string* pDebugOutput )
 	{
 		ProcessInstructions( 1, pDebugOutput );
 	}
-	bStarted = true;
+	m_bStarted = true;
 	
 	return true;
 }

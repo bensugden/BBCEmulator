@@ -247,9 +247,13 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 				{
 					g_nStep = 1;
 				}
-				if ( LOWORD( wParam ) == IDC_STEP_1000 )
+				else if ( LOWORD( wParam ) == IDC_STEP_1000 )
 				{
 					g_nStep = 1000;
+				}
+				else if ( LOWORD( wParam ) == IDC_STEP_FRAME )
+				{
+					g_nStep = 2000000/50;
 				}
 				else if ( LOWORD( wParam ) == IDC_PLAY )
 				{

@@ -35,10 +35,14 @@ using namespace std;
 
 #include "File.h"
 #include "myAssert.h"
+
+#include "6502_CPU.h"
+#include "6502_Memory.h"
 #include "6502_Emulator.h"
 #include "6502_OpcodeTable.h"
-#include "BBC_Emulator.h"
 #include "SHEILA.h"
 #include "VideoULA.h"
 #include "SAA5050.h"
+
+#include "BBC_Emulator.h"
 

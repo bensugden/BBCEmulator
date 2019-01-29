@@ -66,6 +66,12 @@
     <ClInclude Include="SAA5050.h">
       <Filter>Emulator</Filter>
     </ClInclude>
+    <ClInclude Include="6502_CPU.h">
+      <Filter>Emulator</Filter>
+    </ClInclude>
+    <ClInclude Include="6502_Memory.h">
+      <Filter>Emulator</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

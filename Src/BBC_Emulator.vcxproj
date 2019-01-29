@@ -158,8 +158,10 @@
     <ClInclude Include="6502_OpcodeTable.h" />
     <ClInclude Include="6502_Operations.h" />
     <ClInclude Include="BBC_Emulator.h" />
+    <ClInclude Include="6502_CPU.h" />
     <ClInclude Include="DirectX.h" />
     <ClInclude Include="File.h" />
+    <ClInclude Include="6502_Memory.h" />
     <ClInclude Include="myAssert.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="SAA5050.h" />

@@ -8,8 +8,18 @@
 
 //-------------------------------------------------------------------------------------------------
 
+static VideoULA* s_instance = nullptr;
+
+//-------------------------------------------------------------------------------------------------
+
 VideoULA::VideoULA()
 {
+	assert( s_instance == nullptr );
+	s_instance = this;
+
+	mem.RegisterMemoryMappedAddress( SHEILA::WRITE_Serial_ULA_Control_register, WRITE_Serial_ULA_Control_register );
+	mem.RegisterMemoryMappedAddress( SHEILA::WRITE_Video_ULA_Control_register,  WRITE_Video_ULA_Control_register );
+	mem.RegisterMemoryMappedAddress( SHEILA::WRITE_Video_ULA_Palette_register,  WRITE_Video_ULA_Palette_register );
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -42,7 +52,7 @@ static u32 s_physialColorPalette[ 16 ][ 2 ] =
 
 void VideoULA::RenderScreen()
 {
-	u8 ctrl_register = SHEILA::Read( SHEILA::WRITE_Video_ULA_Control_register );
+	u8 ctrl_register = mem.Read( SHEILA::WRITE_Video_ULA_Control_register );
 
 	//
 	// Parse bitfield
@@ -88,6 +98,27 @@ void VideoULA::RenderScreen()
 	//	8	&E0 (%111 0 00 0 0)
 	//	9	&80 (%100 0 00 0 0)
 	//	10	&84 (%100 0 01 0 0)
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void VideoULA::WRITE_Serial_ULA_Control_register( u16 address, u8 value )
+{
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void VideoULA::WRITE_Video_ULA_Control_register( u16 address, u8 value )
+{
+	u8 temp= value;
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void VideoULA::WRITE_Video_ULA_Palette_register( u16 address, u8 value )
+{
+	u8 temp= value;
+
 }
 
 //-------------------------------------------------------------------------------------------------
