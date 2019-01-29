@@ -221,7 +221,7 @@ namespace StackInstructions
 		PullPCH(); 
 		cpu.Tick();
 		
-		cpu.IncPC();; 
+		cpu.IncPC();
 		cpu.LastTick();
 	}
 	//-------------------------------------------------------------------------------------------------
@@ -312,11 +312,10 @@ namespace StackInstructions
 	void fn_JSR()
 	{
 		u8 lo = mem.Read(cpu.PC);
-		cpu.IncPC();;
+		cpu.IncPC();
 		cpu.Tick();
 
 		// internal operation?
-		cpu.DecS();
 		cpu.Tick();
 
 		PushPCH();
@@ -369,17 +368,27 @@ namespace AccumulatorOrImpliedAddressing
 		Operation(0);
 		cpu.LastTick();
 	}
+	template <u8(*Operation)(u8)>
+	void fn_Accumulator()
+	{
+		DiscardNextPC();
+		cpu.Tick();
+
+		cpu.A = Operation(cpu.A);
+		cpu.LastTick();
+	}
 	//-------------------------------------------------------------------------------------------------
 	void RegisterInstructions( OpcodeTable& opcodeTable )
 	{
+		opcodeTable.SetFunctionHandler( mode_imp, ASL, fn_Accumulator<op_ASL> );
+		opcodeTable.SetFunctionHandler( mode_imp, ROL, fn_Accumulator<op_ROL> );
+		opcodeTable.SetFunctionHandler( mode_imp, ROR, fn_Accumulator<op_ROR> );
+		opcodeTable.SetFunctionHandler( mode_imp, LSR, fn_Accumulator<op_LSR> );
+
 		opcodeTable.SetFunctionHandler( mode_imp, DEX, fn_Implied<op_DEX> );
 		opcodeTable.SetFunctionHandler( mode_imp, INX, fn_Implied<op_INX> );
 		opcodeTable.SetFunctionHandler( mode_imp, DEY, fn_Implied<op_DEY> );
 		opcodeTable.SetFunctionHandler( mode_imp, INY, fn_Implied<op_INY> );
-		opcodeTable.SetFunctionHandler( mode_imp, ASL, fn_Implied<op_ASL> );
-		opcodeTable.SetFunctionHandler( mode_imp, ROL, fn_Implied<op_ROL> );
-		opcodeTable.SetFunctionHandler( mode_imp, LSR, fn_Implied<op_LSR> );
-		opcodeTable.SetFunctionHandler( mode_imp, ROR, fn_Implied<op_ROR> );
 		opcodeTable.SetFunctionHandler( mode_imp, TAX, fn_Implied<op_TAX> );
 		opcodeTable.SetFunctionHandler( mode_imp, TXA, fn_Implied<op_TXA> );
 		opcodeTable.SetFunctionHandler( mode_imp, TAY, fn_Implied<op_TAY> );

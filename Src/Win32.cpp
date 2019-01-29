@@ -21,6 +21,7 @@ bool g_bDebuggerActive = false;
 BBC_Emulator* g_emulator = nullptr;
 int g_nStep = 0;
 bool g_bRun = false;
+bool g_bDisplayOutput = false;
 
 //-------------------------------------------------------------------------------------------------
 
@@ -70,16 +71,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		{
 			if ( g_bRun )
 			{
-				if ( g_emulator->RunFrame( &debugSpew ) )
+				if ( g_emulator->RunFrame( g_bDisplayOutput ? &debugSpew : nullptr ) )
 				{
-					SetWindowTextA( g_debuggerSpewHWND, debugSpew.c_str() );
+					if ( g_bDisplayOutput )
+						SetWindowTextA( g_debuggerSpewHWND, debugSpew.c_str() );
 				}
 			}
 			else
 			if ( g_nStep > 0 )
 			{
-				g_emulator->ProcessInstructions( g_nStep, &debugSpew );
-				SetWindowTextA( g_debuggerSpewHWND, debugSpew.c_str() );
+				g_emulator->ProcessInstructions( g_nStep, g_bDisplayOutput ? &debugSpew : nullptr );
+				if ( g_bDisplayOutput )
+					SetWindowTextA( g_debuggerSpewHWND,  debugSpew.c_str()  );
 				g_nStep = 0;
 			}
 		}
@@ -262,6 +265,10 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 				else if ( LOWORD( wParam ) == IDC_PAUSE )
 				{
 					g_bRun = false;
+				}
+				else if ( LOWORD( wParam ) == IDC_DISPLAY_OUTPUT )
+				{
+					g_bDisplayOutput = !g_bDisplayOutput;
 				}
 				break;
 		}

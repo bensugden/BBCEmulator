@@ -11,6 +11,8 @@ class CPUEmulator
 public:
 	CPUEmulator( );
 	~CPUEmulator( );
+
+	void		Reset();
 	void		ProcessSingleInstruction();
 	int			DisassemblePC( int pc_in, string& dissassemble, const CommandInfo** ppOutCommand );
 

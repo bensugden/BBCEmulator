@@ -46,12 +46,12 @@ struct MemoryState
 
 	inline void CheckWriteMemoryMapped( u16 nAddress, u8 value )
 	{
+		assert( nAddress != 0x355 );
 		//
 		// Is this write in user memory ? If so, not memory mapped.
 		//
 		if ( nAddress < m_nEndUserMemory )
 			return;
-
 		//
 		// Check if a system registered this address as a memory mapped address
 		//

@@ -16,6 +16,12 @@ void RegisterInstructionHandlers( OpcodeTable& opcodeTable );
 CPUEmulator::CPUEmulator( )
 {
 	RegisterInstructionHandlers( m_opcodeTable );
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void CPUEmulator::Reset()
+{
 	//
 	// Perform Reset
 	//
