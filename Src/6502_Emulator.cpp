@@ -203,7 +203,7 @@ int CPUEmulator::DisassemblePC( int pc_in, string& dissassemble, const CommandIn
 	{
 		dissassemble += "          " + command.m_name + " ";
 	}
-	int iExtraSpaces = 48 - dissassemble.length();
+	int iExtraSpaces = 48 - (int)dissassemble.length();
 	while ( iExtraSpaces-- > 0 )
 		dissassemble +=" ";
 	dissassemble +="  A:" + toHex( (u8)cpu.A );
