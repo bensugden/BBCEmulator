@@ -72,7 +72,9 @@ static inline void PushPCL( )
 static inline void PullP( )
 {
     //  $0100,S  R  pull P from stack, increment S
-	cpu.P = mem.Read( cpu.StackAddress( ) );
+	//cpu.P = mem.Read( cpu.StackAddress( ) );
+	// NOTE: masking out BRK and unused flags to pass tests :(
+	cpu.P = ( cpu.P & 0x30 ) | ( mem.Read( cpu.StackAddress( ) ) & 0xcf );
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -80,6 +82,7 @@ static inline void PullA()
 {
 	//  $0100,S  R  pull A from stack, increment S
 	cpu.A = mem.Read(cpu.StackAddress());
+	cpu.SetZN(cpu.A);
 }
 
 //-------------------------------------------------------------------------------------------------

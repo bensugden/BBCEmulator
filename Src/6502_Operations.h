@@ -4,6 +4,8 @@
 //
 // Operations
 //
+// Flags set as per http://www.obelisk.me.uk/6502/reference.html
+//
 //=================================================================================================
 inline u8& reg_cpuX()
 {
@@ -83,7 +85,7 @@ inline bool op_BMI()
 //-------------------------------------------------------------------------------------------------
 inline bool op_BNE()
 {
-	return cpu.GetFlag(flag_Z)!=0;
+	return cpu.GetFlag(flag_Z)==0;
 }
 //-------------------------------------------------------------------------------------------------
 inline bool op_BPL()
@@ -127,7 +129,7 @@ inline u8 op_CLV(u8 val)
 //-------------------------------------------------------------------------------------------------
 inline u8 op_CMP(u8 val)
 {
-	cpu.SetFlag(flag_C,cpu.A>val);
+	cpu.SetFlag(flag_C,cpu.A>=val);
 	cpu.SetFlag(flag_Z,cpu.A==val);
 	cpu.SetFlag(flag_N,val>cpu.A);
 	return 0;
@@ -135,7 +137,7 @@ inline u8 op_CMP(u8 val)
 //-------------------------------------------------------------------------------------------------
 inline u8 op_CPX(u8 val)
 {
-	cpu.SetFlag(flag_C,cpu.X>val);
+	cpu.SetFlag(flag_C,cpu.X>=val);
 	cpu.SetFlag(flag_Z,cpu.X==val);
 	cpu.SetFlag(flag_N,val>cpu.X);
 	return 0;
@@ -143,7 +145,7 @@ inline u8 op_CPX(u8 val)
 //-------------------------------------------------------------------------------------------------
 inline u8 op_CPY(u8 val)
 {
-	cpu.SetFlag(flag_C,cpu.Y>val);
+	cpu.SetFlag(flag_C,cpu.Y>=val);
 	cpu.SetFlag(flag_Z,cpu.Y==val);
 	cpu.SetFlag(flag_N,val>cpu.Y);
 	return 0;

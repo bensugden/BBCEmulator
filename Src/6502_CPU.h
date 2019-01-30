@@ -4,14 +4,14 @@
 
 enum EFlag
 {
-	flag_N = 1 << 0  ,		// negative flag (1 when result is negative)
-	flag_V = 1 << 1 ,		// overflow flag (1 on signed overflow)
-	flag_unused = 1 << 2 ,	// unused (always 1)
-	flag_B = 1 << 3 ,		// break flag (1 when interupt was caused by a BRK)
-	flag_D = 1 << 4 ,		// decimal flag (1 when CPU in BCD mode)
-	flag_I = 1 << 5 ,		// IRQ flag (when 1"," no interupts will occur (exceptions are IRQs forced by BRK and NMIs))"
-	flag_Z = 1 << 6 ,		// zero flag (1 when all bits of a result are 0)
-	flag_C = 1 << 7 ,		// carry flag (1 on unsigned overflow)
+	flag_C = 1 << 0 ,		// carry flag (1 on unsigned overflow)
+	flag_Z = 1 << 1 ,		// zero flag (1 when all bits of a result are 0)
+	flag_I = 1 << 2 ,		// IRQ flag (when 1"," no interupts will occur (exceptions are IRQs forced by BRK and NMIs))"
+	flag_D = 1 << 3 ,		// decimal flag (1 when CPU in BCD mode)
+	flag_B = 1 << 4 ,		// break flag (1 when interupt was caused by a BRK)
+	flag_unused = 1 << 5 ,	// unused (always 1)
+	flag_V = 1 << 6 ,		// overflow flag (1 on signed overflow)
+	flag_N = 1 << 7  ,		// negative flag (1 when result is negative)
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -38,6 +38,8 @@ struct CPUState
 		PC = c_Reset_Lo;
 		P = 0;
 		SetFlag( flag_I, 1 );
+		SetFlag( flag_unused, 1 );
+		SetFlag( flag_B, 1 ); // temp
 	}
 
 	inline u16 StackAddress( )
