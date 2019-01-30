@@ -6,8 +6,8 @@
 static inline u8 FetchPointer( )
 {
 	//    PC       R  fetch pointer address, increment PC
-	u8 location = mem.Read( cpu.PC );
-	cpu.IncPC();; 
+	u8 location = mem.Read( cpu.reg.PC );
+	cpu.IncPC();
 	return location;
 }
 //-------------------------------------------------------------------------------------------------
@@ -15,8 +15,8 @@ static inline u8 FetchPointer( )
 static inline u8 FetchOperand( )
 {
 	//    PC       R  fetch operand, increment PC
-	u8 operand = mem.Read( cpu.PC );
-	cpu.IncPC();; 
+	u8 operand = mem.Read( cpu.reg.PC );
+	cpu.IncPC();
 	return operand;
 }
 //-------------------------------------------------------------------------------------------------
@@ -39,33 +39,33 @@ static inline u16 Get16BitAddressFromPointer( u8 pointer )
 static inline void DiscardNextPC( )
 {
 	//    PC     R  read next instruction byte (and throw it away),
-	mem.Read(cpu.PC);
+	mem.Read(cpu.reg.PC);
 }
 
 //-------------------------------------------------------------------------------------------------
 static inline void PushP( )
 {
 	//  $0100,S  W  push P on stack, decrement S
-	mem.Write( cpu.StackAddress( ), cpu.P );
+	mem.Write( cpu.StackAddress( ), cpu.reg.P );
 }
 //-------------------------------------------------------------------------------------------------
 static inline void PushA()
 {
 	//  $0100,S  W  push A on stack, decrement S
-	mem.Write(cpu.StackAddress(), cpu.A);
+	mem.Write(cpu.StackAddress(), cpu.reg.A);
 }
 //-------------------------------------------------------------------------------------------------
 static inline void PushPCH( )
 {
 	//  $0100,S  W  push PCH on stack (with B flag set), decrement S
-	mem.WriteHiByte( cpu.StackAddress( ), cpu.PC );
+	mem.WriteHiByte( cpu.StackAddress( ), cpu.reg.PC );
 }
 
 //-------------------------------------------------------------------------------------------------
 static inline void PushPCL( )
 {
 	//  $0100,S  W  push PCL on stack, decrement S
-	mem.WriteLoByte( cpu.StackAddress( ), cpu.PC );
+	mem.WriteLoByte( cpu.StackAddress( ), cpu.reg.PC );
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -74,28 +74,28 @@ static inline void PullP( )
     //  $0100,S  R  pull P from stack, increment S
 	//cpu.P = mem.Read( cpu.StackAddress( ) );
 	// NOTE: masking out BRK and unused flags to pass tests :(
-	cpu.P = ( cpu.P & 0x30 ) | ( mem.Read( cpu.StackAddress( ) ) & 0xcf );
+	cpu.reg.P = ( cpu.reg.P & 0x30 ) | ( mem.Read( cpu.StackAddress( ) ) & 0xcf );
 }
 
 //-------------------------------------------------------------------------------------------------
 static inline void PullA()
 {
 	//  $0100,S  R  pull A from stack, increment S
-	cpu.A = mem.Read(cpu.StackAddress());
-	cpu.SetZN(cpu.A);
+	cpu.reg.A = mem.Read(cpu.StackAddress());
+	cpu.SetZN(cpu.reg.A);
 }
 
 //-------------------------------------------------------------------------------------------------
 static inline void PullPCL( )
 {
     //  $0100,S  R  pull PCL from stack, increment S
-	cpu.PC = mem.ReadLoByte( cpu.StackAddress( ), cpu.PC );
+	cpu.reg.PC = mem.ReadLoByte( cpu.StackAddress( ), cpu.reg.PC );
 }
 //-------------------------------------------------------------------------------------------------
 static inline void PullPCH( )
 {
     //  $0100,S  R  pull PCH from stack
-	cpu.PC = mem.ReadHiByte( cpu.StackAddress( ), cpu.PC );
+	cpu.reg.PC = mem.ReadHiByte( cpu.StackAddress( ), cpu.reg.PC );
 }
 
 
@@ -103,20 +103,20 @@ static inline void PullPCH( )
 static inline void SetPC( u8 lo, u8 hi )
 {
 	//   $FFFF   R  fetch PCH
-	cpu.PC = lo | ( u16( hi ) << 8 );
+	cpu.reg.PC = lo | ( u16( hi ) << 8 );
 }
 
 //-------------------------------------------------------------------------------------------------
 
 void SetFlags( u8 flags )
 {
-	cpu.P |= flags;
+	cpu.reg.P |= flags;
 }
 //-------------------------------------------------------------------------------------------------
 
 void ClearFlags( u8 flags )
 {
-	cpu.P &= ~flags;
+	cpu.reg.P &= ~flags;
 }
 
 
@@ -314,7 +314,7 @@ namespace StackInstructions
    */
 	void fn_JSR()
 	{
-		u8 lo = mem.Read(cpu.PC);
+		u8 lo = mem.Read(cpu.reg.PC);
 		cpu.IncPC();
 		cpu.Tick();
 
@@ -329,7 +329,7 @@ namespace StackInstructions
 		cpu.DecS();
 		cpu.Tick();
 
-		u8 hi = mem.Read(cpu.PC);
+		u8 hi = mem.Read(cpu.reg.PC);
 		SetPC( lo, hi );
 		cpu.LastTick();
 	}
@@ -377,7 +377,7 @@ namespace AccumulatorOrImpliedAddressing
 		DiscardNextPC();
 		cpu.Tick();
 
-		cpu.A = Operation(cpu.A);
+		cpu.reg.A = Operation(cpu.reg.A);
 		cpu.LastTick();
 	}
 	//-------------------------------------------------------------------------------------------------
@@ -424,7 +424,7 @@ namespace ImmediateAddressing
 	template <u8(*Operation)(u8)>
 	void fn_Immediate()
 	{
-		u8 value = mem.Read(cpu.PC);
+		u8 value = mem.Read(cpu.reg.PC);
 		cpu.IncPC();;
 		cpu.Tick();
 
@@ -473,11 +473,11 @@ namespace AbsoluteAddressing
    */
 	void fn_JMP()
 	{
-		u8 lo = mem.Read(cpu.PC);
+		u8 lo = mem.Read(cpu.reg.PC);
 		cpu.IncPC();;
 		cpu.Tick();
 
-		u8 hi = mem.Read(cpu.PC);
+		u8 hi = mem.Read(cpu.reg.PC);
 		SetPC( lo, hi );
 		cpu.LastTick();
 	}
@@ -499,11 +499,11 @@ namespace AbsoluteAddressing
 	void fn_ReadInstructions()
 	{
 		u16 address = 0;
-		address = mem.ReadLoByte(cpu.PC, address);
+		address = mem.ReadLoByte(cpu.reg.PC, address);
 		cpu.IncPC();;
 		cpu.Tick();
 
-		address = mem.ReadHiByte(cpu.PC, address);
+		address = mem.ReadHiByte(cpu.reg.PC, address);
 		cpu.IncPC();;
 		cpu.Tick();
 
@@ -534,11 +534,11 @@ namespace AbsoluteAddressing
 	void fn_ReadModifyWriteInstructions()
 	{
 		u16 address = 0;
-		address = mem.ReadLoByte(cpu.PC, address);
+		address = mem.ReadLoByte(cpu.reg.PC, address);
 		cpu.IncPC();;
 		cpu.Tick();
 
-		address = mem.ReadHiByte(cpu.PC, address);
+		address = mem.ReadHiByte(cpu.reg.PC, address);
 		cpu.IncPC();;
 		cpu.Tick();
 
@@ -569,11 +569,11 @@ namespace AbsoluteAddressing
 	void fn_WriteInstructions()
 	{
 		u16 address = 0;
-		address = mem.ReadLoByte(cpu.PC, address);
+		address = mem.ReadLoByte(cpu.reg.PC, address);
 		cpu.IncPC();;
 		cpu.Tick();
 
-		address = mem.ReadHiByte(cpu.PC, address);
+		address = mem.ReadHiByte(cpu.reg.PC, address);
 		cpu.IncPC();;
 		cpu.Tick();
 
@@ -638,7 +638,7 @@ namespace ZeroPageAddressing
 	void fn_ReadInstructions()
 	{
 		u8 address = 0;
-		address = mem.Read(cpu.PC);
+		address = mem.Read(cpu.reg.PC);
 		cpu.IncPC();;
 		cpu.Tick();
 
@@ -669,7 +669,7 @@ namespace ZeroPageAddressing
 	void fn_ReadModifyWriteInstructions()
 	{
 		u8 address = 0;
-		address = mem.Read(cpu.PC);
+		address = mem.Read(cpu.reg.PC);
 		cpu.IncPC();;
 		cpu.Tick();
 
@@ -699,7 +699,7 @@ namespace ZeroPageAddressing
 	void fn_WriteInstructions()
 	{
 		u8 address = 0;
-		address = mem.Read(cpu.PC);
+		address = mem.Read(cpu.reg.PC);
 		cpu.IncPC();;
 		cpu.Tick();
 
@@ -771,8 +771,8 @@ namespace ZeroPageIndexedAddressing
 	void fn_ReadInstructions( )
 	{
 		u8 address = 0;
-		address = mem.Read( cpu.PC );
-		cpu.IncPC();; 
+		address = mem.Read( cpu.reg.PC );
+		cpu.IncPC();
 		cpu.Tick();
 
 		mem.Read(address);
@@ -810,12 +810,12 @@ namespace ZeroPageIndexedAddressing
 	void fn_ReadModifyWriteInstructions( )
 	{
 		u8 address = 0;
-		address = mem.Read( cpu.PC );
-		cpu.IncPC();; 
+		address = mem.Read( cpu.reg.PC );
+		cpu.IncPC();
 		cpu.Tick();
 
 		mem.Read(address);
-		address += cpu.X;
+		address += cpu.reg.X;
 		cpu.Tick();
 
 		u8 value = mem.Read(address);
@@ -850,8 +850,8 @@ namespace ZeroPageIndexedAddressing
 	void fn_WriteInstructions( )
 	{
 		u8 address = 0;
-		address = mem.Read( cpu.PC );
-		cpu.IncPC();; 
+		address = mem.Read( cpu.reg.PC );
+		cpu.IncPC();
 		cpu.Tick();
 
 		mem.Read(address);
@@ -933,13 +933,13 @@ namespace AbsoluteIndexedAddressing
 	void fn_ReadInstructions( )
 	{
 		u16 address = 0;
-		mem.ReadLoByte( cpu.PC, address );
-		cpu.IncPC();; 
+		mem.ReadLoByte( cpu.reg.PC, address );
+		cpu.IncPC();
 		cpu.Tick();
 
-		mem.ReadHiByte( cpu.PC, address );
+		mem.ReadHiByte( cpu.reg.PC, address );
 		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + Index() ) & 0xff );
-		cpu.IncPC();; 
+		cpu.IncPC();
 		cpu.Tick();
 
 		u8 value = mem.Read( temp_address );
@@ -983,17 +983,17 @@ namespace AbsoluteIndexedAddressing
 					at this time, i.e. it may be smaller by $100.
 		*/
 		u16 address = 0;
-		mem.ReadLoByte( cpu.PC, address );
-		cpu.IncPC();; 
+		mem.ReadLoByte( cpu.reg.PC, address );
+		cpu.IncPC();
 		cpu.Tick();
 
-		mem.ReadHiByte( cpu.PC, address );
-		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + cpu.X ) & 0xff );
-		cpu.IncPC();; 
+		mem.ReadHiByte( cpu.reg.PC, address );
+		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + cpu.reg.X ) & 0xff );
+		cpu.IncPC();
 		cpu.Tick();
 
 		u8 value = mem.Read( temp_address );
-		address = address + cpu.X;
+		address = address + cpu.reg.X;
 		cpu.Tick();
 
 		value = mem.Read( temp_address );
@@ -1037,13 +1037,13 @@ namespace AbsoluteIndexedAddressing
 					*/
 
 		u16 address = 0;
-		mem.ReadLoByte( cpu.PC, address );
-		cpu.IncPC();; 
+		mem.ReadLoByte( cpu.reg.PC, address );
+		cpu.IncPC();
 		cpu.Tick();
 
-		mem.ReadHiByte( cpu.PC, address );
+		mem.ReadHiByte( cpu.reg.PC, address );
 		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + Index() ) & 0xff );
-		cpu.IncPC();; 
+		cpu.IncPC();
 		cpu.Tick();
 
 		u8 value = mem.Read( temp_address );
@@ -1136,18 +1136,18 @@ namespace RelativeAddressing
 	template <bool(*CheckBranch)()>
 	void fn_BranchInstructions( )
 	{
-		u16 oldPC = cpu.PC-1;
+		u16 oldPC = cpu.reg.PC-1;
 		s8 operand = FetchOperand();
 		cpu.Tick();
 		if ( CheckBranch() )
 		{
-			u16 newPC = cpu.PC + operand;
-			cpu.PC = ( cpu.PC & 0xff00 ) | (( operand + cpu.PC )&0xff );
+			u16 newPC = cpu.reg.PC + operand;
+			cpu.reg.PC = ( cpu.reg.PC & 0xff00 ) | (( operand + cpu.reg.PC )&0xff );
 			
-			if ( newPC != cpu.PC )
+			if ( newPC != cpu.reg.PC )
 			{
 				cpu.Tick();
-				cpu.PC = newPC;
+				cpu.reg.PC = newPC;
 			}
 		}
 		cpu.LastTick();
@@ -1199,7 +1199,7 @@ namespace IndexedIndirectAddressing
 		cpu.Tick();
 
 		mem.Read( pointer );
-		pointer += cpu.X;
+		pointer += cpu.reg.X;
 		cpu.Tick();
 
 		u16 address = Get16BitAddressFromPointer( pointer );
@@ -1238,7 +1238,7 @@ namespace IndexedIndirectAddressing
 		cpu.Tick();
 
 		mem.Read( pointer );
-		pointer += cpu.X;
+		pointer += cpu.reg.X;
 		cpu.Tick();
 
 		u16 address = Get16BitAddressFromPointer( pointer );
@@ -1279,7 +1279,7 @@ namespace IndexedIndirectAddressing
 		cpu.Tick();
 
 		mem.Read( pointer );
-		pointer += cpu.X;
+		pointer += cpu.reg.X;
 		cpu.Tick();
 
 		u16 address = Get16BitAddressFromPointer( pointer );
@@ -1355,8 +1355,8 @@ namespace IndirectIndexedAddressing
 
 		u16 address = Get16BitAddressFromPointer( pointer );
 
-		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + cpu.Y ) & 0xff );
-		address += cpu.Y;
+		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + cpu.reg.Y ) & 0xff );
+		address += cpu.reg.Y;
 
 		cpu.Tick();
 
@@ -1406,7 +1406,7 @@ namespace IndirectIndexedAddressing
 		u16 address = Get16BitAddressFromPointer( pointer );
 
 		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + Index() ) & 0xff );
-		address += cpu.Y;
+		address += cpu.reg.Y;
 
 		cpu.Tick();
 
@@ -1456,8 +1456,8 @@ namespace IndirectIndexedAddressing
 		cpu.Tick();
 		u16 address = Get16BitAddressFromPointer( pointer );
 
-		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + cpu.Y ) & 0xff );
-		address += cpu.Y;
+		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + cpu.reg.Y ) & 0xff );
+		address += cpu.reg.Y;
 
 		cpu.Tick();
 
@@ -1514,19 +1514,19 @@ namespace AbsoluteIndirectAddressing
 
 	void fn_JMP()
 	{
-		u8 lo = mem.Read(cpu.PC);
+		u8 lo = mem.Read(cpu.reg.PC);
 		cpu.IncPC();;
 		cpu.Tick();
 
-		u8 hi = mem.Read(cpu.PC);
+		u8 hi = mem.Read(cpu.reg.PC);
 		SetPC( lo, hi );
 		cpu.Tick();
 
-		lo = mem.Read(cpu.PC);
+		lo = mem.Read(cpu.reg.PC);
 		cpu.IncPC();;
 		cpu.Tick();
 
-		hi = mem.Read(cpu.PC);
+		hi = mem.Read(cpu.reg.PC);
 		SetPC( lo, hi );
 		cpu.LastTick();
 	}

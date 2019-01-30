@@ -4,11 +4,6 @@
 
 //-------------------------------------------------------------------------------------------------
 
-CPUState		cpu;
-MemoryState		mem( 32768, 65536 );
-
-//-------------------------------------------------------------------------------------------------
-
 u16 s_screenResolutions[ ][ 2 ] =
 { 
 	{ 640, 256 },  // Mode 0
@@ -23,15 +18,20 @@ u16 s_screenResolutions[ ][ 2 ] =
 
 //-------------------------------------------------------------------------------------------------
 
+MemoryState mem( 32768, 65536 );
+CPU			cpu;
+
+//-------------------------------------------------------------------------------------------------
+
 BBC_Emulator::BBC_Emulator()
 {
 	mem.LoadROM( "roms\\Os12.rom", 0xC000 );
 	mem.LoadROM( "roms\\Basic2.rom", 0x8000 );
 
-	m_cpuEmulator.Reset();
+	cpu.Reset();
 
-	mem.LoadROM("test\\6502_functional_test_configured.bin", 0x0000);
-	cpu.PC = 0x400;
+	mem.LoadROM("test\\6502_functional_test.bin", 0x0000);
+	cpu.reg.PC = 0x400;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -66,10 +66,14 @@ bool BBC_Emulator::RunFrame( std::string* pDisassemblyString, bool bDebug )
 
 
 	int nTotalCyclesPerFrame = cpu.GetCycleCount() + 2000000 / 50;
-
+	bool bBreakpoint = false;
 	while ( cpu.GetCycleCount() < nTotalCyclesPerFrame )
 	{
-		ProcessInstructions( 1, nullptr, true );
+		if ( ProcessInstructions( 1, nullptr, true ) )
+		{
+			bBreakpoint = true;
+			break;
+		}
 	}
 	m_bStarted = true;
 	if ( pDisassemblyString && bDebug )
@@ -77,30 +81,41 @@ bool BBC_Emulator::RunFrame( std::string* pDisassemblyString, bool bDebug )
 		m_history.GetHistory(*pDisassemblyString);
 		OutputDebugStringA( pDisassemblyString->c_str() );
 	}
-	return true;
+	return bBreakpoint;
 }
 
 //-------------------------------------------------------------------------------------------------
 
-void BBC_Emulator::ProcessInstructions( int nCount, std::string* pDisassemblyString, bool bDebug )
+void BBC_Emulator::SetBreakpoint( u16 address )
 {
-	int nTimeToStartDisassembling = ( nCount - m_history.GetHistoryLength() - 1 );
+	cpu.SetBreakpoint( address );
+}
+
+//-------------------------------------------------------------------------------------------------
+
+bool BBC_Emulator::ProcessInstructions( int nCount, std::string* pDisassemblyString, bool bDebug )
+{
+	bool bBreakpoint = false;
 	for ( int i = 0 ; i < nCount; i++ )
 	{
-		if ( bDebug && i > nTimeToStartDisassembling )
+		if ( bDebug  )
 		{
 			string dissassemble;
-			u16 lastpc = cpu.PC;
-			u16 nextpc = m_cpuEmulator.DisassemblePC( cpu.PC, dissassemble, nullptr );
-
-			m_history.AddStringToHistory( dissassemble );
+			u8 bytes[ 3 ];
+			int nNumBytes = cpu.GetBytesAtPC( cpu.reg.PC, bytes );
+			m_history.RecordCPUState( cpu.reg, bytes );
 		}
-		m_cpuEmulator.ProcessSingleInstruction();
+		if ( cpu.ProcessSingleInstruction() )
+		{
+			bBreakpoint = true;
+			break; // breakpoint hit
+		}
 	}
 	if ( bDebug && pDisassemblyString )
 	{
 		m_history.GetHistory(*pDisassemblyString);
 		OutputDebugStringA( pDisassemblyString->c_str() );
 	}
+	return bBreakpoint;
 }
 //-------------------------------------------------------------------------------------------------

@@ -9,41 +9,41 @@
 //=================================================================================================
 inline u8& reg_cpuX()
 {
-	return cpu.X;
+	return cpu.reg.X;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8& reg_cpuY()
 {
-	return cpu.Y;
+	return cpu.reg.Y;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8& reg_cpuA()
 {
-	return cpu.A;
+	return cpu.reg.A;
 }
 //-------------------------------------------------------------------------------------------------
 inline u16& reg_cpuPC()
 {
-	return cpu.PC;
+	return cpu.reg.PC;
 }
 //=================================================================================================
 inline u8 op_ADC(u8 val)
 {
-	u16 newA = cpu.A;
+	u16 newA = cpu.reg.A;
 	newA += val;
 	newA += cpu.GetFlag(flag_C);
 	cpu.SetFlag(flag_C, (newA&0x100)?1:0);
-	cpu.SetFlag(flag_V,(newA^cpu.A)&(val^newA)&0x80); // from http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
-	cpu.A = newA & 0xff;
-	cpu.SetZN(cpu.A);
-	return cpu.A;
+	cpu.SetFlag(flag_V,(newA^cpu.reg.A)&(val^newA)&0x80); // from http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
+	cpu.reg.A = newA & 0xff;
+	cpu.SetZN(cpu.reg.A);
+	return cpu.reg.A;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_AND(u8 val)
 {
-	cpu.A &= val;
-	cpu.SetZN(cpu.A);
-	return cpu.A;
+	cpu.reg.A &= val;
+	cpu.SetZN(cpu.reg.A);
+	return cpu.reg.A;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_ASL(u8 val)
@@ -72,7 +72,7 @@ inline bool op_BEQ()
 //-------------------------------------------------------------------------------------------------
 inline u8 op_BIT(u8 val)
 {
-	cpu.SetFlag(flag_Z,cpu.A&val);
+	cpu.SetFlag(flag_Z,cpu.reg.A&val);
 	cpu.SetFlag(flag_V, (val & 0x40));
 	cpu.SetFlag(flag_N, (val & 0x80));
 	return 0;
@@ -129,25 +129,25 @@ inline u8 op_CLV(u8 val)
 //-------------------------------------------------------------------------------------------------
 inline u8 op_CMP(u8 val)
 {
-	cpu.SetFlag(flag_C,cpu.A>=val);
-	cpu.SetFlag(flag_Z,cpu.A==val);
-	cpu.SetFlag(flag_N,val>cpu.A);
+	cpu.SetFlag(flag_C,cpu.reg.A>=val);
+	cpu.SetFlag(flag_Z,cpu.reg.A==val);
+	cpu.SetFlag(flag_N,val>cpu.reg.A);
 	return 0;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_CPX(u8 val)
 {
-	cpu.SetFlag(flag_C,cpu.X>=val);
-	cpu.SetFlag(flag_Z,cpu.X==val);
-	cpu.SetFlag(flag_N,val>cpu.X);
+	cpu.SetFlag(flag_C,cpu.reg.X>=val);
+	cpu.SetFlag(flag_Z,cpu.reg.X==val);
+	cpu.SetFlag(flag_N,val>cpu.reg.X);
 	return 0;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_CPY(u8 val)
 {
-	cpu.SetFlag(flag_C,cpu.Y>=val);
-	cpu.SetFlag(flag_Z,cpu.Y==val);
-	cpu.SetFlag(flag_N,val>cpu.Y);
+	cpu.SetFlag(flag_C,cpu.reg.Y>=val);
+	cpu.SetFlag(flag_Z,cpu.reg.Y==val);
+	cpu.SetFlag(flag_N,val>cpu.reg.Y);
 	return 0;
 }
 //-------------------------------------------------------------------------------------------------
@@ -160,23 +160,23 @@ inline u8 op_DEC(u8 val)
 //-------------------------------------------------------------------------------------------------
 inline u8 op_DEX(u8 val)
 {
-	cpu.X--;
-	cpu.SetZN(cpu.X);
-	return cpu.X;
+	cpu.reg.X--;
+	cpu.SetZN(cpu.reg.X);
+	return cpu.reg.X;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_DEY(u8 val)
 {
-	cpu.Y--;
-	cpu.SetZN(cpu.Y);
-	return cpu.Y;
+	cpu.reg.Y--;
+	cpu.SetZN(cpu.reg.Y);
+	return cpu.reg.Y;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_EOR(u8 val)
 {
-	cpu.A ^= val;
-	cpu.SetZN(cpu.A);
-	return cpu.A;
+	cpu.reg.A ^= val;
+	cpu.SetZN(cpu.reg.A);
+	return cpu.reg.A;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_INC(u8 val)
@@ -188,35 +188,35 @@ inline u8 op_INC(u8 val)
 //-------------------------------------------------------------------------------------------------
 inline u8 op_INX(u8 val)
 {
-	cpu.X++;
-	cpu.SetZN(cpu.X);
-	return cpu.X;
+	cpu.reg.X++;
+	cpu.SetZN(cpu.reg.X);
+	return cpu.reg.X;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_INY(u8 val)
 {
-	cpu.Y++;
-	cpu.SetZN(cpu.Y);
-	return cpu.Y;
+	cpu.reg.Y++;
+	cpu.SetZN(cpu.reg.Y);
+	return cpu.reg.Y;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_LDA(u8 val)
 {
-	cpu.A = val;
+	cpu.reg.A = val;
 	cpu.SetZN(val);
 	return val;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_LDX(u8 val)
 {
-	cpu.X = val;
+	cpu.reg.X = val;
 	cpu.SetZN(val);
 	return val;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_LDY(u8 val)
 {
-	cpu.Y = val;
+	cpu.reg.Y = val;
 	cpu.SetZN(val);
 	return val;
 }
@@ -236,9 +236,9 @@ inline u8 op_NOP(u8 val)
 //-------------------------------------------------------------------------------------------------
 inline u8 op_ORA(u8 val)
 {
-	cpu.A |= val;
-	cpu.SetZN(cpu.A);
-	return cpu.A;
+	cpu.reg.A |= val;
+	cpu.SetZN(cpu.reg.A);
+	return cpu.reg.A;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_ROL(u8 val)
@@ -286,58 +286,58 @@ inline u8 op_SEI(u8 val)
 //-------------------------------------------------------------------------------------------------
 inline u8 op_STA(u8 val)
 {
-	return cpu.A;
+	return cpu.reg.A;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_STX(u8 val)
 {
-	return cpu.X;
+	return cpu.reg.X;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_STY(u8 val)
 {
-	return cpu.Y;
+	return cpu.reg.Y;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_TAX(u8 val)
 {
-	cpu.X = cpu.A;
-	cpu.SetZN(cpu.X);
-	return cpu.A;
+	cpu.reg.X = cpu.reg.A;
+	cpu.SetZN(cpu.reg.X);
+	return cpu.reg.A;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_TAY(u8 val)
 {
-	cpu.Y = cpu.A;
-	cpu.SetZN(cpu.Y);
-	return cpu.A;
+	cpu.reg.Y = cpu.reg.A;
+	cpu.SetZN(cpu.reg.Y);
+	return cpu.reg.A;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_TSX(u8 val)
 {
-	cpu.X = cpu.S;
-	cpu.SetZN(cpu.X);
-	return cpu.X;
+	cpu.reg.X = cpu.reg.S;
+	cpu.SetZN(cpu.reg.X);
+	return cpu.reg.X;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_TXA(u8 val)
 {
-	cpu.A = cpu.X;
-	cpu.SetZN(cpu.A);
-	return cpu.A;
+	cpu.reg.A = cpu.reg.X;
+	cpu.SetZN(cpu.reg.A);
+	return cpu.reg.A;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_TXS(u8 val)
 {
-	cpu.S = cpu.X;
-	return cpu.S;
+	cpu.reg.S = cpu.reg.X;
+	return cpu.reg.S;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_TYA(u8 val)
 {
-	cpu.A = cpu.Y;
-	cpu.SetZN(cpu.A);
-	return cpu.A;
+	cpu.reg.A = cpu.reg.Y;
+	cpu.SetZN(cpu.reg.A);
+	return cpu.reg.A;
 }
 
 //=================================================================================================

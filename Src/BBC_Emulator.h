@@ -2,8 +2,10 @@
 
 //-------------------------------------------------------------------------------------------------
 #include <time.h>
-//-------------------------------------------------------------------------------------------------
 
+extern CPU cpu;
+
+//-------------------------------------------------------------------------------------------------
 class BBC_Emulator
 {
 public:
@@ -12,10 +14,15 @@ public:
 
 	//-------------------------------------------------------------------------------------------------
 
-	struct InstructionHistory
+	struct CPUStateHistory
 	{
+		struct State
+		{
+			CPU::Registers reg_state;
+			u8 pc_state[3];
+		};
 		static const int c_nHistory = 32;
-		InstructionHistory()
+		CPUStateHistory()
 		{
 			m_nOffset = m_nCount = 0;
 		}
@@ -24,9 +31,12 @@ public:
 			return c_nHistory;
 		}
 
-		void AddStringToHistory( std::string& stringToAdd )
+		void RecordCPUState( CPU::Registers reg_state, u8* pc_state )
 		{
-			m_instuctions[ m_nOffset ] = stringToAdd;
+			m_instructions[ m_nOffset ].pc_state[0] = pc_state[0];
+			m_instructions[ m_nOffset ].pc_state[1] = pc_state[1];
+			m_instructions[ m_nOffset ].pc_state[2] = pc_state[2];
+			m_instructions[ m_nOffset ].reg_state = reg_state;
 			m_nOffset++;
 			m_nCount++;
 			if ( m_nOffset >= c_nHistory )
@@ -35,13 +45,13 @@ public:
 			}
 		}
 		int GetCount( ) const { return m_nCount > c_nHistory ? c_nHistory : m_nCount ; }
-		const std::string& GetString( int nAge ) const // -ve 0 = now, -10 = 10 instruction ago
+		const State& GetStateAtTime( int nAge ) const // -ve 0 = now, -10 = 10 instruction ago
 		{
 			int nOffset = m_nOffset + nAge - 1;
 			if ( nOffset < 0 )
 				nOffset += c_nHistory;
 
-			return m_instuctions[ nOffset ];
+			return m_instructions[ nOffset ];
 		}
 
 		void GetHistory( std::string& DisassemblyHistory ) const
@@ -50,27 +60,32 @@ public:
 			int cCount = GetCount();
 			for ( int i = -cCount + 1; i <= 0; i++ )
 			{
-				DisassemblyHistory+= GetString( i );
+				const State& state = GetStateAtTime( i );
+				string disassemble;
+				cpu.Disassemble( state.reg_state, state.pc_state, disassemble, nullptr );
+				DisassemblyHistory += disassemble;
 			}
 		}
 
-		std::string m_instuctions[ c_nHistory ];
+		State m_instructions[ c_nHistory ];
 		int m_nCount;
 		int m_nOffset;
 	};
 
 	//-------------------------------------------------------------------------------------------------
 
-	bool				RunFrame( std::string* pDisassemblyString, bool bDebug );
-	void				ProcessInstructions( int nCount, std::string* pDisassemblyHistory, bool bDebug );
-private:
-	InstructionHistory	m_history;
-	CPUEmulator			m_cpuEmulator;
-	VideoULA			m_videoULA;
+	bool						RunFrame( std::string* pDisassemblyString, bool bDebug );
+	bool						ProcessInstructions( int nCount, std::string* pDisassemblyHistory, bool bDebug );
+	void						SetBreakpoint( u16 address );
 
-	time_t				m_lastTime;
-	bool				m_bStarted = false;
-	bool				m_bPaused = false;
+private:
+
+	VideoULA					m_videoULA;
+
+	CPUStateHistory				m_history;
+	time_t						m_lastTime;
+	bool						m_bStarted = false;
+	bool						m_bPaused = false;
 };
 
 //-------------------------------------------------------------------------------------------------

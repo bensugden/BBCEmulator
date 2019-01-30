@@ -12,7 +12,7 @@ static VideoULA* s_instance = nullptr;
 
 //-------------------------------------------------------------------------------------------------
 
-VideoULA::VideoULA()
+VideoULA::VideoULA( )
 {
 	assert( s_instance == nullptr );
 	s_instance = this;

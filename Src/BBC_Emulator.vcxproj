@@ -158,7 +158,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="6502_Emulator.h" />
     <ClInclude Include="6502_OpcodeTable.h" />
     <ClInclude Include="6502_Operations.h" />
     <ClInclude Include="BBC_Emulator.h" />
@@ -178,7 +177,7 @@
     <ClInclude Include="Win32.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="6502_Emulator.cpp" />
+    <ClCompile Include="6502_CPU.cpp" />
     <ClCompile Include="6502_Instructions.cpp" />
     <ClCompile Include="6502_OpcodeTable.cpp" />
     <ClCompile Include="6845_CRTC.cpp" />

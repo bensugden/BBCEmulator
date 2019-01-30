@@ -14,51 +14,61 @@ enum EFlag
 	flag_N = 1 << 7  ,		// negative flag (1 when result is negative)
 };
 
+#include "6502_OpcodeTable.h"
+
 //-------------------------------------------------------------------------------------------------
 //
 // Here's the CPU
 //
 //-------------------------------------------------------------------------------------------------
+static const int c_maxBreakpoints = 256;
 
-struct CPUState
+struct CPU
 {
-	u8 A;
-	u8 X;
-	u8 Y;
-	u8 S;
-	u8 P;
-	u16 PC;
-	int nTotalCycles;
-
-	CPUState()
+	struct Registers
 	{
-		nTotalCycles = 0;
-		S = 0xFF;
-		A = X = Y = 0;
-		PC = c_Reset_Lo;
-		P = 0;
-		SetFlag( flag_I, 1 );
-		SetFlag( flag_unused, 1 );
-		SetFlag( flag_B, 1 ); // temp
-	}
+		u8 A;
+		u8 X;
+		u8 Y;
+		u8 S;
+		u8 P;
+		u16 PC;
+
+		//-------------------------------------------------------------------------------------------------
+	
+		inline void SetFlag(EFlag flag, u8 val)
+		{
+			P &= ~flag;
+			if (val!=0)
+				P |= flag;
+		}
+
+		//-------------------------------------------------------------------------------------------------
+
+		inline u8 GetFlag(EFlag flag) const
+		{
+			if (P&flag)
+				return 1;
+			return 0;
+		}
+		//-------------------------------------------------------------------------------------------------
+
+	};
+	Registers reg;
+	int nTotalCycles;
+	int nBreakpoints;
+	u16 pBreakpoints[ c_maxBreakpoints ];
+
+	//-------------------------------------------------------------------------------------------------
+
+	CPU( );
+	~CPU();
+
+	//-------------------------------------------------------------------------------------------------
 
 	inline u16 StackAddress( )
 	{
-		return 0x100 + S;
-	}
-
-	void SetFlag(EFlag flag, u8 val)
-	{
-		P &= ~flag;
-		if (val!=0)
-			P |= flag;
-	}
-
-	u8 GetFlag(EFlag flag)
-	{
-		if (P&flag)
-			return 1;
-		return 0;
+		return 0x100 + reg.S;
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -81,17 +91,31 @@ struct CPUState
 	}
 
 	//-------------------------------------------------------------------------------------------------
+	
+	inline void SetFlag(EFlag flag, u8 val)
+	{
+		reg.SetFlag( flag, val );
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
+	inline u8 GetFlag(EFlag flag) const
+	{
+		return reg.GetFlag( flag );
+	}
+
+	//-------------------------------------------------------------------------------------------------
 
 	inline void SetPCL( u8 val )
 	{
-		PC = (PC&0xff00)|val; 
+		reg.PC = (reg.PC&0xff00)|val; 
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
 	inline void SetPCH( u8 val )
 	{
-		PC = (PC&0xff)|(u16( val ) << 8);
+		reg.PC = (reg.PC&0xff)|(u16( val ) << 8);
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -112,31 +136,31 @@ struct CPUState
 
 	inline void IncPC( )
 	{
-		PC++;
+		reg.PC++;
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
 	inline void DecPC( )
 	{
-		PC--;
+		reg.PC--;
 	}
+
 	//-------------------------------------------------------------------------------------------------
 	
 	inline void IncS( )
 	{
-		S++;
+		reg.S++;
 	}
 
 	//-------------------------------------------------------------------------------------------------
 	
 	inline void DecS( )
 	{
-		S--;
+		reg.S--;
 	}
 	
 	//-------------------------------------------------------------------------------------------------
-
 	//
 	// 6502 Interrupt Vectors
 	//
@@ -146,6 +170,46 @@ struct CPUState
 	static const int c_Reset_Hi		= 0xFFFD;
 	static const int c_IRQ_Lo		= 0xFFFE;
 	static const int c_IRQ_Hi		= 0xFFFF;
+
+	//-------------------------------------------------------------------------------------------------
+
+	void						Reset();
+	bool						ProcessSingleInstruction(); // returns true if breakpoint hit
+	
+	//-------------------------------------------------------------------------------------------------
+	//
+	// Debug Stuff
+	//
+	//-------------------------------------------------------------------------------------------------
+	struct BreakPoint
+	{
+		enum Type
+		{
+			BREAKPOINT,
+			BREAK_ON_READ,
+			BREAD_ON_WRITE
+		};
+		Type type;
+		u16 address;
+	};
+
+	void						Disassemble( const Registers& reg, const u8* bytes, string& dissassemble, const CommandInfo** ppOutCommand );
+	void						SetBreakpoint( u16 address );
+	int							GetBytesAtPC( int pc, u8* bytes ); // grabs 1-3 bytes for next instruction
+
+	static std::string			toHex( u8 i, bool bPrefix = true  );
+	static std::string			toHex( u16 i, bool bPrefix = true  );
+
+	//-------------------------------------------------------------------------------------------------
+private:
+	bool						CheckBreakPoints();
+	void						ClearBreakpoints();
+
+	OpcodeTable					m_opcodeTable;
+
+	//-------------------------------------------------------------------------------------------------
+public:
+
 };
 
 //-------------------------------------------------------------------------------------------------

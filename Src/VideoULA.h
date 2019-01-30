@@ -5,7 +5,7 @@
 class VideoULA
 {
 public:
-	VideoULA();
+	VideoULA( );
 	void RenderScreen();
 
 private:
@@ -25,7 +25,7 @@ private:
 	static void	WRITE_Video_ULA_Control_register( u16 address, u8 value );
 	static void	WRITE_Video_ULA_Palette_register( u16 address, u8 value );
 	
-	ULAState	m_ulaState;
+	ULAState		m_ulaState;
 };
 
 //-------------------------------------------------------------------------------------------------

@@ -21,7 +21,9 @@ bool g_bDebuggerActive = false;
 BBC_Emulator* g_emulator = nullptr;
 int g_nStep = 0;
 bool g_bRun = false;
-bool g_bDisplayOutput = false;
+bool g_bDisplayOutput = true;
+
+std::vector< u16 > g_breakpoints;
 
 //-------------------------------------------------------------------------------------------------
 
@@ -60,6 +62,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	std::string debugSpew;
 
     // Main message loop:
+	bool bLastRun = g_bRun;
     while (GetMessage(&msg, nullptr, 0, 0))
     {
         if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
@@ -73,23 +76,37 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			{
 				if ( g_bDisplayOutput )
 				{
-					g_emulator->ProcessInstructions( 2000000 / 32, &debugSpew, g_bDisplayOutput );
-					SetWindowTextA( g_debuggerSpewHWND, debugSpew.c_str() );
+					if ( g_emulator->ProcessInstructions( 32, &debugSpew, g_bDisplayOutput ) )
+					{
+						g_bRun = false;
+					}
 					SleepEx( 1, false );
+					bLastRun = true;
 				}
 				else
 				{
-					g_emulator->RunFrame( &debugSpew, false );
+					if ( g_emulator->RunFrame( &debugSpew, false ) )
+					{
+						g_bRun = false;
+					}
 					SleepEx( 1, false );
+					bLastRun = true;
 				}
 			}
 			else
 			if ( g_nStep > 0 )
 			{
-				g_emulator->ProcessInstructions( g_nStep, &debugSpew, g_bDisplayOutput );
+				if ( g_emulator->ProcessInstructions( g_nStep, &debugSpew, g_bDisplayOutput ))
+					g_nStep =0;
 				if ( g_bDisplayOutput )
 					SetWindowTextA( g_debuggerSpewHWND,  debugSpew.c_str()  );
 				g_nStep = 0;
+			}
+			else
+			if ( bLastRun )
+			{
+				SetWindowTextA( g_debuggerSpewHWND, debugSpew.c_str() );
+				bLastRun = false;
 			}
 		}
     }
@@ -250,8 +267,12 @@ int HexToInt( char* hex )
 	if ( !hex )
 		return -1;
 
+	bool isHex = false;
 	while ( hex[ 0 ] == '0' || hex[ 0 ] == 'x' || hex[ 0 ] == 'X' || hex[ 0 ] == '$' )
 	{
+		if ( hex[ 0 ] != '0' )
+			isHex = true;
+
 		hex ++;
 		if ( hex[ 0 ]==0  )
 			return -1;
@@ -263,7 +284,7 @@ int HexToInt( char* hex )
 		int nextInt = ValidHexChar( *hex++ );
 		if ( nextInt == -1 )
 			return -1;
-		total *= 16;
+		total *= isHex ? 16 : 10;
 		total += nextInt;
 	}
 	while ( hex[ 0 ]!=0 );
@@ -344,7 +365,18 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 						char addressStr[256];
 						GetDlgItemTextA( hDlg, IDC_BREAKPOINT_ADDRESS, addressStr, 256 );
 						int address = HexToInt( addressStr );
-						//IDC_BREAKPOINTS
+						if ( find( g_breakpoints.begin(), g_breakpoints.end(), address ) == g_breakpoints.end() )
+						{
+							string breakpoints ;
+							g_breakpoints.push_back( address );
+							cpu.SetBreakpoint( address );
+							for ( size_t i = 0; i < g_breakpoints.size(); i++ )
+							{
+								breakpoints.append( CPU::toHex( u16(address), true ) );
+								breakpoints.append("\n");
+							}
+							SetDlgItemTextA( hDlg, IDC_BREAKPOINTS, breakpoints.c_str() );
+						}
 						break;
 					}
 					default:

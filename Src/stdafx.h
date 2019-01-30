@@ -38,7 +38,6 @@ using namespace std;
 
 #include "6502_CPU.h"
 #include "6502_Memory.h"
-#include "6502_Emulator.h"
 #include "6502_OpcodeTable.h"
 #include "SHEILA.h"
 #include "VideoULA.h"
@@ -46,3 +45,5 @@ using namespace std;
 
 #include "BBC_Emulator.h"
 
+extern CPU cpu;
+extern MemoryState mem;

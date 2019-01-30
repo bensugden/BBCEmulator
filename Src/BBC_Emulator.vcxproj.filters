@@ -39,9 +39,6 @@
     <ClInclude Include="myAssert.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="6502_Emulator.h">
-      <Filter>Emulator</Filter>
-    </ClInclude>
     <ClInclude Include="6502_Operations.h">
       <Filter>Emulator</Filter>
     </ClInclude>
@@ -83,9 +80,6 @@
     <ClCompile Include="Win32.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="6502_Emulator.cpp">
-      <Filter>Emulator</Filter>
-    </ClCompile>
     <ClCompile Include="6502_Instructions.cpp">
       <Filter>Emulator</Filter>
     </ClCompile>
@@ -108,6 +102,9 @@
       <Filter>Emulator</Filter>
     </ClCompile>
     <ClCompile Include="VideoULA.cpp">
+      <Filter>Emulator</Filter>
+    </ClCompile>
+    <ClCompile Include="6502_CPU.cpp">
       <Filter>Emulator</Filter>
     </ClCompile>
   </ItemGroup>
