@@ -109,6 +109,7 @@ static inline  std::string toHex( u16 i, bool bPrefix = true  )
 		return "$"+outp;
 	return outp;
 }
+
 //-------------------------------------------------------------------------------------------------
 
 int CPUEmulator::DisassemblePC( int pc_in, string& dissassemble, const CommandInfo** ppOutCommand )
@@ -222,6 +223,8 @@ int CPUEmulator::DisassemblePC( int pc_in, string& dissassemble, const CommandIn
 	{
 		*ppOutCommand = &command;
 	}
+	dissassemble += "\n";
+
 	return pc;
 }
 

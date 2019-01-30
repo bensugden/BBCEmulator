@@ -71,16 +71,22 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		{
 			if ( g_bRun )
 			{
-				if ( g_emulator->RunFrame( g_bDisplayOutput ? &debugSpew : nullptr ) )
+				if ( g_bDisplayOutput )
 				{
-					if ( g_bDisplayOutput )
-						SetWindowTextA( g_debuggerSpewHWND, debugSpew.c_str() );
+					g_emulator->ProcessInstructions( 2000000 / 32, &debugSpew, g_bDisplayOutput );
+					SetWindowTextA( g_debuggerSpewHWND, debugSpew.c_str() );
+					SleepEx( 1, false );
+				}
+				else
+				{
+					g_emulator->RunFrame( &debugSpew, false );
+					SleepEx( 1, false );
 				}
 			}
 			else
 			if ( g_nStep > 0 )
 			{
-				g_emulator->ProcessInstructions( g_nStep, g_bDisplayOutput ? &debugSpew : nullptr );
+				g_emulator->ProcessInstructions( g_nStep, &debugSpew, g_bDisplayOutput );
 				if ( g_bDisplayOutput )
 					SetWindowTextA( g_debuggerSpewHWND,  debugSpew.c_str()  );
 				g_nStep = 0;
@@ -159,7 +165,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	g_debuggerHWND = CreateDialog(hInst, MAKEINTRESOURCE(IDD_DEBUGGER), hWnd, Debugger);
 	g_bDebuggerActive = true;
-	g_debuggerSpewHWND = GetDlgItem( g_debuggerHWND, IDC_DEBUG_SPEW );
+	g_debuggerSpewHWND = GetDlgItem( g_debuggerHWND, IDC_DEBUG_OUTPUT );
 
 	ShowWindow( g_debuggerHWND, nCmdShow&&g_bDebuggerActive );
 	CheckMenuItem( GetMenu(hWnd), IDM_SHOW_DEBUGGER, g_bDebuggerActive ? MF_CHECKED : MF_UNCHECKED );
@@ -228,6 +234,43 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 }
 
 //-------------------------------------------------------------------------------------------------
+int ValidHexChar( char h )
+{
+	if ( h >= '0' && h <='9' )
+		return h - '0';
+	if ( h >= 'a' && h <='f' )
+		return h-'a'+10;
+	if ( h >= 'A' && h <='F' )
+		return h-'A'+10;
+	return -1;
+}
+//-------------------------------------------------------------------------------------------------
+int HexToInt( char* hex )
+{
+	if ( !hex )
+		return -1;
+
+	while ( hex[ 0 ] == '0' || hex[ 0 ] == 'x' || hex[ 0 ] == 'X' || hex[ 0 ] == '$' )
+	{
+		hex ++;
+		if ( hex[ 0 ]==0  )
+			return -1;
+	}
+
+	int total = 0;
+	do
+	{
+		int nextInt = ValidHexChar( *hex++ );
+		if ( nextInt == -1 )
+			return -1;
+		total *= 16;
+		total += nextInt;
+	}
+	while ( hex[ 0 ]!=0 );
+	return total;
+}
+
+//-------------------------------------------------------------------------------------------------
 // Message handler for debugger box.
 INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -246,31 +289,69 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 		switch( HIWORD( wParam ) )
 		{
 			case BN_CLICKED:
-				if ( LOWORD( wParam ) == IDC_STEP )
+			{
+				switch( LOWORD( wParam ) )
 				{
-					g_nStep = 1;
-				}
-				else if ( LOWORD( wParam ) == IDC_STEP_1000 )
-				{
-					g_nStep = 1000;
-				}
-				else if ( LOWORD( wParam ) == IDC_STEP_FRAME )
-				{
-					g_nStep = 2000000/50;
-				}
-				else if ( LOWORD( wParam ) == IDC_PLAY )
-				{
-					g_bRun = true;
-				}
-				else if ( LOWORD( wParam ) == IDC_PAUSE )
-				{
-					g_bRun = false;
-				}
-				else if ( LOWORD( wParam ) == IDC_DISPLAY_OUTPUT )
-				{
-					g_bDisplayOutput = !g_bDisplayOutput;
+					case IDC_STEP :
+					{
+						g_nStep = 1;
+						break;
+					}
+					case IDC_STEP_1000:
+					{
+						g_nStep = 1000;
+						break;
+					}
+					case IDC_STEP_FRAME:
+					{
+						g_nStep = 2000000/50;
+						break;
+					}
+					case IDC_PLAY:
+					{
+						g_bRun = true;
+						break;
+					}
+					case IDC_PAUSE:
+					{
+						g_bRun = false;
+						break;
+					}
+					case IDC_DISPLAY_OUTPUT:
+					{
+						g_bDisplayOutput = !g_bDisplayOutput;
+						break;
+					}
+					case IDC_BREAK_ON_READ:
+					{
+						// break on mem write
+						char addressStr[256];
+						GetDlgItemTextA( hDlg, IDC_BREAK_ON_READ_ADDRESS, addressStr, 256 );
+						int address = HexToInt( addressStr );
+						break;
+					}
+					case IDC_BREAK_ON_WRITE:
+					{
+						// break on mem write
+						char addressStr[256];
+						GetDlgItemTextA( hDlg, IDC_BREAK_ON_WRITE_ADDRESS, addressStr, 256 );
+						int address = HexToInt( addressStr );
+						break;
+					}
+					case IDC_SET_BREAKPOINT:
+					{
+						// breakpoint
+						char addressStr[256];
+						GetDlgItemTextA( hDlg, IDC_BREAKPOINT_ADDRESS, addressStr, 256 );
+						int address = HexToInt( addressStr );
+						//IDC_BREAKPOINTS
+						break;
+					}
+					default:
+						break;
 				}
 				break;
+			}
 		}
         break;
     }

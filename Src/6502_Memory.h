@@ -39,7 +39,6 @@ struct MemoryState
 
 	inline u8 Read( int nAddress ) const
 	{
-		assert(nAddress != 0x18AE);
 		return m_pMemory[ nAddress ];
 	}
 

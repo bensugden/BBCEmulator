@@ -1136,9 +1136,9 @@ namespace RelativeAddressing
 	template <bool(*CheckBranch)()>
 	void fn_BranchInstructions( )
 	{
+		u16 oldPC = cpu.PC-1;
 		s8 operand = FetchOperand();
 		cpu.Tick();
-
 		if ( CheckBranch() )
 		{
 			u16 newPC = cpu.PC + operand;

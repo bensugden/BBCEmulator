@@ -43,7 +43,7 @@ BBC_Emulator::~BBC_Emulator( )
 
 //-------------------------------------------------------------------------------------------------
 
-bool BBC_Emulator::RunFrame( std::string* pDebugOutput )
+bool BBC_Emulator::RunFrame( std::string* pDisassemblyString, bool bDebug )
 {
 	if ( m_bPaused )
 	{
@@ -69,33 +69,38 @@ bool BBC_Emulator::RunFrame( std::string* pDebugOutput )
 
 	while ( cpu.GetCycleCount() < nTotalCyclesPerFrame )
 	{
-		ProcessInstructions( 1, pDebugOutput );
+		ProcessInstructions( 1, nullptr, true );
 	}
 	m_bStarted = true;
-	
+	if ( pDisassemblyString && bDebug )
+	{
+		m_history.GetHistory(*pDisassemblyString);
+		OutputDebugStringA( pDisassemblyString->c_str() );
+	}
 	return true;
 }
 
 //-------------------------------------------------------------------------------------------------
 
-void BBC_Emulator::ProcessInstructions( int nCount, std::string* pDebugOutput )
+void BBC_Emulator::ProcessInstructions( int nCount, std::string* pDisassemblyString, bool bDebug )
 {
+	int nTimeToStartDisassembling = ( nCount - m_history.GetHistoryLength() - 1 );
 	for ( int i = 0 ; i < nCount; i++ )
 	{
-		if ( pDebugOutput )
+		if ( bDebug && i > nTimeToStartDisassembling )
 		{
 			string dissassemble;
 			u16 lastpc = cpu.PC;
 			u16 nextpc = m_cpuEmulator.DisassemblePC( cpu.PC, dissassemble, nullptr );
 
-			(*pDebugOutput) += dissassemble.c_str();
-			(*pDebugOutput) += "\n";
-
-			OutputDebugStringA( dissassemble.c_str() );
-			OutputDebugStringA( "\n" );
-
+			m_history.AddStringToHistory( dissassemble );
 		}
 		m_cpuEmulator.ProcessSingleInstruction();
+	}
+	if ( bDebug && pDisassemblyString )
+	{
+		m_history.GetHistory(*pDisassemblyString);
+		OutputDebugStringA( pDisassemblyString->c_str() );
 	}
 }
 //-------------------------------------------------------------------------------------------------
