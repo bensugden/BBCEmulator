@@ -28,9 +28,9 @@ BBC_Emulator::BBC_Emulator()
 	mem.LoadROM( "roms\\Os12.rom", 0xC000 );
 	mem.LoadROM( "roms\\Basic2.rom", 0x8000 );
 
-	mem.LoadROM("roms\\6502_test.bin", 0x0000);
-
 	m_cpuEmulator.Reset();
+
+	mem.LoadROM("test\\6502_functional_test_configured.bin", 0x0000);
 	cpu.PC = 0x400;
 }
 

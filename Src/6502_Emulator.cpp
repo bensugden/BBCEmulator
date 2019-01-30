@@ -156,7 +156,7 @@ int CPUEmulator::DisassemblePC( int pc_in, string& dissassemble, const CommandIn
 			break;
 		case mode_izy:
 			//"izy = ($00),Y"
-			dissassemble += "("+toHex( address )+",Y)";
+			dissassemble += "("+toHex( address )+"),Y";
 			break;
 		case mode_rel:
 			//"rel = $0000 (PC-relative)"
@@ -210,14 +210,14 @@ int CPUEmulator::DisassemblePC( int pc_in, string& dissassemble, const CommandIn
 	dissassemble +="  X:" + toHex( (u8)cpu.X );
 	dissassemble +="  Y:" + toHex( (u8)cpu.Y );
 	dissassemble +="  S:" + toHex( (u8)cpu.S );
-	dissassemble +="  N:"; dissassemble += (cpu.GetFlag(flag_N)?"1":"0");
-	dissassemble += " V:"; dissassemble += (cpu.GetFlag(flag_V)?"1":"0");
-	dissassemble += " B:"; dissassemble += (cpu.GetFlag(flag_B)?"1":"0");
-	dissassemble += " D:"; dissassemble += (cpu.GetFlag(flag_D)?"1":"0");
-	dissassemble += " I:"; dissassemble += (cpu.GetFlag(flag_I)?"1":"0");
-	dissassemble += " Z:"; dissassemble += (cpu.GetFlag(flag_Z)?"1":"0");
 	dissassemble += " C:"; dissassemble += (cpu.GetFlag(flag_C)?"1":"0");
-
+	dissassemble += " Z:"; dissassemble += (cpu.GetFlag(flag_Z)?"1":"0");
+	dissassemble += " I:"; dissassemble += (cpu.GetFlag(flag_I)?"1":"0");
+	dissassemble += " D:"; dissassemble += (cpu.GetFlag(flag_D)?"1":"0");
+	dissassemble += " *:"; dissassemble += (cpu.GetFlag(flag_unused)?"1":"0");
+	dissassemble += " B:"; dissassemble += (cpu.GetFlag(flag_B)?"1":"0");
+	dissassemble += " V:"; dissassemble += (cpu.GetFlag(flag_V)?"1":"0");
+	dissassemble +="  N:"; dissassemble += (cpu.GetFlag(flag_N)?"1":"0");
 	if ( ppOutCommand != nullptr )
 	{
 		*ppOutCommand = &command;
