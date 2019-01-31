@@ -14,17 +14,10 @@ void RegisterInstructionHandlers( OpcodeTable& opcodeTable );
 
 CPU::CPU( )
 {
-	nTotalCycles = 0;
-	reg.S = 0xFF;
-	reg.A = reg.X = reg.Y = 0;
-	reg.PC = c_Reset_Lo;
-	reg.P = 0;
-	SetFlag( flag_I, 1 );
-	SetFlag( flag_unused, 1 );
-	SetFlag( flag_B, 1 ); // temp
 	nBreakpoints = 0;
 	m_bExternalBreakpoint = false;
 	RegisterInstructionHandlers( m_opcodeTable );
+	Reset();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -34,6 +27,15 @@ void CPU::Reset()
 	//
 	// Perform Reset
 	//
+	nTotalCycles = 0;
+	reg.S = 0xFF;
+	reg.A = reg.X = reg.Y = 0;
+	reg.PC = c_Reset_Lo;
+	reg.P = 0;
+	SetFlag( flag_I, 1 );
+	SetFlag( flag_unused, 1 );
+	SetFlag( flag_B, 1 ); // temp
+
 	mem.ReadLoByte( c_Reset_Lo, reg.PC );
 	mem.ReadHiByte( c_Reset_Hi, reg.PC );
 }

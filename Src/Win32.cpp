@@ -16,14 +16,21 @@ HINSTANCE hInst;                                // current instance
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 HWND g_debuggerHWND = nullptr;
-HWND g_debuggerSpewHWND = nullptr;
+HWND g_debuggerDisassemblyHWND = nullptr;
+HWND g_debuggerP_HWND  = nullptr;
+HWND g_debuggerPC_HWND = nullptr;
+HWND g_debuggerS_HWND  = nullptr;
+
 bool g_bDebuggerActive = false;
 BBC_Emulator* g_emulator = nullptr;
+
+
 int g_nStep = 0;
 bool g_bRun = false;
 bool g_bDisplayOutput = true;
 bool g_bBreakOnWriteActive = false;
 bool g_bBreakOnReadActive = false;
+std::string g_disassembly;
 
 std::vector< u16 > g_breakpoints;
 
@@ -35,6 +42,17 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    Debugger(HWND, UINT, WPARAM, LPARAM);
+
+//-------------------------------------------------------------------------------------------------
+
+void UpdateStatusWindows()
+{
+	SetWindowTextA( g_debuggerDisassemblyHWND, g_disassembly.c_str() );
+	SetWindowTextA( g_debuggerS_HWND, cpu.toHex( cpu.reg.S ).c_str() );
+	SetWindowTextA( g_debuggerP_HWND, cpu.toHex( cpu.reg.P ).c_str() );
+	SetWindowTextA( g_debuggerPC_HWND, cpu.toHex( cpu.reg.PC ).c_str() );
+}
+
 //-------------------------------------------------------------------------------------------------
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -61,7 +79,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     MSG msg;
 
 	static const int nNumSpewLines = 32;
-	std::string debugSpew;
 
     // Main message loop:
 	bool bLastRun = g_bRun;
@@ -78,7 +95,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			{
 				if ( g_bDisplayOutput )
 				{
-					if ( g_emulator->ProcessInstructions( 2000000 / 50, &debugSpew, g_bDisplayOutput ) )
+					if ( g_emulator->ProcessInstructions( 2000000 / 50, &g_disassembly, g_bDisplayOutput ) )
 					{
 						g_bRun = false;
 					}
@@ -87,7 +104,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				}
 				else
 				{
-					if ( g_emulator->RunFrame( &debugSpew, false ) )
+					if ( g_emulator->RunFrame( &g_disassembly, false ) )
 					{
 						g_bRun = false;
 					}
@@ -98,16 +115,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			else
 			if ( g_nStep > 0 )
 			{
-				if ( g_emulator->ProcessInstructions( g_nStep, &debugSpew, g_bDisplayOutput ))
+				if ( g_emulator->ProcessInstructions( g_nStep, &g_disassembly, g_bDisplayOutput ))
 					g_nStep =0;
 				if ( g_bDisplayOutput )
-					SetWindowTextA( g_debuggerSpewHWND,  debugSpew.c_str()  );
+					UpdateStatusWindows();
 				g_nStep = 0;
 			}
 			else
 			if ( bLastRun )
 			{
-				SetWindowTextA( g_debuggerSpewHWND, debugSpew.c_str() );
+				UpdateStatusWindows();
 				bLastRun = false;
 			}
 		}
@@ -184,7 +201,10 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	g_debuggerHWND = CreateDialog(hInst, MAKEINTRESOURCE(IDD_DEBUGGER), hWnd, Debugger);
 	g_bDebuggerActive = true;
-	g_debuggerSpewHWND = GetDlgItem( g_debuggerHWND, IDC_DEBUG_OUTPUT );
+	g_debuggerDisassemblyHWND = GetDlgItem( g_debuggerHWND, IDC_DEBUG_OUTPUT );
+	g_debuggerP_HWND = GetDlgItem( g_debuggerHWND, IDC_SET_P );
+	g_debuggerPC_HWND = GetDlgItem( g_debuggerHWND, IDC_SET_PC );
+	g_debuggerS_HWND = GetDlgItem( g_debuggerHWND, IDC_SET_S );
 
 	ShowWindow( g_debuggerHWND, nCmdShow&&g_bDebuggerActive );
 	CheckMenuItem( GetMenu(hWnd), IDM_SHOW_DEBUGGER, g_bDebuggerActive ? MF_CHECKED : MF_UNCHECKED );
@@ -415,6 +435,12 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 						g_breakpoints.clear();
 						SetDlgItemTextA( hDlg, IDC_BREAKPOINTS, "" );
 						cpu.ClearBreakpoints();
+					}
+
+					case IDC_RESET:
+					{
+						cpu.Reset();
+						break;
 					}
 					default:
 						break;
