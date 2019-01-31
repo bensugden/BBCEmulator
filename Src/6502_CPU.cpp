@@ -23,7 +23,7 @@ CPU::CPU( )
 	SetFlag( flag_unused, 1 );
 	SetFlag( flag_B, 1 ); // temp
 	nBreakpoints = 0;
-
+	m_bExternalBreakpoint = false;
 	RegisterInstructionHandlers( m_opcodeTable );
 }
 
@@ -70,6 +70,8 @@ bool CPU::ProcessSingleInstruction()
 	//
 	command.m_functionHandler( );
 
+	bBreak |= CheckExternalBreakpoints();
+
 	return bBreak;
 }
 
@@ -92,6 +94,12 @@ bool CPU::CheckBreakPoints()
 		}
 	}
 	return false;
+}
+//-------------------------------------------------------------------------------------------------
+
+bool CPU::CheckExternalBreakpoints()
+{
+	return m_bExternalBreakpoint;
 }
 
 //-------------------------------------------------------------------------------------------------

@@ -22,6 +22,8 @@ BBC_Emulator* g_emulator = nullptr;
 int g_nStep = 0;
 bool g_bRun = false;
 bool g_bDisplayOutput = true;
+bool g_bBreakOnWriteActive = false;
+bool g_bBreakOnReadActive = false;
 
 std::vector< u16 > g_breakpoints;
 
@@ -76,7 +78,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			{
 				if ( g_bDisplayOutput )
 				{
-					if ( g_emulator->ProcessInstructions( 32, &debugSpew, g_bDisplayOutput ) )
+					if ( g_emulator->ProcessInstructions( 2000000 / 50, &debugSpew, g_bDisplayOutput ) )
 					{
 						g_bRun = false;
 					}
@@ -292,6 +294,34 @@ int HexToInt( char* hex )
 }
 
 //-------------------------------------------------------------------------------------------------
+
+void UpdateBreakOnWriteAddress( HWND hDlg )
+{
+	char addressStr[ 256 ];
+	GetDlgItemTextA( hDlg, IDC_BREAK_ON_WRITE_ADDRESS, addressStr, 256 );
+	int address = HexToInt( addressStr );
+
+	if ( g_bBreakOnWriteActive )
+		mem.SetWriteBreakpoint( address );
+	else
+		mem.ClearWriteBreakpoint( );
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void UpdateBreakOnReadAddress( HWND hDlg )
+{
+	char addressStr[ 256 ];
+	GetDlgItemTextA( hDlg, IDC_BREAK_ON_READ_ADDRESS, addressStr, 256 );
+	int address = HexToInt( addressStr );
+
+	if ( g_bBreakOnReadActive )
+		mem.SetReadBreakpoint( address );
+	else
+		mem.ClearReadBreakpoint( );
+}
+
+//-------------------------------------------------------------------------------------------------
 // Message handler for debugger box.
 INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -345,20 +375,21 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 					}
 					case IDC_BREAK_ON_READ:
 					{
-						// break on mem write
-						char addressStr[256];
-						GetDlgItemTextA( hDlg, IDC_BREAK_ON_READ_ADDRESS, addressStr, 256 );
-						int address = HexToInt( addressStr );
+						// break on mem read
+						g_bBreakOnReadActive = !g_bBreakOnReadActive;
+						UpdateBreakOnReadAddress( hDlg );
+
 						break;
 					}
-					case IDC_BREAK_ON_WRITE:
+						case IDC_BREAK_ON_WRITE:
 					{
 						// break on mem write
-						char addressStr[256];
-						GetDlgItemTextA( hDlg, IDC_BREAK_ON_WRITE_ADDRESS, addressStr, 256 );
-						int address = HexToInt( addressStr );
+						g_bBreakOnWriteActive = !g_bBreakOnWriteActive;
+
+						UpdateBreakOnWriteAddress( hDlg );
 						break;
 					}
+
 					case IDC_SET_BREAKPOINT:
 					{
 						// breakpoint
@@ -379,8 +410,35 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 						}
 						break;
 					}
+					case IDC_CLEAR_BREAKPOINTS:
+					{
+						g_breakpoints.clear();
+						SetDlgItemTextA( hDlg, IDC_BREAKPOINTS, "" );
+						cpu.ClearBreakpoints();
+					}
 					default:
 						break;
+				}
+				break;
+			}
+			case EN_UPDATE:
+			{
+				switch( LOWORD( wParam ) )
+				{
+					case IDC_BREAK_ON_WRITE_ADDRESS:
+					{
+						// break on mem write
+						UpdateBreakOnWriteAddress( hDlg );
+						break;
+					}
+					case IDC_BREAK_ON_READ_ADDRESS:
+					{
+						// break on mem read
+						g_bBreakOnReadActive = !g_bBreakOnReadActive;
+						UpdateBreakOnReadAddress( hDlg );
+
+						break;
+					}
 				}
 				break;
 			}

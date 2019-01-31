@@ -5,12 +5,15 @@
 // Here's our RAM
 //
 //-------------------------------------------------------------------------------------------------
+extern CPU cpu;
 
 struct MemoryState
 {
 	MemoryState( u16 nUserMemory = 32768, u32 nAllocation = 65536 )
 		: m_nEndUserMemory( nUserMemory )
 		, m_maxAllocatedMemory( nAllocation )
+		, m_bReadBreakpointSet( false )
+		, m_bWriteBreakpointSet( false )
 	{
 		m_pMemory = new u8[ nAllocation ];
 		memset( m_pMemory, 0, nAllocation );
@@ -34,19 +37,11 @@ struct MemoryState
 		m_pMemoryMappedCallback[ ++m_nNumMemMappedAddresses ] = listenerFunction; // 0 will indicate no listener registered for this memory location
 		m_pMemoryMapID[ address - m_nEndUserMemory ] = m_nNumMemMappedAddresses;
 	}
-
-	//-------------------------------------------------------------------------------------------------
-
-	inline u8 Read( int nAddress ) const
-	{
-		return m_pMemory[ nAddress ];
-	}
-
+	
 	//-------------------------------------------------------------------------------------------------
 
 	inline void CheckWriteMemoryMapped( u16 nAddress, u8 value )
 	{
-		assert( nAddress != 0x355 );
 		//
 		// Is this write in user memory ? If so, not memory mapped.
 		//
@@ -67,10 +62,39 @@ struct MemoryState
 
 	//-------------------------------------------------------------------------------------------------
 
+	inline void CheckReadBreakpoint( u16 address ) const
+	{
+		if ( !m_bReadBreakpointSet )
+			return;
+		if ( m_nReadBreakpoint == address )
+			cpu.ThrowBreakpoint();
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
+	inline void CheckWriteBreakpoint( u16 address ) const
+	{
+		if ( !m_bWriteBreakpointSet )
+			return;
+		if ( m_nWriteBreakpoint == address )
+			cpu.ThrowBreakpoint();
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
+	inline u8 Read( int nAddress ) const
+	{
+		CheckReadBreakpoint( nAddress );
+		return m_pMemory[ nAddress ];
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
 	inline void Write( u16 nAddress, u8 value )
 	{
 		m_pMemory[ nAddress ] = value;
 		CheckWriteMemoryMapped( nAddress, value );
+		CheckWriteBreakpoint( nAddress );
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -79,6 +103,7 @@ struct MemoryState
 	{
 		m_pMemory[ nAddress ] = ( value >> 8) & 0xff;
 		CheckWriteMemoryMapped( nAddress, m_pMemory[ nAddress ] );
+		CheckWriteBreakpoint( nAddress );
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -87,6 +112,7 @@ struct MemoryState
 	{
 		m_pMemory[ nAddress ] = value & 0xff;
 		CheckWriteMemoryMapped( nAddress, m_pMemory[ nAddress ] );
+		CheckWriteBreakpoint( nAddress );
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -96,6 +122,7 @@ struct MemoryState
 		u8 readValue = Read( nAddress );
 		valueToModify &= (0xffff00ff); 
 		valueToModify |= ( readValue & 0xff ) << 8;
+		CheckReadBreakpoint( nAddress );
 		return valueToModify;
 	}
 
@@ -106,6 +133,7 @@ struct MemoryState
 		u8 readValue = Read( nAddress );
 		valueToModify &= (0xffffff00); 
 		valueToModify |= readValue & 0xff;
+		CheckReadBreakpoint( nAddress );
 		return valueToModify;
 	}
 
@@ -119,12 +147,44 @@ struct MemoryState
 
 	//-------------------------------------------------------------------------------------------------
 
+	void SetReadBreakpoint( u16 address )
+	{
+		m_bReadBreakpointSet = true;
+		m_nReadBreakpoint = address;
+	}
+	//-------------------------------------------------------------------------------------------------
+
+	void SetWriteBreakpoint( u16 address )
+	{
+		m_bWriteBreakpointSet = true;
+		m_nWriteBreakpoint = address;
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
+	void ClearReadBreakpoint()
+	{
+		m_bReadBreakpointSet = false;
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
+	void ClearWriteBreakpoint()
+	{
+		m_bWriteBreakpointSet = false;
+	}
+	//-------------------------------------------------------------------------------------------------
+
 	u8*			m_pMemory;
 	u16			m_nEndUserMemory;		// everything up to this point is guaranteed to NOT be memory mapped
 	u32			m_maxAllocatedMemory; 
 	u8*			m_pMemoryMapID;
 	void		(*m_pMemoryMappedCallback[256])( u16 address, u8 value );
 	u8			m_nNumMemMappedAddresses;
+	bool		m_bReadBreakpointSet;
+	bool		m_bWriteBreakpointSet;
+	u16			m_nReadBreakpoint;
+	u16			m_nWriteBreakpoint;
 };
 
 //-------------------------------------------------------------------------------------------------
