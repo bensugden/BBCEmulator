@@ -36,9 +36,6 @@
     <ClInclude Include="File.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="myAssert.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="6502_Operations.h">
       <Filter>Emulator</Filter>
     </ClInclude>
@@ -68,6 +65,12 @@
     </ClInclude>
     <ClInclude Include="6502_Memory.h">
       <Filter>Emulator</Filter>
+    </ClInclude>
+    <ClInclude Include="MiscUtils.h">
+      <Filter>Emulator</Filter>
+    </ClInclude>
+    <ClInclude Include="MyAssert.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -105,6 +108,12 @@
       <Filter>Emulator</Filter>
     </ClCompile>
     <ClCompile Include="6502_CPU.cpp">
+      <Filter>Emulator</Filter>
+    </ClCompile>
+    <ClCompile Include="6502_Memory.cpp">
+      <Filter>Emulator</Filter>
+    </ClCompile>
+    <ClCompile Include="MiscUtils.cpp">
       <Filter>Emulator</Filter>
     </ClCompile>
   </ItemGroup>

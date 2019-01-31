@@ -35,6 +35,9 @@ using namespace std;
 
 #include "File.h"
 #include "myAssert.h"
+#include "MiscUtils.h"
+
+using namespace Utils;
 
 #include "6502_CPU.h"
 #include "6502_Memory.h"

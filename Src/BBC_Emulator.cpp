@@ -32,6 +32,8 @@ BBC_Emulator::BBC_Emulator()
 
 	mem.LoadROM("test\\6502_functional_test.bin", 0x0000);
 	cpu.reg.PC = 0x400;
+
+	DebugDecodeNextInstruction();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -93,22 +95,34 @@ void BBC_Emulator::SetBreakpoint( u16 address )
 
 //-------------------------------------------------------------------------------------------------
 
-bool BBC_Emulator::ProcessInstructions( int nCount, std::string* pDisassemblyString, bool bDebug )
+void BBC_Emulator::DebugDecodeNextInstruction()
+{
+	string dissassemble;
+	u8 bytes[ 3 ];
+	int nNumBytes = cpu.GetBytesAtPC( cpu.reg.PC, bytes );
+	m_history.RecordCPUState( cpu.reg, bytes );
+}
+
+//-------------------------------------------------------------------------------------------------
+
+bool BBC_Emulator::ProcessInstructions( int nCount, std::string* pDisassemblyString, bool bDebug, bool bForceDebugPC )
 {
 	bool bBreakpoint = false;
-	for ( int i = 0 ; i < nCount; i++ )
+	
+	if ( bDebug && ( m_history.IsEmpty()|| bForceDebugPC ) )
 	{
-		if ( bDebug  )
-		{
-			string dissassemble;
-			u8 bytes[ 3 ];
-			int nNumBytes = cpu.GetBytesAtPC( cpu.reg.PC, bytes );
-			m_history.RecordCPUState( cpu.reg, bytes );
-		}
+		DebugDecodeNextInstruction();
+	}
+
+	for ( int i = 0 ; ( i < nCount ) && ( !bBreakpoint ) ; i++ )
+	{
 		if ( cpu.ProcessSingleInstruction() )
 		{
 			bBreakpoint = true;
-			break; // breakpoint hit
+		}
+		if ( bDebug  )
+		{
+			DebugDecodeNextInstruction();
 		}
 	}
 	if ( bDebug && pDisassemblyString )

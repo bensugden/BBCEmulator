@@ -15,11 +15,17 @@
 HINSTANCE hInst;                                // current instance
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
+
+HWND g_mainHWND = nullptr;
 HWND g_debuggerHWND = nullptr;
 HWND g_debuggerDisassemblyHWND = nullptr;
 HWND g_debuggerP_HWND  = nullptr;
 HWND g_debuggerPC_HWND = nullptr;
 HWND g_debuggerS_HWND  = nullptr;
+HWND g_debuggerA_HWND  = nullptr;
+HWND g_debuggerX_HWND  = nullptr;
+HWND g_debuggerY_HWND  = nullptr;
+HWND g_debuggerMemory_HWND = nullptr;
 
 bool g_bDebuggerActive = false;
 BBC_Emulator* g_emulator = nullptr;
@@ -30,7 +36,11 @@ bool g_bRun = false;
 bool g_bDisplayOutput = true;
 bool g_bBreakOnWriteActive = false;
 bool g_bBreakOnReadActive = false;
+
+u16 g_nMemoryAddressToDebug = 0;
+
 std::string g_disassembly;
+std::string g_memoryDebug;
 
 std::vector< u16 > g_breakpoints;
 
@@ -45,12 +55,26 @@ INT_PTR CALLBACK    Debugger(HWND, UINT, WPARAM, LPARAM);
 
 //-------------------------------------------------------------------------------------------------
 
-void UpdateStatusWindows()
+void UpdateDisassemblyWindow( bool bForceUpdateHistory )
 {
+	g_emulator->ProcessInstructions( 0, &g_disassembly, g_bDisplayOutput, bForceUpdateHistory );
 	SetWindowTextA( g_debuggerDisassemblyHWND, g_disassembly.c_str() );
-	SetWindowTextA( g_debuggerS_HWND, cpu.toHex( cpu.reg.S ).c_str() );
-	SetWindowTextA( g_debuggerP_HWND, cpu.toHex( cpu.reg.P ).c_str() );
-	SetWindowTextA( g_debuggerPC_HWND, cpu.toHex( cpu.reg.PC ).c_str() );
+}
+//-------------------------------------------------------------------------------------------------
+
+void UpdateStatusWindows( bool bForceUpdateHistory = false )
+{
+	UpdateDisassemblyWindow( bForceUpdateHistory );
+	SetWindowTextA( g_debuggerS_HWND, Utils::toHex( cpu.reg.S ).c_str() );
+	SetWindowTextA( g_debuggerP_HWND, Utils::toHex( cpu.reg.P ).c_str() );
+	SetWindowTextA( g_debuggerPC_HWND, Utils::toHex( cpu.reg.PC ).c_str() );
+	SetWindowTextA( g_debuggerA_HWND, Utils::toHex( cpu.reg.A ).c_str() );
+	SetWindowTextA( g_debuggerX_HWND, Utils::toHex( cpu.reg.X ).c_str() );
+	SetWindowTextA( g_debuggerY_HWND, Utils::toHex( cpu.reg.Y ).c_str() );
+
+	mem.DumpMemoryToString( g_nMemoryAddressToDebug, 16, 16, g_memoryDebug );
+	SetWindowTextA( g_debuggerMemory_HWND, g_memoryDebug.c_str() );
+
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -84,7 +108,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	bool bLastRun = g_bRun;
     while (GetMessage(&msg, nullptr, 0, 0))
     {
-        if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
+        if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg) )
         {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
@@ -199,17 +223,25 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	ShowWindow(hWnd, nCmdShow);
 	UpdateWindow(hWnd);
 
+	g_mainHWND = hWnd;
 	g_debuggerHWND = CreateDialog(hInst, MAKEINTRESOURCE(IDD_DEBUGGER), hWnd, Debugger);
 	g_bDebuggerActive = true;
+
 	g_debuggerDisassemblyHWND = GetDlgItem( g_debuggerHWND, IDC_DEBUG_OUTPUT );
 	g_debuggerP_HWND = GetDlgItem( g_debuggerHWND, IDC_SET_P );
 	g_debuggerPC_HWND = GetDlgItem( g_debuggerHWND, IDC_SET_PC );
 	g_debuggerS_HWND = GetDlgItem( g_debuggerHWND, IDC_SET_S );
+	g_debuggerA_HWND = GetDlgItem( g_debuggerHWND, IDC_SET_A );
+	g_debuggerX_HWND = GetDlgItem( g_debuggerHWND, IDC_SET_X );
+	g_debuggerY_HWND = GetDlgItem( g_debuggerHWND, IDC_SET_Y );
+	g_debuggerMemory_HWND = GetDlgItem( g_debuggerHWND, IDC_MEMORY_DEBUG );
+	
 
 	ShowWindow( g_debuggerHWND, nCmdShow&&g_bDebuggerActive );
 	CheckMenuItem( GetMenu(hWnd), IDM_SHOW_DEBUGGER, g_bDebuggerActive ? MF_CHECKED : MF_UNCHECKED );
 
 	g_emulator = new BBC_Emulator();
+	UpdateStatusWindows( true );
 
 	return TRUE;
 }
@@ -284,12 +316,12 @@ int ValidHexChar( char h )
 	return -1;
 }
 //-------------------------------------------------------------------------------------------------
-int HexToInt( char* hex )
+int HexOrDecToInt( char* hex, bool assume_hex = true )
 {
 	if ( !hex )
 		return -1;
 
-	bool isHex = false;
+	bool isHex = assume_hex;
 	while ( hex[ 0 ] == '0' || hex[ 0 ] == 'x' || hex[ 0 ] == 'X' || hex[ 0 ] == '$' )
 	{
 		if ( hex[ 0 ] != '0' )
@@ -319,8 +351,9 @@ void UpdateBreakOnWriteAddress( HWND hDlg )
 {
 	char addressStr[ 256 ];
 	GetDlgItemTextA( hDlg, IDC_BREAK_ON_WRITE_ADDRESS, addressStr, 256 );
-	int address = HexToInt( addressStr );
-
+	int address = HexOrDecToInt( addressStr );
+	if ( address == -1  )
+		return;
 	if ( g_bBreakOnWriteActive )
 		mem.SetWriteBreakpoint( address );
 	else
@@ -333,14 +366,28 @@ void UpdateBreakOnReadAddress( HWND hDlg )
 {
 	char addressStr[ 256 ];
 	GetDlgItemTextA( hDlg, IDC_BREAK_ON_READ_ADDRESS, addressStr, 256 );
-	int address = HexToInt( addressStr );
-
+	int address = HexOrDecToInt( addressStr );
+	if ( address == -1  )
+		return;
 	if ( g_bBreakOnReadActive )
 		mem.SetReadBreakpoint( address );
 	else
 		mem.ClearReadBreakpoint( );
 }
 
+//-------------------------------------------------------------------------------------------------
+template <class T>
+void UpdateRegisterFromDialog( HWND hDlg, int nIDC, T& reg )
+{
+	char addressStr[ 256 ];
+	GetDlgItemTextA( hDlg, nIDC, addressStr, 256 );
+	int address = HexOrDecToInt( addressStr );
+	if (( address != -1 )&&( reg != address ))
+	{
+		reg = address;
+		UpdateStatusWindows( true );
+	}
+}
 //-------------------------------------------------------------------------------------------------
 // Message handler for debugger box.
 INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
@@ -401,7 +448,7 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
 						break;
 					}
-						case IDC_BREAK_ON_WRITE:
+					case IDC_BREAK_ON_WRITE:
 					{
 						// break on mem write
 						g_bBreakOnWriteActive = !g_bBreakOnWriteActive;
@@ -415,15 +462,15 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 						// breakpoint
 						char addressStr[256];
 						GetDlgItemTextA( hDlg, IDC_BREAKPOINT_ADDRESS, addressStr, 256 );
-						int address = HexToInt( addressStr );
-						if ( find( g_breakpoints.begin(), g_breakpoints.end(), address ) == g_breakpoints.end() )
+						int address = HexOrDecToInt( addressStr );
+						if ( ( address != -1 ) && find( g_breakpoints.begin(), g_breakpoints.end(), address ) == g_breakpoints.end() )
 						{
 							string breakpoints ;
 							g_breakpoints.push_back( address );
 							cpu.SetBreakpoint( address );
 							for ( size_t i = 0; i < g_breakpoints.size(); i++ )
 							{
-								breakpoints.append( CPU::toHex( u16(address), true ) );
+								breakpoints.append( Utils::toHex( u16(address), true ) );
 								breakpoints.append("\n");
 							}
 							SetDlgItemTextA( hDlg, IDC_BREAKPOINTS, breakpoints.c_str() );
@@ -436,7 +483,17 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 						SetDlgItemTextA( hDlg, IDC_BREAKPOINTS, "" );
 						cpu.ClearBreakpoints();
 					}
-
+					case IDC_SHOW_MEMORY:
+					{
+						char addressStr[256];
+						GetDlgItemTextA( hDlg, IDC_MEMORY_ADDRESS, addressStr, 256 );
+						int address = HexOrDecToInt( addressStr );
+						if ( address!= -1 )
+						{
+							g_nMemoryAddressToDebug = address;
+							UpdateStatusWindows( false );
+						}
+					}
 					case IDC_RESET:
 					{
 						cpu.Reset();
@@ -463,6 +520,43 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 						g_bBreakOnReadActive = !g_bBreakOnReadActive;
 						UpdateBreakOnReadAddress( hDlg );
 
+						break;
+					}
+				}
+				break;
+			}
+			case EN_KILLFOCUS:
+			{
+				switch( LOWORD( wParam ) )
+				{
+					case IDC_SET_PC:
+					{
+						UpdateRegisterFromDialog( hDlg, IDC_SET_PC, cpu.reg.PC );
+						break;
+					}
+					case IDC_SET_A:
+					{
+						UpdateRegisterFromDialog( hDlg, IDC_SET_A, cpu.reg.A );
+						break;
+					}
+					case IDC_SET_X:
+					{
+						UpdateRegisterFromDialog( hDlg, IDC_SET_X, cpu.reg.X );
+						break;
+					}
+					case IDC_SET_Y:
+					{
+						UpdateRegisterFromDialog( hDlg, IDC_SET_Y, cpu.reg.Y );
+						break;
+					}
+					case IDC_SET_S:
+					{
+						UpdateRegisterFromDialog( hDlg, IDC_SET_S, cpu.reg.S );
+						break;
+					}
+					case IDC_SET_P:
+					{
+						UpdateRegisterFromDialog( hDlg, IDC_SET_P, cpu.reg.P );
 						break;
 					}
 				}

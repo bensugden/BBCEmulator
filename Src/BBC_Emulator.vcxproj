@@ -165,7 +165,8 @@
     <ClInclude Include="DirectX.h" />
     <ClInclude Include="File.h" />
     <ClInclude Include="6502_Memory.h" />
-    <ClInclude Include="myAssert.h" />
+    <ClInclude Include="MiscUtils.h" />
+    <ClInclude Include="MyAssert.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="SAA5050.h" />
     <ClInclude Include="SHEILA.h" />
@@ -179,11 +180,13 @@
   <ItemGroup>
     <ClCompile Include="6502_CPU.cpp" />
     <ClCompile Include="6502_Instructions.cpp" />
+    <ClCompile Include="6502_Memory.cpp" />
     <ClCompile Include="6502_OpcodeTable.cpp" />
     <ClCompile Include="6845_CRTC.cpp" />
     <ClCompile Include="BBC_Emulator.cpp" />
     <ClCompile Include="DirectX.cpp" />
     <ClCompile Include="File.cpp" />
+    <ClCompile Include="MiscUtils.cpp" />
     <ClCompile Include="SAA5050.cpp" />
     <ClCompile Include="SHEILA.cpp" />
     <ClCompile Include="stdafx.cpp">

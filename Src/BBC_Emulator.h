@@ -67,6 +67,11 @@ public:
 			}
 		}
 
+		bool IsEmpty()
+		{
+			return m_nCount == 0;
+		}
+
 		State m_instructions[ c_nHistory ];
 		int m_nCount;
 		int m_nOffset;
@@ -75,10 +80,11 @@ public:
 	//-------------------------------------------------------------------------------------------------
 
 	bool						RunFrame( std::string* pDisassemblyString, bool bDebug );
-	bool						ProcessInstructions( int nCount, std::string* pDisassemblyHistory, bool bDebug );
+	bool						ProcessInstructions( int nCount, std::string* pDisassemblyHistory, bool bDebug, bool bForceDebugPC = false );
 	void						SetBreakpoint( u16 address );
 
 private:
+	void						DebugDecodeNextInstruction();
 
 	VideoULA					m_videoULA;
 

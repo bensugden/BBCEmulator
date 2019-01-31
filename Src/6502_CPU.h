@@ -205,9 +205,6 @@ struct CPU
 	void						ClearBreakpoints();
 	int							GetBytesAtPC( int pc, u8* bytes ); // grabs 1-3 bytes for next instruction
 
-	static std::string			toHex( u8 i, bool bPrefix = true  );
-	static std::string			toHex( u16 i, bool bPrefix = true  );
-
 	//-------------------------------------------------------------------------------------------------
 private:
 	bool						CheckBreakPoints();
