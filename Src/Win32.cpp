@@ -337,6 +337,7 @@ int ValidHexChar( char h )
 //-------------------------------------------------------------------------------------------------
 int HexOrDecToInt( char* hex, bool assume_hex = true )
 {
+	char* lastHex = hex;
 	if ( !hex )
 		return -1;
 
@@ -348,7 +349,11 @@ int HexOrDecToInt( char* hex, bool assume_hex = true )
 
 		hex ++;
 		if ( hex[ 0 ]==0  )
+		{
+			if ( hex > lastHex )
+				return 0;
 			return -1;
+		}
 	}
 
 	int total = 0;
@@ -413,6 +418,19 @@ void UpdateRegisterFromDialog( HWND hDlg, int nIDC, T& reg )
 		UpdateStatusWindows( true );
 	}
 }
+//-------------------------------------------------------------------------------------------------
+void SetMemoryAddressToWatch( HWND hDlg )
+{
+	char addressStr[ 256 ];
+	GetDlgItemTextA( hDlg, IDC_MEMORY_ADDRESS, addressStr, 256 );
+	int address = HexOrDecToInt( addressStr );
+	if ( address != -1 )
+	{
+		g_nMemoryAddressToDebug = address;
+		UpdateStatusWindows( false );
+	}
+}
+
 //-------------------------------------------------------------------------------------------------
 // Message handler for debugger box.
 INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
@@ -511,14 +529,8 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 					}
 					case IDC_SHOW_MEMORY:
 					{
-						char addressStr[256];
-						GetDlgItemTextA( hDlg, IDC_MEMORY_ADDRESS, addressStr, 256 );
-						int address = HexOrDecToInt( addressStr );
-						if ( address!= -1 )
-						{
-							g_nMemoryAddressToDebug = address;
-							UpdateStatusWindows( false );
-						}
+						SetMemoryAddressToWatch( hDlg );
+
 						break;
 					}
 					case IDC_RESET:
@@ -563,6 +575,11 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 			{
 				switch( LOWORD( wParam ) )
 				{
+					case IDC_MEMORY_ADDRESS:
+					{
+						SetMemoryAddressToWatch( hDlg );
+						break;
+					}
 					case IDC_SET_PC:
 					{
 						UpdateRegisterFromDialog( hDlg, IDC_SET_PC, cpu.reg.PC );

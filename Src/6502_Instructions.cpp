@@ -142,7 +142,7 @@ namespace StackInstructions
 		7   $FFFF   R  fetch PCH
 		*/
 		DiscardNextPC(); 
-		cpu.IncPC();;
+		cpu.IncPC();
 		cpu.Tick();
 		
 		SetFlags( flag_B ); 
@@ -425,7 +425,7 @@ namespace ImmediateAddressing
 	void fn_Immediate()
 	{
 		u8 value = mem.Read(cpu.reg.PC);
-		cpu.IncPC();;
+		cpu.IncPC();
 		cpu.Tick();
 
 		Operation(value);
@@ -474,7 +474,7 @@ namespace AbsoluteAddressing
 	void fn_JMP()
 	{
 		u8 lo = mem.Read(cpu.reg.PC);
-		cpu.IncPC();;
+		cpu.IncPC();
 		cpu.Tick();
 
 		u8 hi = mem.Read(cpu.reg.PC);
@@ -500,11 +500,11 @@ namespace AbsoluteAddressing
 	{
 		u16 address = 0;
 		address = mem.ReadLoByte(cpu.reg.PC, address);
-		cpu.IncPC();;
+		cpu.IncPC();
 		cpu.Tick();
 
 		address = mem.ReadHiByte(cpu.reg.PC, address);
-		cpu.IncPC();;
+		cpu.IncPC();
 		cpu.Tick();
 
 		u8 value = mem.Read(address);
@@ -535,11 +535,11 @@ namespace AbsoluteAddressing
 	{
 		u16 address = 0;
 		address = mem.ReadLoByte(cpu.reg.PC, address);
-		cpu.IncPC();;
+		cpu.IncPC();
 		cpu.Tick();
 
 		address = mem.ReadHiByte(cpu.reg.PC, address);
-		cpu.IncPC();;
+		cpu.IncPC();
 		cpu.Tick();
 
 		u8 value = mem.Read(address);
@@ -570,11 +570,11 @@ namespace AbsoluteAddressing
 	{
 		u16 address = 0;
 		address = mem.ReadLoByte(cpu.reg.PC, address);
-		cpu.IncPC();;
+		cpu.IncPC();
 		cpu.Tick();
 
 		address = mem.ReadHiByte(cpu.reg.PC, address);
-		cpu.IncPC();;
+		cpu.IncPC();
 		cpu.Tick();
 
 		mem.Write(address, Register());
@@ -639,7 +639,7 @@ namespace ZeroPageAddressing
 	{
 		u8 address = 0;
 		address = mem.Read(cpu.reg.PC);
-		cpu.IncPC();;
+		cpu.IncPC();
 		cpu.Tick();
 
 		u8 value = mem.Read(address);
@@ -670,7 +670,7 @@ namespace ZeroPageAddressing
 	{
 		u8 address = 0;
 		address = mem.Read(cpu.reg.PC);
-		cpu.IncPC();;
+		cpu.IncPC();
 		cpu.Tick();
 
 		u8 value = mem.Read(address);
@@ -700,7 +700,7 @@ namespace ZeroPageAddressing
 	{
 		u8 address = 0;
 		address = mem.Read(cpu.reg.PC);
-		cpu.IncPC();;
+		cpu.IncPC();
 		cpu.Tick();
 
 		mem.Write(address, Register());
@@ -1362,7 +1362,7 @@ namespace IndirectIndexedAddressing
 		u8 value = mem.Read( temp_address );
 		if ( temp_address != address )
 		{
-			u8 value = mem.Read( address );
+			value = mem.Read( address );
 			cpu.Tick();
 		}
 		Operation( value );
@@ -1412,7 +1412,7 @@ namespace IndirectIndexedAddressing
 		u8 value = mem.Read( temp_address );
 		if ( temp_address != address )
 		{
-			u8 value = mem.Read( address );
+			value = mem.Read( address );
 			cpu.Tick();
 		}
 		mem.Write( address, value );
@@ -1463,7 +1463,7 @@ namespace IndirectIndexedAddressing
 		u8 value = mem.Read( temp_address );
 		if ( temp_address != address )
 		{
-			u8 value = mem.Read( address );
+			value = mem.Read( address );
 			cpu.Tick();
 		}
 		mem.Write( address, Register() );
@@ -1514,7 +1514,7 @@ namespace AbsoluteIndirectAddressing
 	void fn_JMP()
 	{
 		u8 lo = mem.Read(cpu.reg.PC);
-		cpu.IncPC();;
+		cpu.IncPC();
 		cpu.Tick();
 
 		u8 hi = mem.Read(cpu.reg.PC);
@@ -1522,7 +1522,7 @@ namespace AbsoluteIndirectAddressing
 		cpu.Tick();
 
 		lo = mem.Read(cpu.reg.PC);
-		cpu.IncPC();;
+		cpu.IncPC();
 		cpu.Tick();
 
 		hi = mem.Read(cpu.reg.PC);

@@ -189,7 +189,7 @@ void CPU::Disassemble( const CPU::Registers& reg, const u8* bytes, string& dissa
 			break;
 		case mode_rel:
 			//"rel = $0000 (PC-relative)"
-			dissassemble += toHex( (u16)(reg.PC + 1 + ((s8)address)) )+" (PC-relative)"; 
+			dissassemble += toHex( (u16)(reg.PC + 2 + ((s8)address)) )+" (PC-relative)"; 
 			break;
 		default:
 			break;

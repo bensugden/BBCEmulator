@@ -130,24 +130,21 @@ inline u8 op_CLV(u8 val)
 inline u8 op_CMP(u8 val)
 {
 	cpu.SetFlag(flag_C,cpu.reg.A>=val);
-	cpu.SetFlag(flag_Z,cpu.reg.A==val);
-	cpu.SetFlag(flag_N,val>cpu.reg.A);
+	cpu.SetZN( cpu.reg.A - val );
 	return 0;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_CPX(u8 val)
 {
 	cpu.SetFlag(flag_C,cpu.reg.X>=val);
-	cpu.SetFlag(flag_Z,cpu.reg.X==val);
-	cpu.SetFlag(flag_N,val>cpu.reg.X);
+	cpu.SetZN( cpu.reg.X - val );
 	return 0;
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_CPY(u8 val)
 {
 	cpu.SetFlag(flag_C,cpu.reg.Y>=val);
-	cpu.SetFlag(flag_Z,cpu.reg.Y==val);
-	cpu.SetFlag(flag_N,val>cpu.reg.Y);
+	cpu.SetZN( cpu.reg.Y - val );
 	return 0;
 }
 //-------------------------------------------------------------------------------------------------
