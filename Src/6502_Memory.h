@@ -88,6 +88,12 @@ struct MemoryState
 
 	//-------------------------------------------------------------------------------------------------
 
+	inline u8 Read_NoBreakpointCheck( int nAddress ) const
+	{
+		return m_pMemory[ nAddress ];
+	}
+	//-------------------------------------------------------------------------------------------------
+
 	inline u8 Read( int nAddress ) const
 	{
 		CheckReadBreakpoint( nAddress );
@@ -149,6 +155,16 @@ struct MemoryState
 	{
 		CFile file( filename, "rb" );
 		file.Load( m_pMemory + nAddress, file.GetLength(), 1 );
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
+	void Clear( u16 start, u16 end )
+	{
+		for ( u16 i = start; i < end; i++ )
+		{
+			Write( i, 0 );
+		}
 	}
 
 	//-------------------------------------------------------------------------------------------------

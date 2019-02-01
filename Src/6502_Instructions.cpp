@@ -28,7 +28,7 @@ static inline u16 Get16BitAddressFromPointer( u8 pointer )
 	mem.ReadLoByte( pointer, address );
 	cpu.Tick();
 
-	mem.ReadHiByte( ( pointer + 1 ) & 0xff, address );
+	mem.ReadHiByte( ( pointer + 1 )/* & 0xff*/, address );
 	cpu.Tick();
 
 	return address;
@@ -72,9 +72,9 @@ static inline void PushPCL( )
 static inline void PullP( )
 {
     //  $0100,S  R  pull P from stack, increment S
-	//cpu.P = mem.Read( cpu.StackAddress( ) );
+	cpu.reg.P = mem.Read( cpu.StackAddress( ) );
 	// NOTE: masking out BRK and unused flags to pass tests :(
-	cpu.reg.P = ( cpu.reg.P & 0x30 ) | ( mem.Read( cpu.StackAddress( ) ) & 0xcf );
+	//cpu.reg.P = ( cpu.reg.P & 0x30 ) | ( mem.Read( cpu.StackAddress( ) ) & 0xcf );
 }
 
 //-------------------------------------------------------------------------------------------------

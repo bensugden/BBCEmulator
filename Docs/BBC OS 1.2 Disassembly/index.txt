@@ -1,0 +1,34 @@
+http://mdfs.net/Docs/Comp/BBC/OS1-20/
+
+These files were originally abritarily chopped up into approximately 18K chunks just for ease of editing. I have rearranged them up into more logical function chunks. I am going through them and updating, correcting and clarifying the comments.
+
+C000   Default character set.
+C300   VDU startup entry and tables.
+C4C0   VDU Part 1: Main Routine. Control character dispatch,
+       VDU 1,14,2,21,3,15,4,5,8, scroll text window, VDU 11,9,10,28.
+C735   VDU Part 2: Read pixel, read pallette, VDU 12,30,31,13,16,17,18,20,19
+       write pallette, VDU 22,23,cursor control, CRTC control, VDU 25,26.
+CA39   VDU Part 3: VDU 24,29,127,paged mode,initialisation,
+       read character, clear screen, *FX20, block cursor.
+CDED   VDU Part 4: Scroll, clear, move graphics cursor, plot routines,
+       plot a point.
+D10D   VDU Part 5
+D4BF   VDU Part 6
+D940   System Startup. Default vectors, RESET code, find ROMs and BASIC,
+       initialise ROMs, enter a language.
+DC1C   Main IRQ Routines.
+DF0C   OSCLI and OSWRCH dispatch.
+E20E   *SAVE, *LOAD, *SPOOL, *KEY, *FX.
+E435   Buffer handling, Event handling.
+E6B0   OSBYTE/OSWORD dispatch table, FX9/10, FX2, FX13/14, FX16, INKEY,
+       ADVAL, OSBYTE handler, OSWORD handler, OSWORD 5/6, FX0.
+E887   Sound system, SOUND, Speech, BELL, ENVELOPE,
+       OSWORD 3,1,2,0,5 FX1,6,12,11,3,4,166+ FX19,160,18,118, GSTrans.
+EAD9   BIV, *TV, Sound IRQs, Speech.
+EEDA   Keyboard.
+F135   ROM/Cassette filing system. ARGS, FSC, FILE, RUN, CAT.
+F3CA   ROM/Cassette filing system. Save data, FIND, BGET, BPUT, OPT, EOF.
+F68B   ROM/Cassette filing system. Read/write blocks, CRC checks.
+F9B4   ROM/Cassette filing system. Load data, housekeeping.
+FC00   I/O locations, extended vector handler, MOS entry points.
+Microbase   Introduction to the BBC Operating System.

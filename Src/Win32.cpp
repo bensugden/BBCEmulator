@@ -138,6 +138,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 						UpdateBreakpointReason( true );
 						g_bRun = false;
 					}
+					else
+					{
+						UpdateBreakpointReason( false );
+					}
 					SleepEx( 1, false );
 					bLastRun = true;
 				}
@@ -147,6 +151,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 					{
 						UpdateBreakpointReason( true );
 						g_bRun = false;
+					}
+					else
+					{
+						UpdateBreakpointReason( false );
 					}
 					SleepEx( 1, false );
 					bLastRun = true;
@@ -159,6 +167,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				{
 					UpdateBreakpointReason( true );
 					g_nStep =0;
+				}
+				else
+				{
+					UpdateBreakpointReason( false );
 				}
 				if ( g_bDisplayOutput )
 					UpdateStatusWindows();
@@ -563,7 +575,6 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 					case IDC_BREAK_ON_READ_ADDRESS:
 					{
 						// break on mem read
-						g_bBreakOnReadActive = !g_bBreakOnReadActive;
 						UpdateBreakOnReadAddress( hDlg );
 
 						break;
