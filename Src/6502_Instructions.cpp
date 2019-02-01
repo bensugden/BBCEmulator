@@ -1288,7 +1288,6 @@ namespace IndexedIndirectAddressing
 		mem.Write( address, value );
 		cpu.LastTick();
 	}
-
 	//-------------------------------------------------------------------------------------------------
 	void RegisterInstructions( OpcodeTable& opcodeTable )
 	{

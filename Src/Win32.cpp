@@ -26,6 +26,7 @@ HWND g_debuggerA_HWND  = nullptr;
 HWND g_debuggerX_HWND  = nullptr;
 HWND g_debuggerY_HWND  = nullptr;
 HWND g_debuggerMemory_HWND = nullptr;
+HWND g_breakpointReason_HWND = nullptr;
 
 bool g_bDebuggerActive = false;
 BBC_Emulator* g_emulator = nullptr;
@@ -74,7 +75,20 @@ void UpdateStatusWindows( bool bForceUpdateHistory = false )
 
 	mem.DumpMemoryToString( g_nMemoryAddressToDebug, 16, 16, g_memoryDebug );
 	SetWindowTextA( g_debuggerMemory_HWND, g_memoryDebug.c_str() );
+}
 
+//-------------------------------------------------------------------------------------------------
+
+void UpdateBreakpointReason( bool bHitBreak )
+{
+	if ( bHitBreak )
+	{
+		SetWindowTextA( g_breakpointReason_HWND, cpu.GetBreakpointReason().c_str() );
+	}
+	else
+	{
+		SetWindowTextA( g_breakpointReason_HWND, "" );
+	}
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -121,6 +135,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				{
 					if ( g_emulator->ProcessInstructions( 2000000 / 50, &g_disassembly, g_bDisplayOutput ) )
 					{
+						UpdateBreakpointReason( true );
 						g_bRun = false;
 					}
 					SleepEx( 1, false );
@@ -130,6 +145,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				{
 					if ( g_emulator->RunFrame( &g_disassembly, false ) )
 					{
+						UpdateBreakpointReason( true );
 						g_bRun = false;
 					}
 					SleepEx( 1, false );
@@ -140,7 +156,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			if ( g_nStep > 0 )
 			{
 				if ( g_emulator->ProcessInstructions( g_nStep, &g_disassembly, g_bDisplayOutput ))
+				{
+					UpdateBreakpointReason( true );
 					g_nStep =0;
+				}
 				if ( g_bDisplayOutput )
 					UpdateStatusWindows();
 				g_nStep = 0;
@@ -227,15 +246,15 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	g_debuggerHWND = CreateDialog(hInst, MAKEINTRESOURCE(IDD_DEBUGGER), hWnd, Debugger);
 	g_bDebuggerActive = true;
 
-	g_debuggerDisassemblyHWND = GetDlgItem( g_debuggerHWND, IDC_DEBUG_OUTPUT );
-	g_debuggerP_HWND = GetDlgItem( g_debuggerHWND, IDC_SET_P );
-	g_debuggerPC_HWND = GetDlgItem( g_debuggerHWND, IDC_SET_PC );
-	g_debuggerS_HWND = GetDlgItem( g_debuggerHWND, IDC_SET_S );
-	g_debuggerA_HWND = GetDlgItem( g_debuggerHWND, IDC_SET_A );
-	g_debuggerX_HWND = GetDlgItem( g_debuggerHWND, IDC_SET_X );
-	g_debuggerY_HWND = GetDlgItem( g_debuggerHWND, IDC_SET_Y );
-	g_debuggerMemory_HWND = GetDlgItem( g_debuggerHWND, IDC_MEMORY_DEBUG );
-	
+	g_debuggerDisassemblyHWND	= GetDlgItem( g_debuggerHWND, IDC_DEBUG_OUTPUT );
+	g_debuggerP_HWND			= GetDlgItem( g_debuggerHWND, IDC_SET_P );
+	g_debuggerPC_HWND			= GetDlgItem( g_debuggerHWND, IDC_SET_PC );
+	g_debuggerS_HWND			= GetDlgItem( g_debuggerHWND, IDC_SET_S );
+	g_debuggerA_HWND			= GetDlgItem( g_debuggerHWND, IDC_SET_A );
+	g_debuggerX_HWND			= GetDlgItem( g_debuggerHWND, IDC_SET_X );
+	g_debuggerY_HWND			= GetDlgItem( g_debuggerHWND, IDC_SET_Y );
+	g_debuggerMemory_HWND		= GetDlgItem( g_debuggerHWND, IDC_MEMORY_DEBUG );
+	g_breakpointReason_HWND		= GetDlgItem( g_debuggerHWND, IDC_BREAKPOINT_REASON );
 
 	ShowWindow( g_debuggerHWND, nCmdShow&&g_bDebuggerActive );
 	CheckMenuItem( GetMenu(hWnd), IDM_SHOW_DEBUGGER, g_bDebuggerActive ? MF_CHECKED : MF_UNCHECKED );
@@ -352,12 +371,18 @@ void UpdateBreakOnWriteAddress( HWND hDlg )
 	char addressStr[ 256 ];
 	GetDlgItemTextA( hDlg, IDC_BREAK_ON_WRITE_ADDRESS, addressStr, 256 );
 	int address = HexOrDecToInt( addressStr );
+
+	GetDlgItemTextA( hDlg, IDC_BREAK_ON_WRITE_VALUE, addressStr, 256 );
+	int value = HexOrDecToInt( addressStr );
+
 	if ( address == -1  )
 		return;
 	if ( g_bBreakOnWriteActive )
-		mem.SetWriteBreakpoint( address );
+		mem.SetWriteBreakpoint( address, value );
 	else
 		mem.ClearWriteBreakpoint( );
+
+
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -482,6 +507,7 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 						g_breakpoints.clear();
 						SetDlgItemTextA( hDlg, IDC_BREAKPOINTS, "" );
 						cpu.ClearBreakpoints();
+						break;
 					}
 					case IDC_SHOW_MEMORY:
 					{
@@ -493,10 +519,12 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 							g_nMemoryAddressToDebug = address;
 							UpdateStatusWindows( false );
 						}
+						break;
 					}
 					case IDC_RESET:
 					{
-						cpu.Reset();
+						g_emulator->Reset();
+						UpdateStatusWindows( true );
 						break;
 					}
 					default:
@@ -509,6 +537,12 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 				switch( LOWORD( wParam ) )
 				{
 					case IDC_BREAK_ON_WRITE_ADDRESS:
+					{
+						// break on mem write
+						UpdateBreakOnWriteAddress( hDlg );
+						break;
+					}
+					case IDC_BREAK_ON_WRITE_VALUE:
 					{
 						// break on mem write
 						UpdateBreakOnWriteAddress( hDlg );

@@ -24,7 +24,7 @@ public:
 		static const int c_nHistory = 32;
 		CPUStateHistory()
 		{
-			m_nOffset = m_nCount = 0;
+			Clear();
 		}
 		int GetHistoryLength() const
 		{
@@ -67,6 +67,10 @@ public:
 			}
 		}
 
+		void Clear()
+		{
+			m_nCount = m_nOffset = 0;
+		}
 		bool IsEmpty()
 		{
 			return m_nCount == 0;
@@ -78,7 +82,7 @@ public:
 	};
 
 	//-------------------------------------------------------------------------------------------------
-
+	void						Reset();
 	bool						RunFrame( std::string* pDisassemblyString, bool bDebug );
 	bool						ProcessInstructions( int nCount, std::string* pDisassemblyHistory, bool bDebug, bool bForceDebugPC = false );
 	void						SetBreakpoint( u16 address );

@@ -162,9 +162,10 @@ struct CPU
 	
 	//-------------------------------------------------------------------------------------------------
 
-	inline void ThrowBreakpoint()
+	inline void ThrowBreakpoint( std::string& reason )
 	{
 		m_bExternalBreakpoint = true;
+		m_breakpointReason = reason;
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -204,7 +205,7 @@ struct CPU
 	void						SetBreakpoint( u16 address );
 	void						ClearBreakpoints();
 	int							GetBytesAtPC( int pc, u8* bytes ); // grabs 1-3 bytes for next instruction
-
+	const std::string&			GetBreakpointReason() { return m_breakpointReason; }
 	//-------------------------------------------------------------------------------------------------
 private:
 	bool						CheckBreakPoints();
@@ -212,6 +213,7 @@ private:
 
 	OpcodeTable					m_opcodeTable;
 	bool						m_bExternalBreakpoint;
+	std::string					m_breakpointReason;
 	//-------------------------------------------------------------------------------------------------
 public:
 

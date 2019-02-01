@@ -25,6 +25,20 @@ CPU			cpu;
 
 BBC_Emulator::BBC_Emulator()
 {
+	Reset();
+}
+
+//-------------------------------------------------------------------------------------------------
+
+BBC_Emulator::~BBC_Emulator( )
+{
+
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void BBC_Emulator::Reset()
+{
 	mem.LoadROM( "roms\\Os12.rom", 0xC000 );
 	mem.LoadROM( "roms\\Basic2.rom", 0x8000 );
 
@@ -33,14 +47,7 @@ BBC_Emulator::BBC_Emulator()
 	mem.LoadROM("test\\6502_functional_test.bin", 0x0000);
 	cpu.reg.PC = 0x400;
 
-	DebugDecodeNextInstruction();
-}
-
-//-------------------------------------------------------------------------------------------------
-
-BBC_Emulator::~BBC_Emulator( )
-{
-
+	m_history.Clear();
 }
 
 //-------------------------------------------------------------------------------------------------

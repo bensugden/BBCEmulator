@@ -70,7 +70,7 @@ bool CPU::ProcessSingleInstruction()
 	//
 	// check for breakpoint
 	//
-	return CheckBreakPoints() | CheckExternalBreakpoints();
+	return CheckBreakPoints() || CheckExternalBreakpoints();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -88,6 +88,7 @@ bool CPU::CheckBreakPoints()
 	{
 		if ( reg.PC == pBreakpoints[ i ] )
 		{
+			m_breakpointReason = std::string( "Breakpoint hit at :" + Utils::toHex( reg.PC ) );
 			return true;
 		}
 	}
@@ -97,7 +98,9 @@ bool CPU::CheckBreakPoints()
 
 bool CPU::CheckExternalBreakpoints()
 {
-	return m_bExternalBreakpoint;
+	bool bBreak = m_bExternalBreakpoint ;
+	m_bExternalBreakpoint = false;
+	return bBreak;
 }
 
 //-------------------------------------------------------------------------------------------------

@@ -68,17 +68,22 @@ struct MemoryState
 		if ( !m_bReadBreakpointSet )
 			return;
 		if ( m_nReadBreakpoint == address )
-			cpu.ThrowBreakpoint();
+			cpu.ThrowBreakpoint( std::string("Break on read at :") + Utils::toHex(address));
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
-	inline void CheckWriteBreakpoint( u16 address ) const
+	inline void CheckWriteBreakpoint( u16 address, u8 value ) const
 	{
 		if ( !m_bWriteBreakpointSet )
 			return;
 		if ( m_nWriteBreakpoint == address )
-			cpu.ThrowBreakpoint();
+		{
+			if ( ( !m_bWriteBreakpointValueSet ) || ( m_nWriteBreakpointValue == value ) )
+			{
+				cpu.ThrowBreakpoint( std::string("Break on write at :") +  Utils::toHex(address) +" with value :" +  Utils::toHex(value) );
+			}
+		}
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -95,7 +100,7 @@ struct MemoryState
 	{
 		m_pMemory[ nAddress ] = value;
 		CheckWriteMemoryMapped( nAddress, value );
-		CheckWriteBreakpoint( nAddress );
+		CheckWriteBreakpoint( nAddress, m_pMemory[ nAddress ] );
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -104,7 +109,7 @@ struct MemoryState
 	{
 		m_pMemory[ nAddress ] = ( value >> 8) & 0xff;
 		CheckWriteMemoryMapped( nAddress, m_pMemory[ nAddress ] );
-		CheckWriteBreakpoint( nAddress );
+		CheckWriteBreakpoint( nAddress, m_pMemory[ nAddress ] );
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -113,7 +118,7 @@ struct MemoryState
 	{
 		m_pMemory[ nAddress ] = value & 0xff;
 		CheckWriteMemoryMapped( nAddress, m_pMemory[ nAddress ] );
-		CheckWriteBreakpoint( nAddress );
+		CheckWriteBreakpoint( nAddress, m_pMemory[ nAddress ] );
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -155,10 +160,12 @@ struct MemoryState
 	}
 	//-------------------------------------------------------------------------------------------------
 
-	void SetWriteBreakpoint( u16 address )
+	void SetWriteBreakpoint( u16 address, int value )
 	{
 		m_bWriteBreakpointSet = true;
+		m_bWriteBreakpointValueSet = (value != -1);
 		m_nWriteBreakpoint = address;
+		m_nWriteBreakpointValue = (u8)value;
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -188,8 +195,10 @@ struct MemoryState
 	u8			m_nNumMemMappedAddresses;
 	bool		m_bReadBreakpointSet;
 	bool		m_bWriteBreakpointSet;
+	bool		m_bWriteBreakpointValueSet;
 	u16			m_nReadBreakpoint;
 	u16			m_nWriteBreakpoint;
+	u8			m_nWriteBreakpointValue;
 };
 
 //-------------------------------------------------------------------------------------------------

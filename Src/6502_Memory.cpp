@@ -13,6 +13,18 @@ void MemoryState::DumpMemoryToString( u16 address, int xcolumns, int yrows, stri
 {
 	u16 current_address = address;
 	output.clear();
+
+	for ( int c = 0 ; c < xcolumns + 8; c++ )
+	{
+		output += ' ';
+	}
+	for ( u8 x = 0; x < xcolumns; x++ )
+	{
+		output += Utils::toHex( x, false ) ;
+		output += "  ";
+	}
+	output += "\n";
+
 	for ( int y = 0 ; y < yrows; y++ )
 	{
 		output += Utils::toHex( current_address ) + " ";
