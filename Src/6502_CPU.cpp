@@ -239,14 +239,17 @@ void CPU::Disassemble( const CPU::Registers& reg, const u8* bytes, string& dissa
 	dissassemble +="  X:" + toHex( (u8)reg.X );
 	dissassemble +="  Y:" + toHex( (u8)reg.Y );
 	dissassemble +="  S:" + toHex( (u8)reg.S );
-	dissassemble += " C:"; dissassemble += (reg.GetFlag(flag_C)?"1":"0");
-	dissassemble += " Z:"; dissassemble += (reg.GetFlag(flag_Z)?"1":"0");
-	dissassemble += " I:"; dissassemble += (reg.GetFlag(flag_I)?"1":"0");
-	dissassemble += " D:"; dissassemble += (reg.GetFlag(flag_D)?"1":"0");
-	dissassemble += " *:"; dissassemble += (reg.GetFlag(flag_unused)?"1":"0");
-	dissassemble += " B:"; dissassemble += (reg.GetFlag(flag_B)?"1":"0");
-	dissassemble += " V:"; dissassemble += (reg.GetFlag(flag_V)?"1":"0");
-	dissassemble +="  N:"; dissassemble += (reg.GetFlag(flag_N)?"1":"0");
+
+	dissassemble += " N:"; dissassemble += ( reg.GetFlag( flag_N ) ? "1" : "0" );
+	dissassemble += " V:"; dissassemble += ( reg.GetFlag( flag_V ) ? "1" : "0" );
+	dissassemble += " B:"; dissassemble += ( reg.GetFlag( flag_B ) ? "1" : "0" );
+	dissassemble += " *:"; dissassemble += ( reg.GetFlag( flag_unused ) ? "1" : "0" );
+	dissassemble += " D:"; dissassemble += ( reg.GetFlag( flag_D ) ? "1" : "0" );
+	dissassemble += " I:"; dissassemble += ( reg.GetFlag( flag_I ) ? "1" : "0" );
+	dissassemble += " Z:"; dissassemble += ( reg.GetFlag( flag_Z ) ? "1" : "0" );
+	dissassemble += " C:"; dissassemble += ( reg.GetFlag( flag_C ) ? "1" : "0" );
+
+	dissassemble += " P:="; dissassemble += toHex( (u8)reg.P );
 	if ( ppOutCommand != nullptr )
 	{
 		*ppOutCommand = &command;

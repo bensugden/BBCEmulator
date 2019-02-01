@@ -44,8 +44,8 @@ void BBC_Emulator::Reset()
 
 	cpu.Reset();
 
-	mem.LoadROM("test\\6502_functional_test.bin", 0x0000);
-	cpu.reg.PC = 0x400;
+	//mem.LoadROM("test\\6502_functional_test.bin", 0x0000);
+	//cpu.reg.PC = 0x400;
 
 	m_history.Clear();
 }

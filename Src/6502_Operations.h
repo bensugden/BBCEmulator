@@ -72,7 +72,7 @@ inline bool op_BEQ()
 //-------------------------------------------------------------------------------------------------
 inline u8 op_BIT(u8 val)
 {
-	cpu.SetFlag(flag_Z,cpu.reg.A&val);
+	cpu.SetFlag(flag_Z,(cpu.reg.A&val)==0);
 	cpu.SetFlag(flag_V, (val & 0x40));
 	cpu.SetFlag(flag_N, (val & 0x80));
 	return 0;
