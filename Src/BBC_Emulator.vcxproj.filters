@@ -16,6 +16,12 @@
     <Filter Include="Emulator">
       <UniqueIdentifier>{303b6741-5fe4-4eb4-8ccc-b0baf06a7f26}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Emulator\Source">
+      <UniqueIdentifier>{f30e3ef4-14db-43aa-bafb-2f5f8da66d5e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Emulator\Headers">
+      <UniqueIdentifier>{c655ae9e-ccf6-4913-a2f1-4c65f26a5919}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -36,41 +42,44 @@
     <ClInclude Include="File.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="6502_Operations.h">
-      <Filter>Emulator</Filter>
-    </ClInclude>
-    <ClInclude Include="BBC_Emulator.h">
-      <Filter>Emulator</Filter>
-    </ClInclude>
     <ClInclude Include="DirectX.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="6502_OpcodeTable.h">
-      <Filter>Emulator</Filter>
-    </ClInclude>
-    <ClInclude Include="SHEILA.h">
-      <Filter>Emulator</Filter>
-    </ClInclude>
-    <ClInclude Include="TeletextFont.h">
-      <Filter>Emulator</Filter>
-    </ClInclude>
-    <ClInclude Include="VideoULA.h">
-      <Filter>Emulator</Filter>
-    </ClInclude>
-    <ClInclude Include="SAA5050.h">
-      <Filter>Emulator</Filter>
-    </ClInclude>
-    <ClInclude Include="6502_CPU.h">
-      <Filter>Emulator</Filter>
-    </ClInclude>
-    <ClInclude Include="6502_Memory.h">
-      <Filter>Emulator</Filter>
-    </ClInclude>
-    <ClInclude Include="MiscUtils.h">
-      <Filter>Emulator</Filter>
-    </ClInclude>
     <ClInclude Include="MyAssert.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="6502_CPU.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="6502_Memory.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="6502_OpcodeTable.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="6522_VIA.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="BBC_Emulator.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="MiscUtils.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="SAA5050.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="SHEILA.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="TeletextFont.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="VideoULA.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="6845_CRTC.h">
+      <Filter>Emulator\Source</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -83,38 +92,41 @@
     <ClCompile Include="Win32.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="6502_Instructions.cpp">
-      <Filter>Emulator</Filter>
-    </ClCompile>
-    <ClCompile Include="6502_OpcodeTable.cpp">
-      <Filter>Emulator</Filter>
-    </ClCompile>
-    <ClCompile Include="BBC_Emulator.cpp">
-      <Filter>Emulator</Filter>
-    </ClCompile>
     <ClCompile Include="DirectX.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="6845_CRTC.cpp">
-      <Filter>Emulator</Filter>
-    </ClCompile>
-    <ClCompile Include="SHEILA.cpp">
-      <Filter>Emulator</Filter>
-    </ClCompile>
-    <ClCompile Include="SAA5050.cpp">
-      <Filter>Emulator</Filter>
-    </ClCompile>
-    <ClCompile Include="VideoULA.cpp">
-      <Filter>Emulator</Filter>
-    </ClCompile>
     <ClCompile Include="6502_CPU.cpp">
-      <Filter>Emulator</Filter>
+      <Filter>Emulator\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="6502_Instructions.cpp">
+      <Filter>Emulator\Source</Filter>
     </ClCompile>
     <ClCompile Include="6502_Memory.cpp">
-      <Filter>Emulator</Filter>
+      <Filter>Emulator\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="6502_OpcodeTable.cpp">
+      <Filter>Emulator\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="6522_VIA.cpp">
+      <Filter>Emulator\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="6845_CRTC.cpp">
+      <Filter>Emulator\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="BBC_Emulator.cpp">
+      <Filter>Emulator\Source</Filter>
     </ClCompile>
     <ClCompile Include="MiscUtils.cpp">
-      <Filter>Emulator</Filter>
+      <Filter>Emulator\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="SAA5050.cpp">
+      <Filter>Emulator\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="SHEILA.cpp">
+      <Filter>Emulator\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="VideoULA.cpp">
+      <Filter>Emulator\Source</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

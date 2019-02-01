@@ -1,17 +1,12 @@
-// Win32.cpp : Defines the entry point for the application.
-//
+//--------------------------------------------------------------------------------------
 
 #include "stdafx.h"
 #include "Win32.h"
 
 //--------------------------------------------------------------------------------------
-// Forward declarations
-//--------------------------------------------------------------------------------------
-
 
 #define MAX_LOADSTRING 100
 
-// Global Variables:
 HINSTANCE hInst;                                // current instance
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
@@ -30,7 +25,6 @@ HWND g_breakpointReason_HWND = nullptr;
 
 bool g_bDebuggerActive = false;
 BBC_Emulator* g_emulator = nullptr;
-
 
 int g_nStep = 0;
 bool g_bRun = false;
@@ -185,19 +179,19 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		}
     }
 
-    CleanupDevice();
+    GFXSystem::Shutdown();
 
     return (int) msg.wParam;
 }
 
-
 //-------------------------------------------------------------------------------------------------
-
 //
 //  FUNCTION: MyRegisterClass()
 //
 //  PURPOSE: Registers the window class.
 //
+//-------------------------------------------------------------------------------------------------
+
 ATOM MyRegisterClass(HINSTANCE hInstance)
 {
     WNDCLASSEXW wcex;
@@ -218,8 +212,8 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 
     return RegisterClassExW(&wcex);
 }
-//-------------------------------------------------------------------------------------------------
 
+//-------------------------------------------------------------------------------------------------
 //
 //   FUNCTION: InitInstance(HINSTANCE, int)
 //
@@ -230,6 +224,8 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 //        In this function, we save the instance handle in a global variable and
 //        create and display the main program window.
 //
+//-------------------------------------------------------------------------------------------------
+
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
 	hInst = hInstance; // Store instance handle in our global variable
@@ -245,9 +241,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 		return FALSE;
 	}
    
-	if( FAILED( InitDevice(hWnd) ) )
+	if( FAILED( GFXSystem::Init(hWnd) ) )
 	{
-		CleanupDevice();
+		GFXSystem::Shutdown();
 		return 0;
 	}
 
@@ -277,10 +273,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	return TRUE;
 }
 
-
-
 //-------------------------------------------------------------------------------------------------
-
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
@@ -291,6 +284,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //  WM_DESTROY  - post a quit message and return
 //
 //
+//-------------------------------------------------------------------------------------------------
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
@@ -319,11 +314,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_PAINT:
         {
-        //    PAINTSTRUCT ps;
-	    //    HDC hdc = BeginPaint(hWnd, &ps);
-                        Render();
-
-         //   EndPaint(hWnd, &ps);
+			if ( g_emulator !=nullptr )
+			{
+				g_emulator->RefreshDisplay();
+			}
+			GFXSystem::Render();
         }
         break;
     case WM_DESTROY:

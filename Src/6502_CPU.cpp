@@ -126,7 +126,7 @@ static inline int GetMemSizePerEA( EAddressingMode mode )
 
 int CPU::GetBytesAtPC( int pc, u8* bytes )
 {
-	bytes[ 0 ] = mem.Read( pc++ );
+	bytes[ 0 ] = mem.Read_Internal( pc++ );
 
 	const CommandInfo& command = m_opcodeTable.GetCommandForOpcode( bytes[ 0 ] );
 	EAddressingMode addrmode = command.m_addressingMode;
@@ -135,7 +135,7 @@ int CPU::GetBytesAtPC( int pc, u8* bytes )
 	int nCount = 1;
 	while ( nCount <= nSize )
 	{
-		bytes[ nCount++ ] = mem.Read( pc++ );
+		bytes[ nCount++ ] = mem.Read_Internal( pc++ );
 	}
 	return nCount;
 }

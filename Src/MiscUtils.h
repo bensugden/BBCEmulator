@@ -10,6 +10,8 @@ namespace Utils
 {
 	std::string	toHex( u8 i, bool bPrefix = true  );
 	std::string	toHex( u16 i, bool bPrefix = true  );
+
+	u16 MakeAddress( u8 hi, u8 lo );
 }
 
 //-------------------------------------------------------------------------------------------------

@@ -6,7 +6,7 @@ class VideoULA
 {
 public:
 	VideoULA( );
-	void RenderScreen();
+	bool RenderScreen();
 
 private:
 	struct ULAState
@@ -21,11 +21,11 @@ private:
 		bool	bHideCursor ;
 	};
 
-	static void	WRITE_Serial_ULA_Control_register( u16 address, u8 value );
-	static void	WRITE_Video_ULA_Control_register( u16 address, u8 value );
-	static void	WRITE_Video_ULA_Palette_register( u16 address, u8 value );
+	void	WRITE_Serial_ULA_Control_register( u16 address, u8 value );
+	void	WRITE_Video_ULA_Control_register( u16 address, u8 value );
+	void	WRITE_Video_ULA_Palette_register( u16 address, u8 value );
 	
-	ULAState		m_ulaState;
+	ULAState m_ulaState;
 };
 
 //-------------------------------------------------------------------------------------------------

@@ -31,7 +31,7 @@ void MemoryState::DumpMemoryToString( u16 address, int xcolumns, int yrows, stri
 
 		for ( int x = 0; x < xcolumns; x++ )
 		{
-			u8 readByte = Read_NoBreakpointCheck( current_address+x );
+			u8 readByte = Read_Internal( current_address+x );
 			if ( readByte >= 32 && readByte < 0x7F )
 				output += char( readByte );
 			else
@@ -41,7 +41,7 @@ void MemoryState::DumpMemoryToString( u16 address, int xcolumns, int yrows, stri
 
 		for ( int x = 0; x < xcolumns; x++ )
 		{
-			output += Utils::toHex( Read_NoBreakpointCheck( current_address+x ) ) + " ";
+			output += Utils::toHex( Read_Internal( current_address+x ) ) + " ";
 		}
 		current_address += xcolumns;
 

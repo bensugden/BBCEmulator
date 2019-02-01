@@ -24,6 +24,7 @@ CPU			cpu;
 //-------------------------------------------------------------------------------------------------
 
 BBC_Emulator::BBC_Emulator()
+	: m_teletext( m_crtc )
 {
 	Reset();
 }
@@ -140,4 +141,12 @@ bool BBC_Emulator::ProcessInstructions( int nCount, std::string* pDisassemblyStr
 	}
 	return bBreakpoint;
 }
+
+//-------------------------------------------------------------------------------------------------
+
+void BBC_Emulator::RefreshDisplay()
+{
+	m_teletext.RenderScreen();
+}
+
 //-------------------------------------------------------------------------------------------------

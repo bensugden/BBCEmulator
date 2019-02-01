@@ -12,6 +12,19 @@ public:
 	BBC_Emulator();
 	~BBC_Emulator( );
 
+	
+	//-------------------------------------------------------------------------------------------------
+	//
+	// Common Interface
+	//
+	//-------------------------------------------------------------------------------------------------
+
+	void	Reset();
+	void	RefreshDisplay();
+	bool	RunFrame( std::string* pDisassemblyString, bool bDebug );
+	bool	ProcessInstructions( int nCount, std::string* pDisassemblyHistory, bool bDebug, bool bForceDebugPC = false );
+	void	SetBreakpoint( u16 address );
+
 	//-------------------------------------------------------------------------------------------------
 
 	struct CPUStateHistory
@@ -82,15 +95,14 @@ public:
 	};
 
 	//-------------------------------------------------------------------------------------------------
-	void						Reset();
-	bool						RunFrame( std::string* pDisassemblyString, bool bDebug );
-	bool						ProcessInstructions( int nCount, std::string* pDisassemblyHistory, bool bDebug, bool bForceDebugPC = false );
-	void						SetBreakpoint( u16 address );
 
 private:
 	void						DebugDecodeNextInstruction();
 
 	VideoULA					m_videoULA;
+	VIA_6522					m_via;
+	SAA5050						m_teletext;
+	CRTC_6845					m_crtc;
 
 	CPUStateHistory				m_history;
 	time_t						m_lastTime;

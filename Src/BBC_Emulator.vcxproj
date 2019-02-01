@@ -159,7 +159,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="6502_OpcodeTable.h" />
-    <ClInclude Include="6502_Operations.h" />
+    <ClInclude Include="6522_VIA.h" />
+    <ClInclude Include="6845_CRTC.h" />
     <ClInclude Include="BBC_Emulator.h" />
     <ClInclude Include="6502_CPU.h" />
     <ClInclude Include="DirectX.h" />
@@ -182,6 +183,7 @@
     <ClCompile Include="6502_Instructions.cpp" />
     <ClCompile Include="6502_Memory.cpp" />
     <ClCompile Include="6502_OpcodeTable.cpp" />
+    <ClCompile Include="6522_VIA.cpp" />
     <ClCompile Include="6845_CRTC.cpp" />
     <ClCompile Include="BBC_Emulator.cpp" />
     <ClCompile Include="DirectX.cpp" />

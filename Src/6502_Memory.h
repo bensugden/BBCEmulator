@@ -8,6 +8,16 @@
 
 extern CPU cpu;
 
+//-------------------------------------------------------------------------------------------------
+//
+// Lets you pass in a member fn pointer as a memory map handler rather than just a function ptr
+//
+//-------------------------------------------------------------------------------------------------
+
+#define MemoryMapHandler( function ) std::bind( &function, this, _1, _2 )
+
+//-------------------------------------------------------------------------------------------------
+
 struct MemoryState
 {
 	MemoryState( u16 nUserMemory = 32768, u32 nAllocation = 65536 )
@@ -32,9 +42,10 @@ struct MemoryState
 	}
 
 	//-------------------------------------------------------------------------------------------------
-	void RegisterMemoryMappedAddress( u16 address, void (*listenerFunction)( u16 address, u8 value ) )
+	void RegisterMemoryMappedAddress( u16 address, std::function<void(u16,u8)> listenerFunction )
 	{
 		assert( m_nNumMemMappedAddresses < 255 );
+
 		m_pMemoryMappedCallback[ ++m_nNumMemMappedAddresses ] = listenerFunction; // 0 will indicate no listener registered for this memory location
 		m_pMemoryMapID[ address - m_nEndUserMemory ] = m_nNumMemMappedAddresses;
 	}
@@ -88,8 +99,9 @@ struct MemoryState
 
 	//-------------------------------------------------------------------------------------------------
 
-	inline u8 Read_NoBreakpointCheck( int nAddress ) const
+	inline u8 Read_Internal( int nAddress ) const
 	{
+		// No breakpoints - this is for internal (ie hw/debugger) memory access only 
 		return m_pMemory[ nAddress ];
 	}
 	//-------------------------------------------------------------------------------------------------
@@ -99,7 +111,12 @@ struct MemoryState
 		CheckReadBreakpoint( nAddress );
 		return m_pMemory[ nAddress ];
 	}
+	//-------------------------------------------------------------------------------------------------
 
+	inline u16 ReadAddress( int nAddress ) const
+	{
+		return Utils::MakeAddress( Read( nAddress + 1 ), Read( nAddress + 0 ) );
+	}
 	//-------------------------------------------------------------------------------------------------
 
 	inline void Write( u16 nAddress, u8 value )
@@ -207,7 +224,7 @@ struct MemoryState
 	u16			m_nEndUserMemory;		// everything up to this point is guaranteed to NOT be memory mapped
 	u32			m_maxAllocatedMemory; 
 	u8*			m_pMemoryMapID;
-	void		(*m_pMemoryMappedCallback[256])( u16 address, u8 value );
+	std::function<void(u16,u8)> m_pMemoryMappedCallback[256];
 	u8			m_nNumMemMappedAddresses;
 	bool		m_bReadBreakpointSet;
 	bool		m_bWriteBreakpointSet;

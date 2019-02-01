@@ -22,6 +22,7 @@
 #include <map>
 #include <iostream>
 #include <conio.h>
+#include <functional>
 
 using namespace std;
 
@@ -38,6 +39,10 @@ using namespace std;
 #include "MiscUtils.h"
 
 using namespace Utils;
+using std::placeholders::_1;
+using std::placeholders::_2;
+using std::placeholders::_3;
+using std::placeholders::_4;
 
 #include "6502_CPU.h"
 #include "6502_Memory.h"
@@ -45,6 +50,8 @@ using namespace Utils;
 #include "SHEILA.h"
 #include "VideoULA.h"
 #include "SAA5050.h"
+#include "6522_VIA.h"
+#include "6845_CRTC.h"
 
 #include "BBC_Emulator.h"
 

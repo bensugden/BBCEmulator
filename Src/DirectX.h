@@ -1,25 +1,31 @@
 #pragma once
 
+
 //-------------------------------------------------------------------------------------------------
 
-struct FrameBufferInfo
+namespace GFXSystem
 {
-	u32* m_pData;
-	u32  m_width;
-	u32  m_height;
-	u32  m_pixelStride;
-	u32  m_pitch;
-};
+	//-------------------------------------------------------------------------------------------------
 
-//-------------------------------------------------------------------------------------------------
+	struct FrameBufferInfo
+	{
+		u32* m_pData;
+		u32  m_width;
+		u32  m_height;
+		u32  m_pixelStride;
+		u32  m_pitch;
+	};
 
-HRESULT			InitDevice( HWND hwnd );
-void			CleanupDevice();
+	//-------------------------------------------------------------------------------------------------
 
-void			Render();
+	HRESULT			Init( HWND hwnd );
+	void			Shutdown();
 
-FrameBufferInfo LockFrameBuffer( u32 width, u32 height );
-void			UnlockFrameBuffer( );
+	void			Render();
+
+	FrameBufferInfo LockFrameBuffer( u32 width, u32 height );
+	void			UnlockFrameBuffer( );
+}
 
 
 //-------------------------------------------------------------------------------------------------
