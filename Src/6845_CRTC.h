@@ -41,7 +41,7 @@ public:
 		return r[ reg ];
 	}
 private:
-	void WriteRegisterFile(  u16 address, u8 value  );
+	u8 WriteRegisterFile(  u16 address, u8 value  );
 	int m_nCurrentRegister;
 	u8 r[18];
 };

@@ -51,6 +51,8 @@ using std::placeholders::_4;
 #include "VideoULA.h"
 #include "SAA5050.h"
 #include "6522_VIA.h"
+#include "6522_VIA_MOS.h"
+#include "6522_VIA_Ports.h"
 #include "6845_CRTC.h"
 
 #include "BBC_Emulator.h"

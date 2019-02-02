@@ -21,9 +21,9 @@ private:
 		bool	bHideCursor ;
 	};
 
-	void	WRITE_Serial_ULA_Control_register( u16 address, u8 value );
-	void	WRITE_Video_ULA_Control_register( u16 address, u8 value );
-	void	WRITE_Video_ULA_Palette_register( u16 address, u8 value );
+	u8	WRITE_Serial_ULA_Control_register( u16 address, u8 value );
+	u8	WRITE_Video_ULA_Control_register( u16 address, u8 value );
+	u8	WRITE_Video_ULA_Palette_register( u16 address, u8 value );
 	
 	ULAState m_ulaState;
 };

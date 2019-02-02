@@ -42,7 +42,7 @@ struct MemoryState
 	}
 
 	//-------------------------------------------------------------------------------------------------
-	void RegisterMemoryMappedAddress( u16 address, std::function<void(u16,u8)> listenerFunction )
+	void RegisterMemoryMappedAddress( u16 address, std::function<u8(u16,u8)> listenerFunction )
 	{
 		assert( m_nNumMemMappedAddresses < 255 );
 
@@ -67,9 +67,9 @@ struct MemoryState
 			return;
 
 		// 
-		// Call system that is memory mapped to this address
+		// Call system that is memory mapped to this address and update if it modifies read value
 		//
-		m_pMemoryMappedCallback[ nMemoryMapID ]( nAddress, value );
+		m_pMemory[ nAddress ] = m_pMemoryMappedCallback[ nMemoryMapID ]( nAddress, value );
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -224,7 +224,7 @@ struct MemoryState
 	u16			m_nEndUserMemory;		// everything up to this point is guaranteed to NOT be memory mapped
 	u32			m_maxAllocatedMemory; 
 	u8*			m_pMemoryMapID;
-	std::function<void(u16,u8)> m_pMemoryMappedCallback[256];
+	std::function<u8(u16,u8)> m_pMemoryMappedCallback[256];
 	u8			m_nNumMemMappedAddresses;
 	bool		m_bReadBreakpointSet;
 	bool		m_bWriteBreakpointSet;

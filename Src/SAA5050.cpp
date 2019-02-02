@@ -2,6 +2,8 @@
 //
 // Teletext Character Generator
 //
+// Much left to do here - graphics, colors and interlacing
+//
 //-------------------------------------------------------------------------------------------------
 
 #include "stdafx.h"
@@ -12,22 +14,20 @@
 SAA5050::SAA5050( const CRTC_6845& CRTC )
 	: m_CRTC( CRTC )
 {
-	//s_teletextCharacters
-	//s_teletextGraphics[96*60];
-	//s_teletextGraphicsSeparated[96*60];
 }
 
 //-------------------------------------------------------------------------------------------------
 
 void SAA5050::RenderScreen()
 {
-	u16 hi = m_CRTC.GetRegisterValue( CRTC_6845::Display_start_address_high );
-	u16 lo = m_CRTC.GetRegisterValue( CRTC_6845::Display_start_address_low );
-
+	u8 hi = m_CRTC.GetRegisterValue( CRTC_6845::Display_start_address_high );
+	u8 lo = m_CRTC.GetRegisterValue( CRTC_6845::Display_start_address_low );
+	//
+	// Do screen address hi byte calculations ( see chpt 18.11.3 in Adv user guide )
+	//
 	hi = ( hi ^ 0x20 ) + 0x74;
 
 	u16 uStartAddress = MakeAddress( hi, lo );
-
 
 	u16 nScreenWidth = m_CRTC.GetRegisterValue( CRTC_6845::Horizontal_displayed_character_lines );
 	u16 nScreenHeight = m_CRTC.GetRegisterValue( CRTC_6845::Vertical_displayed_character_lines );
@@ -47,6 +47,9 @@ void SAA5050::RenderScreen()
 
 	fbInfo = GFXSystem::LockFrameBuffer( nPixelWidth, nPixelHeight );
 	
+	//
+	// Render characters to frame buffer
+	//
 	u16 nAddress = uStartAddress;
 
 	for ( int y = 0 ; y < nScreenHeight; y++ )

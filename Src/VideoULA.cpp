@@ -57,13 +57,14 @@ bool VideoULA::RenderScreen()
 
 //-------------------------------------------------------------------------------------------------
 
-void VideoULA::WRITE_Serial_ULA_Control_register( u16 address, u8 value )
+u8 VideoULA::WRITE_Serial_ULA_Control_register( u16 address, u8 value )
 {
+	return value;
 }
 
 //-------------------------------------------------------------------------------------------------
 
-void VideoULA::WRITE_Video_ULA_Control_register( u16 address, u8 ctrl_register )
+u8 VideoULA::WRITE_Video_ULA_Control_register( u16 address, u8 ctrl_register )
 {
 	assert( ctrl_register == mem.Read( SHEILA::WRITE_Video_ULA_Control_register ) );
 	assert( address == SHEILA::WRITE_Video_ULA_Control_register );
@@ -112,14 +113,15 @@ void VideoULA::WRITE_Video_ULA_Control_register( u16 address, u8 ctrl_register )
 	//	8	&E0 (%111 0 00 0 0)
 	//	9	&80 (%100 0 00 0 0)
 	//	10	&84 (%100 0 01 0 0)
-
+	return ctrl_register;
 }
 
 //-------------------------------------------------------------------------------------------------
 
-void VideoULA::WRITE_Video_ULA_Palette_register( u16 address, u8 value )
+u8 VideoULA::WRITE_Video_ULA_Palette_register( u16 address, u8 value )
 {
 	u8 temp= value;
+	return value;
 
 }
 

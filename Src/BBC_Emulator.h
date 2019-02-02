@@ -100,7 +100,8 @@ private:
 	void						DebugDecodeNextInstruction();
 
 	VideoULA					m_videoULA;
-	VIA_6522					m_via;
+	MOS_VIA_6522				m_mosVIA;
+	Ports_VIA_6522				m_portsVIA;
 	SAA5050						m_teletext;
 	CRTC_6845					m_crtc;
 

@@ -30,7 +30,7 @@
 
 //-------------------------------------------------------------------------------------------------
 
-void CRTC_6845::WriteRegisterFile( u16 address, u8 value )
+u8 CRTC_6845::WriteRegisterFile( u16 address, u8 value )
 {
 	if ( address == SHEILA::WRITE_6845_CRTC_Address_register )
 	{
@@ -53,6 +53,7 @@ void CRTC_6845::WriteRegisterFile( u16 address, u8 value )
 		//
 		m_nCurrentRegister = -1;
 	}
+	return value;
 }
 
 //-------------------------------------------------------------------------------------------------
