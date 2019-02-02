@@ -42,12 +42,33 @@ struct MemoryState
 	}
 
 	//-------------------------------------------------------------------------------------------------
+
 	void RegisterMemoryMappedAddress( u16 address, std::function<u8(u16,u8)> listenerFunction )
 	{
 		assert( m_nNumMemMappedAddresses < 255 );
+		int nAllocatedSlot = -1;
 
-		m_pMemoryMappedCallback[ ++m_nNumMemMappedAddresses ] = listenerFunction; // 0 will indicate no listener registered for this memory location
-		m_pMemoryMapID[ address - m_nEndUserMemory ] = m_nNumMemMappedAddresses;
+		//
+		// Function already registered?
+		//
+		for ( int i = 0; i < m_nNumMemMappedAddresses; i++ )
+		{
+			if ( m_pMemoryMappedCallback[ i ] = listenerFunction )
+			{
+				nAllocatedSlot = i;
+				break;
+			}
+		}
+
+		//
+		// Need to allocate new function ptr slot
+		//
+		if ( nAllocatedSlot == -1 )
+		{
+			m_pMemoryMappedCallback[ ++m_nNumMemMappedAddresses ] = listenerFunction; // 0 will indicate no listener registered for this memory location
+			nAllocatedSlot = m_nNumMemMappedAddresses;
+		}
+		m_pMemoryMapID[ address - m_nEndUserMemory ] = nAllocatedSlot;
 	}
 	
 	//-------------------------------------------------------------------------------------------------
