@@ -65,6 +65,9 @@ protected:
 		CB2,							// Control line B2
 		IRA,							// Input register A
 		IRB,							// Input register B
+		CA2_TIMER,						// 1 cycle counter for CA2 in mode 5
+		CB2_TIMER,						// 1 cycle counter for CB2 in mode 5
+		T2_INTERRUPT_ENABLED,			// T2 timer should interrupt when timer is at 0
 		_COUNT
 	};
 
@@ -77,7 +80,7 @@ protected:
 		INTERRUPT_CB1			= 1 << 4,
 		INTERRUPT_TIMER2		= 1 << 5,
 		INTERRUPT_TIMER1		= 1 << 6,
-		INTERRUPT_SET_CLEAR		= 1 << 7,
+		INTERRUPT_SET			= 1 << 7,
 	};
 
 	enum T1Mode
@@ -102,10 +105,17 @@ protected:
 	u8		ReadT1( u16 address, u8 value );
 	u8		ReadT2( u16 address, u8 value );
 
+	u8		GetControlLineMode( InternalRegister reg ) const;
+	u8		GetShiftMode( ) const;
+
 	void	SetCA1( u8 value );
 	void	SetCA2( u8 value );
 	void	SetCB1( u8 value );
 	void	SetCB2( u8 value );
+private:
+	void	SetCAB1( u8 value, InternalRegister reg, InterruptFlags interrupt );
+	void	SetCAB2( u8 value, InternalRegister reg, InterruptFlags interrupt );
+	void	UpdateControlChannel_DuringReadOrWriteOfPort( ReadWriteChannel in );
 
 	u16		m_baseAddress;
 	u8		m_register[ InternalRegister::_COUNT ];
