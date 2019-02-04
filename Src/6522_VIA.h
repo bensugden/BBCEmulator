@@ -51,7 +51,7 @@ protected:
 		T2_COUNTER_L,					// T2 low order Counter	
 		T2_COUNTER_H,					// T2 high order counter					
 		T2_LATCH_L,						// T2 latch low
-		SR	,							// Shift register							
+		SHIFT,							// Shift register							
 		ACR	,							// Auxiliary control register				
 		PCR	,							// Peripheral control register			
 		IFR	,							// Interrupt flag register				
@@ -98,8 +98,14 @@ protected:
 	u8		WriteShift( u16 address, u8 value );
 	u8		WriteDDR( u16 address, u8 value );
 
-	u8		ReadT1CL( u16 address, u8 value );
-	u8		ReadT2CL( u16 address, u8 value );
+	u8		ReadIR( u16 address, u8 value );
+	u8		ReadT1( u16 address, u8 value );
+	u8		ReadT2( u16 address, u8 value );
+
+	void	SetCA1( u8 value );
+	void	SetCA2( u8 value );
+	void	SetCB1( u8 value );
+	void	SetCB2( u8 value );
 
 	u16		m_baseAddress;
 	u8		m_register[ InternalRegister::_COUNT ];

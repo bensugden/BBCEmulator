@@ -89,112 +89,115 @@ u8 VIA_6522::WriteT1( u16 address, u8 value )
 		// These are the same op. Copy to low latch
 		//
 		m_register[ T1_LATCH_L ] = value;
-
-		if ( in == RW_T1C_L )
-		{
-			//
-			// Update memory to reflect new latch [direct memory write - no mem map callback]
-			//
-			mem.Write_Internal( m_baseAddress + REG_T1_LATCH_H, m_register[ REG_T1_LATCH_H ] );
-
-			//
-			// Reset memory at this address to be counter ( it has latch in currently )
-			// It will get rewritten by the memory map function
-			//
-			value = m_register[ REG_T1_COUNTER_L ];
-		}
 	}
-	else if ( ( in == REG_T1_COUNTER_H ) || ( in == REG_T1_LATCH_H ) )
+	else if ( ( in == RW_T1C_H ) || ( in == RW_T1L_H ) )
 	{
 		//
-		// These are the same. Copy to high latch
+		// Copy to high latch
 		//
-		m_register[ REG_T1_LATCH_H ] = value;
+		m_register[ T1_LATCH_H ] = value;
 
 		//
-		// REG_T1_COUNTER_H also transfers latch into low and high counters (i.e. readies another timer)
+		// Reset T1 interrupt flag
 		//
-		if ( reg == REG_T1_COUNTER_H )
+		mem.Write( m_baseAddress + RW_IFR, INTERRUPT_TIMER1 );
+
+		//
+		// RW_T1C_H also transfers latch into low and high counters (i.e. readies another timer)
+		//
+		if ( in == RW_T1C_H )
 		{
-			m_register[ REG_T1_COUNTER_L ] = m_register[ REG_T1_LATCH_L ];
-			m_register[ REG_T1_COUNTER_H ] = m_register[ REG_T1_LATCH_H ];
+			m_register[ T1_COUNTER_L ] = m_register[ T1_LATCH_L ];
+			m_register[ T1_COUNTER_H ] = m_register[ T1_LATCH_H ];
 
 			//
 			// One shot mode. PB7 low on load
 			//
-			if ( ( m_register[ REG_ACR ] >> 6 ) == 2 )
+			if ( ( m_register[ ACR ] >> 6 ) == 2 )
 			{
-				m_register[ REG_PCR ] &= 0x7f; // clear PB7
+				m_register[ PCR ] &= 0x7f; // clear PB7
 			}
-			//
-			// Update memory to reflect new latch   [direct memory write - no mem map callback]
-			// Update memory to reflect low counter [direct memory write - no mem map callback]
-			//
-			mem.Write_Internal( m_baseAddress + REG_T1_LATCH_H, m_register[ REG_T1_LATCH_H ] );
-			mem.Write_Internal( m_baseAddress + REG_T1_COUNTER_L, m_register[ REG_T1_COUNTER_L ] );
-
-			//
-			// Reset memory at this address to be counter ( it has latch in currently )
-			// It will get rewritten by the memory map function
-			//
-			value = m_register[ REG_T1_COUNTER_H ];
 		}
-		//
-		// Reset T1 interrupt flag
-		//
-		WriteIFR( m_baseAddress + REG_IFR, INTERRUPT_TIMER1 );
 	}
 	return value;
 }
 
+
 //-------------------------------------------------------------------------------------------------
 
-u8 VIA_6522::ReadT1CL( u16 address, u8 value )
+u8 VIA_6522::ReadT1( u16 address, u8 value )
 {
-	//
-	// Clear T1 interrupt flag
-	//
-	WriteIFR( m_baseAddress + REG_IFR, INTERRUPT_TIMER1 );
+	ReadWriteChannel in = (ReadWriteChannel)( address - m_baseAddress );
 
-	return m_register[ REG_T1_COUNTER_L ];
+	switch ( in )
+	{
+		case RW_T1C_L:
+		{
+			//
+			// Clear T1 interrupt flag
+			//
+			mem.Write( m_baseAddress + RW_IFR, INTERRUPT_TIMER1 );
+
+			return m_register[ T1_COUNTER_L ];
+		}
+		case RW_T1C_H:
+			return m_register[ T1_COUNTER_H ];
+		case RW_T1L_L:
+			return m_register[ T1_LATCH_L ];
+		case RW_T1L_H:
+			return m_register[ T1_LATCH_H ];
+	}
+	return value;
 }
-//-------------------------------------------------------------------------------------------------
 
-u8 VIA_6522::ReadT2CL( u16 address, u8 value )
-{
-	//
-	// Clear T2 interrupt flag
-	//
-	WriteIFR( m_baseAddress + REG_IFR, INTERRUPT_TIMER2 );
-
-	return m_register[ REG_T1_COUNTER_L ];
-}
 //-------------------------------------------------------------------------------------------------
 
 u8 VIA_6522::WriteT2( u16 address, u8 value )
 {
-	Register reg = (Register)( address - m_baseAddress );
+	ReadWriteChannel in = (ReadWriteChannel)( address - m_baseAddress );
 
-	if ( reg == REG_T2_COUNTER_L )
+	if ( in == RW_T2C_L )
 	{
-		m_register[ _REG_T2_LATCH_L ] = value;
-		value = m_register[ REG_T2_COUNTER_L ];
+		m_register[ T2_LATCH_L ] = value;
 	}
-	else if ( reg == REG_T2_COUNTER_H )
+	else if ( in == RW_T2C_H )
 	{
-		m_register[ REG_T2_COUNTER_L ] = m_register[ _REG_T2_LATCH_L ];
-		m_register[ REG_T2_COUNTER_H ] = value;
-		WriteIFR( m_baseAddress + REG_IFR, INTERRUPT_TIMER2 );
+		m_register[ T2_COUNTER_H ] = value;
+		m_register[ T2_COUNTER_L ] = m_register[ T2_LATCH_L ];
+		//
+		// Clear T2 interrupt flag
+		//
+		mem.Write( m_baseAddress + RW_IFR, INTERRUPT_TIMER2 );
 	}
 		
 	return value;
 }
+//-------------------------------------------------------------------------------------------------
+
+u8 VIA_6522::ReadT2( u16 address, u8 value )
+{
+	ReadWriteChannel in = (ReadWriteChannel)( address - m_baseAddress );
+
+	if ( in == RW_T2C_L )
+	{
+		//
+		// Clear T2 interrupt flag
+		//
+		mem.Write( m_baseAddress + RW_IFR, INTERRUPT_TIMER2 );
+		return  m_register[ T2_COUNTER_L ];
+	}
+	else // if ( in == RW_T2C_H )
+	{
+		return m_register[ T2_COUNTER_H ];
+	}
+}
+
 
 //-------------------------------------------------------------------------------------------------
 
 u8 VIA_6522::WriteACR( u16 address, u8 value )
 {
-	m_register[ REG_ACR ] = value;
+	m_register[ ACR ] = value;
 	return value;
 }
 
@@ -202,45 +205,112 @@ u8 VIA_6522::WriteACR( u16 address, u8 value )
 
 u8 VIA_6522::WriteOR( u16 address, u8 value )
 {
-	Register reg = (Register)( address - m_baseAddress );
+	ReadWriteChannel in = (ReadWriteChannel)( address - m_baseAddress );
 
-	if ( re)
 	//
-	// If a bit in DDR == 0 then it's input
-	//                 == 1			  output
+	// Only copy those bits set in DDR from ORA / ORB to PA / PB
 	//
-	// If bit is INPUT then we ignore write of that bit
-	//
-	if ( reg == REG_ORA_IRA )
+	if ( in == RW_ORA_IRA )
 	{
-		m_register[ REG_PA ] &= ~m_register[ REG_DDRA ];
-		m_register[ REG_PA ] |= value & m_register[ REG_DDRA ];
+		m_register[ ORA ] = value;
+		m_register[ PA ] &= ~m_register[ DDRA ];
+		m_register[ PA ] |= value & m_register[ DDRA ];
 	}
-	else
+	else //	if ( in == RW_ORB_IRB )
 	{
-		//	if ( reg == ORB_IRB )
-		m_register[ REG_PB ] &= ~m_register[ REG_DDRB ];
-		m_register[ REG_PB ] |= value & m_register[ REG_DDRB ];
+		m_register[ ORB ] = value;
+		m_register[ PB ] &= ~m_register[  DDRB ];
+		m_register[ PB ] |= value & m_register[ DDRB ];
 	}
-	m_register[ REG_ORA ];
+	return value;
 }
 
 //-------------------------------------------------------------------------------------------------
 
+u8 VIA_6522::ReadIR( u16 address, u8 value )
+{
+	ReadWriteChannel in = (ReadWriteChannel)( address - m_baseAddress );
+
+	if ( in == RW_ORA_IRA )
+	{
+		//
+		// check if latching - if yes, use IRA else use PA
+		//
+		return ( m_register[ PCR ] & 1 ) ? m_register[ IRA ] : m_register[ PA ]; // IRA gets set when CA1 made active transition 
+	}
+	else
+	{
+		//
+		// check if latching - if yes, use IRB else use PB
+		//
+		u8 input =  ( m_register[ PCR ] & 2 ) ? m_register[ IRB ] : m_register[ PB ]; // IRB gets set when CB1 made active transition 
+		return ( m_register[ DDRB ] & m_register[ ORB ] ) | ( (~m_register[ DDRB ]) & input ); 
+	}
+}
+//-------------------------------------------------------------------------------------------------
+
 u8 VIA_6522::WriteDDR( u16 address, u8 value )
 {
+	ReadWriteChannel in = (ReadWriteChannel)( address - m_baseAddress );
+	//
+	// Refresh PB by rewriting ORA/ORB registers
+	//
+	if ( in == RW_DDRA )
+	{
+		m_register[ DDRA ] = value;
+		WriteOR( m_baseAddress + RW_ORA_IRA, m_register[ ORA ] );
+	}
+	else // if ( in == RW_DDRB )
+	{
+		m_register[ DDRB ] = value;
+		WriteOR( m_baseAddress + RW_ORB_IRB, m_register[ ORB ] );
+	}
+	return value;
 }
 
 //-------------------------------------------------------------------------------------------------
 
 u8 VIA_6522::WriteShift( u16 address, u8 value )
 {
+	m_register[ SHIFT ] = value;
+	assert( false );//todo
+	return value;
 }
 
 //-------------------------------------------------------------------------------------------------
 
 u8 VIA_6522::WritePCR( u16 address, u8 value )
 {
+	m_register[ PCR ] = value;
+	assert( false );//todo
+	return value;
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void VIA_6522::SetCA1( u8 value )
+{
+	assert( false );//todo
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void VIA_6522::SetCA2( u8 value )
+{
+	assert( false );//todo
+}
+//-------------------------------------------------------------------------------------------------
+
+void VIA_6522::SetCB1( u8 value )
+{
+	assert( false );//todo
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void VIA_6522::SetCB2( u8 value )
+{
+	assert( false );//todo
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -269,11 +339,14 @@ VIA_6522::VIA_6522( u16 viaMemoryMappedStartAddressForORA_B )
 	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_IER_Interrupt_enable_register	, MemoryMapHandler( VIA_6522::WriteIER ));
 	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_ORA_IRA_NO_HANDSHAKE				, MemoryMapHandler( VIA_6522::WriteOR ));
 
-	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_ORB_IRB_Output_register_B			, MemoryMapHandler( VIA_6522::ReadOR ));
-	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_ORA_IRA_Output_register_A			, MemoryMapHandler( VIA_6522::ReadOR ));
-
-	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_T1CL_T1_low_order_latches			, MemoryMapHandler( VIA_6522::ReadT1CL ));
-	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_T2CL_T2_low_order_latches			, MemoryMapHandler( VIA_6522::ReadT2CL ));
+	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_ORB_IRB_Output_register_B			, MemoryMapHandler( VIA_6522::ReadIR ));
+	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_ORA_IRA_Output_register_A			, MemoryMapHandler( VIA_6522::ReadIR ));
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_T1CL_T1_low_order_latches		, MemoryMapHandler( VIA_6522::ReadT1 ));
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_T1CH_T1_high_order_counter		, MemoryMapHandler( VIA_6522::ReadT1 ));
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_T1LL_T1_low_order_latches		, MemoryMapHandler( VIA_6522::ReadT1 ));
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_T1LH_T1_high_order_latches		, MemoryMapHandler( VIA_6522::ReadT1 ));
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_T2CL_T2_low_order_latches		, MemoryMapHandler( VIA_6522::ReadT2 ));
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_T2CH_T2_high_order_counter		, MemoryMapHandler( VIA_6522::ReadT2 ));
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -283,52 +356,52 @@ void VIA_6522::Tick()
 	//
 	// Timer 1 enabled?
 	//
-	if ( m_register[ REG_IER ] & INTERRUPT_TIMER1 )
+	if ( m_register[ IER ] & INTERRUPT_TIMER1 )
 	{
-		u16 timer = ( u16( m_register[ REG_T1_COUNTER_H ] ) << 8 ) + m_register[ REG_T1_COUNTER_L ];
+		u16 timer = ( u16( m_register[ T1_COUNTER_H ] ) << 8 ) + m_register[ T1_COUNTER_L ];
 		
 		if ( --timer == 0 )
 		{
-			u8 mode = m_register[ REG_ACR ] >> 6;
+			u8 mode = m_register[ ACR ] >> 6;
 			if ( mode == 2 )
 			{
 				//
 				// One shot mode "2". PB7 high on terminate.
 				//
-				m_register[ REG_PCR ] |= 0x80; // set PB7
+				m_register[ PCR ] |= 0x80; // set PB7
 			}
 			else if ( mode == 1 )
 			{
 				//
 				// Free running mode "1"
 				//
-				m_register[ REG_T1_COUNTER_L ] = m_register[ REG_T1_LATCH_L ];
-				m_register[ REG_T1_COUNTER_H ] = m_register[ REG_T1_LATCH_H ];
+				m_register[ T1_COUNTER_L ] = m_register[ T1_LATCH_L ];
+				m_register[ T1_COUNTER_H ] = m_register[ T1_LATCH_H ];
 			}
 			else if ( mode == 3 )
 			{
 				//
 				// Free running mode "3"
 				//
-				m_register[ REG_T1_COUNTER_L ] = m_register[ REG_T1_LATCH_L ];
-				m_register[ REG_T1_COUNTER_H ] = m_register[ REG_T1_LATCH_H ];
-				m_register[ REG_PCR ] ^= 0x80; // toggle PB7
+				m_register[ T1_COUNTER_L ] = m_register[ T1_LATCH_L ];
+				m_register[ T1_COUNTER_H ] = m_register[ T1_LATCH_H ];
+				m_register[ PCR ] ^= 0x80; // toggle PB7
 			}
 			
-			m_register[ REG_IFR ] |= INTERRUPT_SET_CLEAR | INTERRUPT_TIMER1 ; // set bit 7 of Interrupt flag register plus the relevant bit for that interrupt
+			m_register[ IFR ] |= INTERRUPT_SET_CLEAR | INTERRUPT_TIMER1 ; // set bit 7 of Interrupt flag register plus the relevant bit for that interrupt
 			cpu.ThrowInterrupt();
 		}
-		m_register[ REG_T1_COUNTER_H ] = timer >> 8;
-		m_register[ REG_T1_COUNTER_L ] = timer & 0xff;
+		m_register[ T1_COUNTER_H ] = timer >> 8;
+		m_register[ T1_COUNTER_L ] = timer & 0xff;
 	}
 
 	//
 	// Timer 2
 	//
-	if ( m_register[ REG_IER ] & INTERRUPT_TIMER2 )
+	if ( m_register[ IER ] & INTERRUPT_TIMER2 )
 	{
-		u16 timer = ( u16( m_register[ REG_T2_COUNTER_H ] ) << 8 ) + m_register[ REG_T2_COUNTER_L ];
-		u8 mode = m_register[ REG_ACR ] & 0x20;
+		u16 timer = ( u16( m_register[ T2_COUNTER_H ] ) << 8 ) + m_register[ T2_COUNTER_L ];
+		u8 mode = m_register[ ACR ] & 0x20;
 		
 		// BEN - not sure about all this. need to clarify functionality
 		// re-read page 8 on data sheet about this
@@ -339,25 +412,25 @@ void VIA_6522::Tick()
 				//
 				// Clear T2 interrupt flag
 				//
-				WriteIFR( m_baseAddress + REG_IFR, INTERRUPT_TIMER2 );
+				WriteIFR( m_baseAddress + IFR, INTERRUPT_TIMER2 );
 				// set it. this is clearly wrong.
-				m_register[ REG_IFR ] |= INTERRUPT_SET_CLEAR | INTERRUPT_TIMER2 ; // set bit 7 of Interrupt flag register plus the relevant bit for that interrupt
+				m_register[ IFR ] |= INTERRUPT_SET_CLEAR | INTERRUPT_TIMER2 ; // set bit 7 of Interrupt flag register plus the relevant bit for that interrupt
 				cpu.ThrowInterrupt();
 			}
 		}
 		else
 		{
-			if ( m_register[ REG_PCR ] & 0x40 )
+			if ( m_register[ PCR ] & 0x40 )
 			{
 				if ( --timer == 0 )
 				{
-					m_register[ REG_IFR ] |= INTERRUPT_SET_CLEAR | INTERRUPT_TIMER2 ; // set bit 7 of Interrupt flag register plus the relevant bit for that interrupt
+					m_register[ IFR ] |= INTERRUPT_SET_CLEAR | INTERRUPT_TIMER2 ; // set bit 7 of Interrupt flag register plus the relevant bit for that interrupt
 					cpu.ThrowInterrupt();
 				}
 			}
 		}
-		m_register[ REG_T2_COUNTER_H ] = timer >> 8;
-		m_register[ REG_T2_COUNTER_L ] = timer & 0xff;
+		m_register[ T2_COUNTER_H ] = timer >> 8;
+		m_register[ T2_COUNTER_L ] = timer & 0xff;
 	}
 }
 
