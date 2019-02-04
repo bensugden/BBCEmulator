@@ -61,8 +61,8 @@ CRTC_6845::CRTC_6845()
 {
 	m_nCurrentRegister = -1;
 	memset( r, 0, sizeof( r ) );
-	mem.RegisterMemoryMappedAddress( SHEILA::WRITE_6845_CRTC_Address_register, MemoryMapHandler( CRTC_6845::WriteRegisterFile ) );
-	mem.RegisterMemoryMappedAddress( SHEILA::WRITE_6845_CRTC_Register_file,    MemoryMapHandler( CRTC_6845::WriteRegisterFile ) );
+	mem.RegisterMemoryMap_Write( SHEILA::WRITE_6845_CRTC_Address_register, MemoryMapHandler( CRTC_6845::WriteRegisterFile ) );
+	mem.RegisterMemoryMap_Write( SHEILA::WRITE_6845_CRTC_Register_file,    MemoryMapHandler( CRTC_6845::WriteRegisterFile ) );
 }
 
 //-------------------------------------------------------------------------------------------------

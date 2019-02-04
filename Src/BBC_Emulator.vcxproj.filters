@@ -81,13 +81,13 @@
     <ClInclude Include="6845_CRTC.h">
       <Filter>Emulator\Source</Filter>
     </ClInclude>
-    <ClInclude Include="6522_VIA_MOS.h">
-      <Filter>Emulator\Headers</Filter>
-    </ClInclude>
     <ClInclude Include="6522_VIA_Ports.h">
       <Filter>Emulator\Headers</Filter>
     </ClInclude>
     <ClInclude Include="SystemClock.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="6522_VIA_System.h">
       <Filter>Emulator\Headers</Filter>
     </ClInclude>
   </ItemGroup>
@@ -137,13 +137,13 @@
     <ClCompile Include="VideoULA.cpp">
       <Filter>Emulator\Source</Filter>
     </ClCompile>
-    <ClCompile Include="6522_VIA_MOS.cpp">
-      <Filter>Emulator\Source</Filter>
-    </ClCompile>
     <ClCompile Include="6522_VIA_Ports.cpp">
       <Filter>Emulator\Source</Filter>
     </ClCompile>
     <ClCompile Include="SystemClock.cpp">
+      <Filter>Emulator\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="6522_VIA_System.cpp">
       <Filter>Emulator\Source</Filter>
     </ClCompile>
   </ItemGroup>

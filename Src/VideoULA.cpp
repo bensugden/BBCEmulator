@@ -10,9 +10,9 @@
 
 VideoULA::VideoULA( )
 {
-	mem.RegisterMemoryMappedAddress( SHEILA::WRITE_Serial_ULA_Control_register, MemoryMapHandler( VideoULA::WRITE_Serial_ULA_Control_register ) );
-	mem.RegisterMemoryMappedAddress( SHEILA::WRITE_Video_ULA_Control_register,  MemoryMapHandler( VideoULA::WRITE_Video_ULA_Control_register  ) );
-	mem.RegisterMemoryMappedAddress( SHEILA::WRITE_Video_ULA_Palette_register,  MemoryMapHandler( VideoULA::WRITE_Video_ULA_Palette_register  ) );
+	mem.RegisterMemoryMap_Write( SHEILA::WRITE_Serial_ULA_Control_register, MemoryMapHandler( VideoULA::WRITE_Serial_ULA_Control_register ) );
+	mem.RegisterMemoryMap_Write( SHEILA::WRITE_Video_ULA_Control_register,  MemoryMapHandler( VideoULA::WRITE_Video_ULA_Control_register  ) );
+	mem.RegisterMemoryMap_Write( SHEILA::WRITE_Video_ULA_Palette_register,  MemoryMapHandler( VideoULA::WRITE_Video_ULA_Palette_register  ) );
 }
 
 //-------------------------------------------------------------------------------------------------
