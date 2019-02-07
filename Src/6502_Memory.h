@@ -42,30 +42,22 @@ struct MemoryMap
 	void RegisterMemoryMap_Write( u16 address, std::function<u8(u16,u8)> listenerFunction )
 	{
 		assert( m_nNumMemMappedAddresses < 255 );
-		int nAllocatedSlot = -1;
-
-		//
-		// Function already registered?
-		//
-		for ( int i = 0; i < m_nNumMemMappedAddresses; i++ )
-		{
-			if ( m_pMemoryMappedCallback[ i ] = listenerFunction )
-			{
-				nAllocatedSlot = i;
-				break;
-			}
-		}
-
 		//
 		// Need to allocate new function ptr slot
 		//
-		if ( nAllocatedSlot == -1 )
-		{
-			m_pMemoryMappedCallback[ ++m_nNumMemMappedAddresses ] = listenerFunction; // 0 will indicate no listener registered for this memory location
-			nAllocatedSlot = m_nNumMemMappedAddresses;
+		u8 nID = m_pMemoryMapID[ address - m_startAddress ];
+
+		if ( nID == 0 )	// if ID != 0 then we already registered handler for this address.
+		{ 
+			nID = ++m_nNumMemMappedAddresses;
 		}
-		assert( m_pMemoryMapID[ address - m_startAddress ] == 0 );	// error! already registered handler for this address. can only have 1 fn. per memory address
-		m_pMemoryMapID[ address - m_startAddress ] = nAllocatedSlot;
+		else
+		{
+			assert( false );
+		}
+
+		m_pMemoryMappedCallback[ nID ] = listenerFunction; // 0 will indicate no listener registered for this memory location
+		m_pMemoryMapID[ address - m_startAddress ] = nID;
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -253,7 +245,7 @@ struct MemoryState
 	{
 		for ( u16 i = start; i < end; i++ )
 		{
-			Write( i, 0 );
+			Write_Internal( i, 0 );
 		}
 	}
 

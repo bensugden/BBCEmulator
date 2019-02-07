@@ -91,35 +91,35 @@ protected:
 		FREE_RUNNING_PB7_SQUARE_WAVE		= 3,
 	};
 
-	u8		WriteIFR( u16 address, u8 value );
-	u8		WriteIER( u16 address, u8 value );
-	u8		WriteOR( u16 address, u8 value );
-	u8		WriteACR( u16 address, u8 value );
-	u8		WriteT1( u16 address, u8 value );
-	u8		WriteT2( u16 address, u8 value );
-	u8		WritePCR( u16 address, u8 value );
-	u8		WriteShift( u16 address, u8 value );
-	u8		WriteDDR( u16 address, u8 value );
+	u8			WriteIFR( u16 address, u8 value );
+	u8			WriteIER( u16 address, u8 value );
+	u8			WriteOR( u16 address, u8 value );
+	u8			WriteACR( u16 address, u8 value );
+	u8			WriteT1( u16 address, u8 value );
+	u8			WriteT2( u16 address, u8 value );
+	u8			WritePCR( u16 address, u8 value );
+	u8			WriteShift( u16 address, u8 value );
+	u8			WriteDDR( u16 address, u8 value );
+	u8			ReadIR( u16 address, u8 value );
+	u8			ReadT1( u16 address, u8 value );
+	u8			ReadT2( u16 address, u8 value );
 
-	u8		ReadIR( u16 address, u8 value );
-	u8		ReadT1( u16 address, u8 value );
-	u8		ReadT2( u16 address, u8 value );
+	u8			GetControlLineMode( InternalRegister reg ) const;
+	u8			GetShiftMode( ) const;
 
-	u8		GetControlLineMode( InternalRegister reg ) const;
-	u8		GetShiftMode( ) const;
+	void		SetCA1( u8 value );
+	void		SetCA2( u8 value );
+	void		SetCB1( u8 value );
+	void		SetCB2( u8 value );
 
-	void	SetCA1( u8 value );
-	void	SetCA2( u8 value );
-	void	SetCB1( u8 value );
-	void	SetCB2( u8 value );
 private:
-	void	SetCAB1( u8 value, InternalRegister reg, InterruptFlags interrupt );
-	void	SetCAB2( u8 value, InternalRegister reg, InterruptFlags interrupt );
-	void	UpdateControlChannel_DuringReadOrWriteOfPort( ReadWriteChannel in );
+	void		SetCAB1( u8 value, InternalRegister reg, InterruptFlags interrupt );
+	void		SetCAB2( u8 value, InternalRegister reg, InterruptFlags interrupt );
+	void		UpdateControlChannel_DuringReadOrWriteOfPort( ReadWriteChannel in );
 
-	u16		m_baseAddress;
-	u8		m_register[ InternalRegister::_COUNT ];
-	T1Mode	m_t1Mode;
+	u16			m_baseAddress;
+	u8			m_register[ InternalRegister::_COUNT ];
+	T1Mode		m_t1Mode;
 };
 
 //-------------------------------------------------------------------------------------------------

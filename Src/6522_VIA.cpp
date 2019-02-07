@@ -208,12 +208,15 @@ u8 VIA_6522::WriteOR( u16 address, u8 value )
 {
 	ReadWriteChannel in = (ReadWriteChannel)( address - m_baseAddress );
 
-	UpdateControlChannel_DuringReadOrWriteOfPort( in );
+	if ( in != RW_ORA_IRA_NO_HANDSHAKE )
+	{
+		UpdateControlChannel_DuringReadOrWriteOfPort( in );
+	}
 
 	//
 	// Only copy those bits set in DDR from ORA / ORB to PA / PB
 	//
-	if ( in == RW_ORA_IRA )
+	if ( in == RW_ORA_IRA || in == RW_ORA_IRA_NO_HANDSHAKE )
 	{
 		m_register[ ORA ] = value;
 		m_register[ PA ] &= ~m_register[ DDRA ];
