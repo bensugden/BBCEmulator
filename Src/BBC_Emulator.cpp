@@ -25,8 +25,10 @@ CPU			cpu;
 
 BBC_Emulator::BBC_Emulator()
 	: m_teletext( m_crtc )
+	, m_systemVIA( m_keyboard )
 {
 	Reset();
+	cpu.SetClock( this );
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -38,8 +40,23 @@ BBC_Emulator::~BBC_Emulator( )
 
 //-------------------------------------------------------------------------------------------------
 
+void BBC_Emulator::Tick()
+{
+	m_nClockCounter++;
+
+	if ( m_nClockCounter & 0x2 )
+	{
+		m_systemVIA.Tick();
+		m_portsVIA.Tick();
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+
 void BBC_Emulator::Reset()
 {
+	m_nClockCounter = 0;
+
 	mem.LoadROM( "roms\\Os12.rom", 0xC000 );
 	mem.LoadROM( "roms\\Basic2.rom", 0x8000 );
 	mem.Clear( 0xfc00, 0xff00 );
@@ -113,28 +130,39 @@ void BBC_Emulator::DebugDecodeNextInstruction()
 }
 
 //-------------------------------------------------------------------------------------------------
+bool g_bExternalDebuggerBreakpoint = false;
 
-bool BBC_Emulator::ProcessInstructions( int nCount, std::string* pDisassemblyString, bool bDebug, bool bForceDebugPC )
+bool BBC_Emulator::ProcessInstructions( int nCount, std::string* pDisassemblyString, bool bDebug, bool bForceDebugPC, bool bAlwaysSpewToOutputWindow )
 {
 	bool bBreakpoint = false;
-	
-	if ( bDebug && ( m_history.IsEmpty()|| bForceDebugPC ) )
+
+	if ( /*bDebug &&*/ ( m_history.IsEmpty()|| bForceDebugPC ) )
 	{
 		DebugDecodeNextInstruction();
 	}
-
 	for ( int i = 0 ; ( i < nCount ) && ( !bBreakpoint ) ; i++ )
 	{
 		if ( cpu.ProcessSingleInstruction() )
 		{
 			bBreakpoint = true;
 		}
-		if ( bDebug  )
+		//if ( bDebug || bBreakpoint  )
 		{
 			DebugDecodeNextInstruction();
 		}
+		if ( bAlwaysSpewToOutputWindow )
+		{
+			static std::string disassembly;
+			m_history.GetLastInstruction(disassembly);
+			OutputDebugStringA( disassembly.c_str() );
+		}
+		if ( g_bExternalDebuggerBreakpoint )
+		{
+			bBreakpoint = true;
+			g_bExternalDebuggerBreakpoint = false;
+		}
 	}
-	if ( bDebug && pDisassemblyString )
+	if ( ((!bAlwaysSpewToOutputWindow)||bBreakpoint) && ( (bBreakpoint||bDebug) && pDisassemblyString ) )
 	{
 		m_history.GetHistory(*pDisassemblyString);
 		OutputDebugStringA( pDisassemblyString->c_str() );

@@ -1,0 +1,8405 @@
+REM > BASIC1/src
+REM Source for 6502 BBC BASIC Version 1
+:
+REM BBC BASIC Copyright (C) 1981 Acorn Computer and Roger Wilson
+REM Source reconstruction and commentary Copyright (C) J.G.Harston
+:
+REM Recognises target for: bbc, atom, system
+REM mos$=API at &FFxx, target$=hardware
+:
+REM Updates:
+REM 09-Jan-2014: Escape/INKEY checks Atom hardware
+REM 26-Jan-2018: Atom forces messages to upper case
+:
+SYS "OS_GetEnv" TO A$:A$=MID$(A$,1+INSTR(A$," ",1+INSTR(A$," ",1+INSTR(A$," "))))
+A%=INSTR(A$+" "," "):outfile$=LEFT$(A$,A%-1):A$=MID$(A$,A%+1)
+A%=INSTR(A$+" "," "):target$ =LEFT$(A$,A%-1):A$=MID$(A$,A%+1)
+A%=INSTR(A$+" "," "):version$=LEFT$(A$,A%-1):A$=MID$(A$,A%+1)
+A%=INSTR(A$+" "," "):load$   =LEFT$(A$,A%-1):A$=MID$(A$,A%+1)
+IF outfile$="":ERROR 220,"Syntax: Basic -quit Basic/src <outfile> <target> <version> (<start>)":END
+:
+PRINT "Assembling: 6502 BBC BASIC version ";version$
+PRINT "Target:     ";target$
+PRINT "Outfile:    ";outfile$
+ON ERROR REPORT:PRINT " at line ";ERL:END
+:
+mos$=target$
+IF target$="bbc" THEN
+  load%=&8000           :REM Code start address
+  IF load$<>"":load%=EVAL("&"+load$)
+  ws=&0400-&400         :REM Offset from &400 to workspace
+  membot=0:memtop=0     :REM Use OSBYTE to find memory limits
+  zp=&00                :REM Zero page start address
+  ZP00=&00:ZP01=&01     :REM LOMEM in normal location
+  FAULT =&FD            :REM Pointer to error block
+  ESCFLG=&FF            :REM Escape pending flag
+  F_LOAD =zp+&39        :REM LOAD/SAVE control block
+  F_EXEC =F_LOAD+4
+  F_START=F_LOAD+8
+  F_END  =F_LOAD+12
+  :
+  REM MOS Entry Points:
+  OS_CLI=&FFF7:OSBYTE=&FFF4:OSWORD=&FFF1:OSWRCH=&FFEE
+  OSWRCR=&FFEC:OSNEWL=&FFE7:OSASCI=&FFE3:OSRDCH=&FFE0
+  OSFILE=&FFDD:OSARGS=&FFDA:OSBGET=&FFD7:OSBPUT=&FFD4
+  OSGBPB=&FFD1:OSFIND=&FFCE:BRKV=&202:WRCHV=&020E
+  :
+  REM Dummy variables for non-BBC code
+  OSECHO=00000:OSLOAD=00000:OSSAVE=00000
+  OSRDAR=00000:OSSTAR=00000:OSSHUT=00000
+ENDIF
+:
+IF target$="system" OR target$="atom" THEN
+  IF target$="atom"  :load%=&4000:membot=&2800:ws=&9C00-&400
+  IF target$="system":load%=&A000:membot=&3000:ws=&2800-&400
+  IF load$<>"":load%=EVAL("&"+load$)
+  memtop=load%          :REM Top of memory is start of code
+  zp=&00                :REM Zero page start address
+  ZP00=&00:ZP01=&01     :REM LOMEM in normal location
+  FAULT =&4F            :REM Pointer to error block
+  IF target$="atom"  :ESCFLG=&B001 :REM Escape pending flag
+  IF target$="system":ESCFLG=&0E21 :REM Escape pending flag
+  F_LOAD =zp+&39        :REM LOAD/SAVE control block
+  F_EXEC =F_LOAD+2
+  F_START=F_LOAD+4
+  F_END  =F_LOAD+6
+  mos$="atom"
+  :
+  REM MOS Entry Points:
+  OS_CLI=&FFF7:OSWRCH=&FFF4:OSWRCR=&FFF2:OSNEWL=&FFED
+  OSASCI=&FFE9:OSECHO=&FFE6:OSRDCH=&FFE3:OSLOAD=&FFE0
+  OSSAVE=&FFDD:OSRDAR=&FFDA:OSSTAR=&FFD7:OSBGET=&FFD4
+  OSBPUT=&FFD1:OSFIND=&FFCE:OSSHUT=&FFCB
+  BRKV=&202:WRCHV=&0208
+  :
+  REM Dummy variables for non-Atom code
+  OSBYTE=00000:OSWORD=00000:OSFILE=00000:OSARGS=00000
+ENDIF
+:
+REM BASIC token values
+tknAND=&80  :tknDIV=&81   :tknEOR=&82     :tknMOD=&83
+tknOR=&84   :tknERROR=&85 :tknLINE=&86    :tknOFF=&87
+tknSTEP=&88 :tknSPC=&89   :tknTAB=&8A     :tknELSE=&8B
+tknTHEN=&8C :tknERL=&9E   :tknEXT=&A2     :tknFN=&A4
+tknTO=&B8   :tknAUTO=&C6  :tknRENUMBER=&CC:tknPTRc=&CF
+tknDATA=&DC :tknDEF=&DD   :tknDIM=&DE     :tknEND=&E0
+tknFOR=&E3  :tknGOSUB=&E4 :tknGOTO=&E5    :tknIF=&E7
+tknLOCAL=&EA:tknMODE=&EB  :tknON=&EE      :tknPRINT=&F1
+tknPROC=&F2 :tknREPEAT=&F5:tknREPORT=&F6  :tknSTOP=&FA
+tknLOMEM=&92:tknHIMEM=&93
+:
+DIM mcode% &4400
+FOR opt%=4 TO 7 STEP 2
+P%=load%:O%=mcode%
+[OPT opt%
+.exec%
+.L8000
+\ Atom/System Code Header
+\ =======================
+OPT FNif(mos$="atom")
+ JSR LBFCB                     :\ Print inline text
+ EQUS "Acorn New BASIC":EQUB 13:EQUB 13
+ EQUS "(C)1981 Acorn":EQUB 13:EQUB 13
+OPT FNendif
+
+\ BBC Code Header
+\ ===============
+OPT FNif(mos$="bbc")
+ JMP L801F                     :\ LANGUAGE ENTRY
+ JMP XBCE9                     :\ SERVICE ENTRY (Warm Start in MOS 0.10)
+ EQUB &40                      :\ ROM type=Lang+6502 BASIC
+ EQUB L800E-L8000              :\ Offset to copyright string
+ EQUB VALMID$(version$,3,1)    :\ ROM version number
+ EQUS "BASIC"                  :\ ROM title
+ .L800E
+ EQUB 0:EQUS "(C)1981 Acorn"   :\ ROM copyright string
+ EQUB 10:EQUB 13:EQUB 0
+OPT FNendif
+
+\ LANGUAGE STARTUP
+\ ================
+\ Set memory limits
+.L801F
+OPT FNif(memtop=0):LDA #&84:JSR OSBYTE:STX &06:STY &07:OPT FNendif :\ Read top of memory, set HIMEM
+OPT FNif(memtop>0):LDA #memtop DIV 256:STA &07        :OPT FNendif :\ Set HIMEM to top of memory
+:
+OPT FNif(membot=0):LDA #&83:JSR OSBYTE:STY &18        :OPT FNendif :\ Read bottom of memory, set PAGE
+OPT FNif(membot>0):LDA #membot DIV 256:STA &18        :OPT FNendif :\ Set PAGE to bottom of memory
+:
+OPT FNif(memtop>0)
+ LDX #&00:STX &1F                     :\ Set LISTO to 0
+ STX ws+&0402:STX ws+&0403            :\ Set @% to &0000xxxx
+ STX &06:DEX:STX &23                  :\ Set HIMEM to &xx00, WIDTH to 255
+OPT FNendif
+:
+OPT FNif(memtop=0)
+ LDA #&00:STA &1F                     :\ Set LISTO to 0
+ STA ws+&0402:STA ws+&0403            :\ Set @% to &0000xxxx
+OPT FNendif
+:
+LDA #&0A:STA ws+&0400:STA ws+&0401   :\ Set @% to &00000A0A
+LDA #&01:AND &11:ORA &0D:ORA &0E     :\ Check RND seed
+ORA &0F:ORA &10:BNE L805B            :\ If nonzero, skip past
+LDA #&41:STA &0D:LDA #&52:STA &0E    :\ Set RND seed to &575241
+LDA #&57:STA &0F
+.L805B
+LDA #LB433 AND 255:STA &0202         :\ Set up error handler
+LDA #LB433 DIV 256:STA &0203
+OPT FNif(memtop=0)
+ CLI:LDA #&FF:STA &23                 :\ Enable IRQs, set WIDTH to 255
+OPT FNendif
+JMP L8A80                            :\ Jump to immediate loop
+
+\ Token Table
+\ =========== 
+\ string, token (b7=1), flag
+\
+\ Token flag:
+\ Bit 0 - Conditional tokenisation (don't tokenise if followed by an alphabetic character).
+\ Bit 1 - Go into "middle of Statement" mode.
+\ Bit 2 - Go into "Start of Statement" mode.
+\ Bit 3 - FN/PROC keyword - don't tokenise the name of the subroutine.
+\ Bit 4 - Start tokenising a line number now (after a GOTO, etc...).
+\ Bit 5 - Don't tokenise rest of line (REM, DATA, etc...)
+\ Bit 6 - Pseudo variable flag - add &40 to token if at the start of a statement/hex number
+\ Bit 7 - Unused - used externally for quote toggle.
+.L806D
+EQUS "AND"     :EQUB &80:EQUB &00 :\ 00000000
+EQUS "ABS"     :EQUB &94:EQUB &00 :\ 00000000
+EQUS "ACS"     :EQUB &95:EQUB &00 :\ 00000000
+EQUS "ADVAL"   :EQUB &96:EQUB &00 :\ 00000000
+EQUS "ASC"     :EQUB &97:EQUB &00 :\ 00000000
+EQUS "ASN"     :EQUB &98:EQUB &00 :\ 00000000
+EQUS "ATN"     :EQUB &99:EQUB &00 :\ 00000000
+EQUS "AUTO"    :EQUB &C6:EQUB &10 :\ 00010000
+EQUS "BGET"    :EQUB &9A:EQUB &01 :\ 00000001
+EQUS "BPUT"    :EQUB &D5:EQUB &03 :\ 00000011
+EQUS "COLOUR"  :EQUB &FB:EQUB &02 :\ 00000010
+EQUS "CALL"    :EQUB &D6:EQUB &02 :\ 00000010
+EQUS "CHAIN"   :EQUB &D7:EQUB &02 :\ 00000010
+EQUS "CHR$"    :EQUB &BD:EQUB &00 :\ 00000000
+EQUS "CLEAR"   :EQUB &D8:EQUB &01 :\ 00000001
+EQUS "CLOSE"   :EQUB &D9:EQUB &03 :\ 00000011
+EQUS "CLG"     :EQUB &DA:EQUB &01 :\ 00000001
+EQUS "CLS"     :EQUB &DB:EQUB &01 :\ 00000001
+EQUS "COS"     :EQUB &9B:EQUB &00 :\ 00000000
+EQUS "COUNT"   :EQUB &9C:EQUB &01 :\ 00000001
+EQUS "DATA"    :EQUB &DC:EQUB &20 :\ 00100000
+EQUS "DEG"     :EQUB &9D:EQUB &00 :\ 00000000
+EQUS "DEF"     :EQUB &DD:EQUB &00 :\ 00000000
+EQUS "DELETE"  :EQUB &C7:EQUB &10 :\ 00010000
+EQUS "DIV"     :EQUB &81:EQUB &00 :\ 00000000
+EQUS "DIM"     :EQUB &DE:EQUB &02 :\ 00000010
+EQUS "DRAW"    :EQUB &DF:EQUB &02 :\ 00000010
+EQUS "ENDPROC" :EQUB &E1:EQUB &01 :\ 00000001
+EQUS "END"     :EQUB &E0:EQUB &01 :\ 00000001
+EQUS "ENVELOPE":EQUB &E2:EQUB &02 :\ 00000010
+EQUS "ELSE"    :EQUB &8B:EQUB &14 :\ 00010100
+EQUS "EVAL"    :EQUB &A0:EQUB &00 :\ 00000000
+EQUS "ERL"     :EQUB &9E:EQUB &01 :\ 00000001
+EQUS "ERROR"   :EQUB &85:EQUB &04 :\ 00000100
+EQUS "EOF"     :EQUB &C5:EQUB &01 :\ 00000001
+EQUS "EOR"     :EQUB &82:EQUB &00 :\ 00000000
+EQUS "ERR"     :EQUB &9F:EQUB &01 :\ 00000001
+EQUS "EXP"     :EQUB &A1:EQUB &00 :\ 00000000
+EQUS "EXT"     :EQUB &A2:EQUB &01 :\ 00000001
+EQUS "FOR"     :EQUB &E3:EQUB &02 :\ 00000010
+EQUS "FALSE"   :EQUB &A3:EQUB &01 :\ 00000001
+EQUS "FN"      :EQUB &A4:EQUB &08 :\ 00001000
+EQUS "GOTO"    :EQUB &E5:EQUB &12 :\ 00010010
+EQUS "GET$"    :EQUB &BE:EQUB &00 :\ 00000000
+EQUS "GET"     :EQUB &A5:EQUB &00 :\ 00000000
+EQUS "GOSUB"   :EQUB &E4:EQUB &12 :\ 00010010
+EQUS "GCOL"    :EQUB &E6:EQUB &02 :\ 00000010
+EQUS "HIMEM"   :EQUB &93:EQUB &43 :\ 00100011
+EQUS "INPUT"   :EQUB &E8:EQUB &02 :\ 00000010
+EQUS "IF"      :EQUB &E7:EQUB &02 :\ 00000010
+EQUS "INKEY$"  :EQUB &BF:EQUB &00 :\ 00000000
+EQUS "INKEY"   :EQUB &A6:EQUB &00 :\ 00000000
+EQUS "INT"     :EQUB &A8:EQUB &00 :\ 00000000
+EQUS "INSTR("  :EQUB &A7:EQUB &00 :\ 00000000
+EQUS "LIST"    :EQUB &C9:EQUB &10 :\ 00010000
+EQUS "LINE"    :EQUB &86:EQUB &00 :\ 00000000
+EQUS "LOAD"    :EQUB &C8:EQUB &02 :\ 00000010
+EQUS "LOMEM"   :EQUB &92:EQUB &43 :\ 01000011
+EQUS "LOCAL"   :EQUB &EA:EQUB &02 :\ 00000010
+EQUS "LEFT$("  :EQUB &C0:EQUB &00 :\ 00000000
+EQUS "LEN"     :EQUB &A9:EQUB &00 :\ 00000000
+EQUS "LET"     :EQUB &E9:EQUB &04 :\ 00000100
+EQUS "LOG"     :EQUB &AB:EQUB &00 :\ 00000000
+EQUS "LN"      :EQUB &AA:EQUB &00 :\ 00000000
+EQUS "MID$("   :EQUB &C1:EQUB &00 :\ 00000000
+EQUS "MODE"    :EQUB &EB:EQUB &02 :\ 00000010
+EQUS "MOD"     :EQUB &83:EQUB &00 :\ 00000000
+EQUS "MOVE"    :EQUB &EC:EQUB &02 :\ 00000010
+EQUS "NEXT"    :EQUB &ED:EQUB &02 :\ 00000010
+EQUS "NEW"     :EQUB &CA:EQUB &01 :\ 00000001
+EQUS "NOT"     :EQUB &AC:EQUB &00 :\ 00000000
+EQUS "OLD"     :EQUB &CB:EQUB &01 :\ 00000001
+EQUS "ON"      :EQUB &EE:EQUB &02 :\ 00000010
+EQUS "OFF"     :EQUB &87:EQUB &00 :\ 00000000
+EQUS "OR"      :EQUB &84:EQUB &00 :\ 00000000
+EQUS "OPENIN"  :EQUB &AD:EQUB &00 :\ 00000000
+EQUS "OPENOUT" :EQUB &AE:EQUB &00 :\ 00000000
+EQUS "PRINT"   :EQUB &F1:EQUB &02 :\ 00000010
+EQUS "PAGE"    :EQUB &90:EQUB &43 :\ 01000011
+EQUS "PTR"     :EQUB &8F:EQUB &43 :\ 01000011
+EQUS "PI"      :EQUB &AF:EQUB &01 :\ 00000001
+EQUS "PLOT"    :EQUB &F0:EQUB &02 :\ 00000010
+EQUS "POINT("  :EQUB &B0:EQUB &00 :\ 00000000
+EQUS "PROC"    :EQUB &F2:EQUB &0A :\ 00001010
+EQUS "POS"     :EQUB &B1:EQUB &01 :\ 00000001
+EQUS "RETURN"  :EQUB &F8:EQUB &01 :\ 00000001
+EQUS "REPEAT"  :EQUB &F5:EQUB &00 :\ 00000000
+EQUS "REPORT"  :EQUB &F6:EQUB &01 :\ 00000001
+EQUS "READ"    :EQUB &F3:EQUB &02 :\ 00000010
+EQUS "REM"     :EQUB &F4:EQUB &20 :\ 00100000
+EQUS "RUN"     :EQUB &F9:EQUB &01 :\ 00000001
+EQUS "RAD"     :EQUB &B2:EQUB &00 :\ 00000000
+EQUS "RESTORE" :EQUB &F7:EQUB &12 :\ 00010010
+EQUS "RIGHT$(" :EQUB &C2:EQUB &00 :\ 00000000
+EQUS "RND"     :EQUB &B3:EQUB &01 :\ 00000001
+EQUS "RENUMBER":EQUB &CC:EQUB &10 :\ 00010000
+EQUS "STEP"    :EQUB &88:EQUB &00 :\ 00000000
+EQUS "SAVE"    :EQUB &CD:EQUB &02 :\ 00000010
+EQUS "SGN"     :EQUB &B4:EQUB &00 :\ 00000000
+EQUS "SIN"     :EQUB &B5:EQUB &00 :\ 00000000
+EQUS "SQR"     :EQUB &B6:EQUB &00 :\ 00000000
+EQUS "SPC"     :EQUB &89:EQUB &00 :\ 00000000
+EQUS "STR$"    :EQUB &C3:EQUB &00 :\ 00000000
+EQUS "STRING$(":EQUB &C4:EQUB &00 :\ 00000000
+EQUS "SOUND"   :EQUB &D4:EQUB &02 :\ 00000010
+EQUS "STOP"    :EQUB &FA:EQUB &01 :\ 00000001
+EQUS "TAN"     :EQUB &B7:EQUB &00 :\ 00000000
+EQUS "THEN"    :EQUB &8C:EQUB &14 :\ 00010100
+EQUS "TO"      :EQUB &B8:EQUB &00 :\ 00000000
+EQUS "TAB("    :EQUB &8A:EQUB &00 :\ 00000000
+EQUS "TRACE"   :EQUB &FC:EQUB &12 :\ 00010010
+EQUS "TIME"    :EQUB &91:EQUB &43 :\ 01000011
+EQUS "TRUE"    :EQUB &B9:EQUB &01 :\ 00000001
+EQUS "UNTIL"   :EQUB &FD:EQUB &02 :\ 00000010
+EQUS "USR"     :EQUB &BA:EQUB &00 :\ 00000000
+EQUS "VDU"     :EQUB &EF:EQUB &02 :\ 00000010
+EQUS "VAL"     :EQUB &BB:EQUB &00 :\ 00000000
+EQUS "VPOS"    :EQUB &BC:EQUB &01 :\ 00000001
+EQUS "WIDTH"   :EQUB &FE:EQUB &02 :\ 00000010
+EQUS "PAGE"    :EQUB &D0:EQUB &00 :\ 00000000
+EQUS "PTR"     :EQUB &CF:EQUB &00 :\ 00000000
+EQUS "TIME"    :EQUB &D1:EQUB &00 :\ 00000000
+EQUS "LOMEM"   :EQUB &D2:EQUB &00 :\ 00000000
+EQUS "HIMEM"   :EQUB &D3:EQUB &00 :\ 00000000
+
+
+\ FUNCTION/COMMAND DISPATCH TABLE, ADDRESS LOW BYTES
+\ ==================================================
+.L835A
+\                  :\ 8E - unused  - matches with &CE, OPENIN in later versions
+EQUB LBF50 AND 255 :\ 8F - PTR
+EQUB LAEEF AND 255 :\ 90 - PAGE
+EQUB LAEE3 AND 255 :\ 91 - TIME
+EQUB LAF2B AND 255 :\ 92 - LOMEM
+EQUB LAF32 AND 255 :\ 93 - HIMEM
+EQUB LAD8D AND 255 :\ 94 - ABS
+EQUB LA8C6 AND 255 :\ 95 - ACS
+EQUB LAB56 AND 255 :\ 96 - ADVAL
+EQUB LACC4 AND 255 :\ 97 - ASC
+EQUB LA8CC AND 255 :\ 98 - ASN
+EQUB LA907 AND 255 :\ 99 - ATN
+EQUB LBF78 AND 255 :\ 9A - BGET
+EQUB LA989 AND 255 :\ 9B - COS
+EQUB LAF26 AND 255 :\ 9C - COUNT
+EQUB LABE7 AND 255 :\ 9D - DEG
+EQUB LAFCE AND 255 :\ 9E - ERL
+EQUB LAFD5 AND 255 :\ 9F - ERR
+EQUB LAC12 AND 255 :\ A0 - EVAL
+EQUB LAAB4 AND 255 :\ A1 - EXP
+EQUB LBF4F AND 255 :\ A2 - EXT
+EQUB LAEF9 AND 255 :\ A3 - FALSE
+EQUB LB1C4 AND 255 :\ A4 - FN
+EQUB LAFE8 AND 255 :\ A5 - GET
+EQUB LACD3 AND 255 :\ A6 - INKEY
+EQUB LAD08 AND 255 :\ A7 - INSTR(
+EQUB LAC9E AND 255 :\ A8 - INT
+EQUB LAF00 AND 255 :\ A9 - LEN
+EQUB LA804 AND 255 :\ AA - LN
+EQUB LABCD AND 255 :\ AB - LOG
+EQUB LACF7 AND 255 :\ AC - NOT
+EQUB LBF85 AND 255 :\ AD - OPENIN  - changed to OPENUP in later versions
+EQUB LBF81 AND 255 :\ AE - OPENOUT
+EQUB LABF0 AND 255 :\ AF - PI
+EQUB LAB64 AND 255 :\ B0 - POINT(
+EQUB LAB92 AND 255 :\ B1 - POS
+EQUB LABD6 AND 255 :\ B2 - RAD
+EQUB LAF78 AND 255 :\ B3 - RND
+EQUB LABAD AND 255 :\ B4 - SGN
+EQUB LA994 AND 255 :\ B5 - SIN
+EQUB LA7B4 AND 255 :\ B6 - SQR
+EQUB LA6C9 AND 255 :\ B7 - TAN
+EQUB LAF0B AND 255 :\ B8 - TO
+EQUB LACEA AND 255 :\ B9 - TRUE
+EQUB LABFB AND 255 :\ BA - USR
+EQUB LAC55 AND 255 :\ BB - VAL
+EQUB LAB9B AND 255 :\ BC - VPOS
+EQUB LB3EE AND 255 :\ BD - CHR$
+EQUB LAFEE AND 255 :\ BE - GET$
+EQUB LB055 AND 255 :\ BF - INKEY$
+EQUB LAFFB AND 255 :\ C0 - LEFT$(
+EQUB LB068 AND 255 :\ C1 - MID$(
+EQUB LB01D AND 255 :\ C2 - RIGHT$(
+EQUB LB0C3 AND 255 :\ C3 - STR$
+EQUB LB0F1 AND 255 :\ C4 - STRING$(
+EQUB LACDE AND 255 :\ C5 - EOF
+EQUB L905F AND 255 :\ C6 - AUTO
+EQUB L8ECE AND 255 :\ C7 - DELETE
+EQUB LBF2D AND 255 :\ C8 - LOAD
+EQUB LB5B5 AND 255 :\ C9 - LIST
+EQUB L8A7D AND 255 :\ CA - NEW
+EQUB L8A3D AND 255 :\ CB - OLD
+EQUB L8F37 AND 255 :\ CC - RENUMBER
+EQUB LBEFA AND 255 :\ CD - SAVE
+EQUB L9839 AND 255 :\ CE - unused  - matches with &8E
+EQUB LBF39 AND 255 :\ CF - PTR
+EQUB L9239 AND 255 :\ D0 - PAGE
+EQUB L927B AND 255 :\ D1 - TIME
+EQUB L9224 AND 255 :\ D2 - LOMEM
+EQUB L9212 AND 255 :\ D3 - HIMEM
+EQUB LB461 AND 255 :\ D4 - SOUND   - used to be 'BEEP'
+EQUB LBF61 AND 255 :\ D5 - BPUT
+EQUB L8E6C AND 255 :\ D6 - CALL
+EQUB LBF33 AND 255 :\ D7 - CHAIN
+EQUB L9326 AND 255 :\ D8 - CLEAR
+EQUB LBF9E AND 255 :\ D9 - CLOSE
+EQUB L8E57 AND 255 :\ DA - CLG
+EQUB L8E5E AND 255 :\ DB - CLS
+EQUB L8AED AND 255 :\ DC - DATA
+EQUB L8AED AND 255 :\ DD - DEF
+EQUB L90DD AND 255 :\ DE - DIM
+EQUB L93A5 AND 255 :\ DF - DRAW
+EQUB L8A50 AND 255 :\ E0 - END
+EQUB L9310 AND 255 :\ E1 - ENDPROC
+EQUB LB49C AND 255 :\ E2 - ENVELOPE
+EQUB LB7DF AND 255 :\ E3 - FOR
+EQUB LB8B4 AND 255 :\ E4 - GOSUB
+EQUB LB8EB AND 255 :\ E5 - GOTO
+EQUB L932F AND 255 :\ E6 - GCOL
+EQUB L9893 AND 255 :\ E7 - IF
+EQUB LBA62 AND 255 :\ E8 - INPUT
+EQUB L8B57 AND 255 :\ E9 - LET
+EQUB L92D5 AND 255 :\ EA - LOCAL
+EQUB L935A AND 255 :\ EB - MODE
+EQUB L93A1 AND 255 :\ EC - MOVE
+EQUB LB6AE AND 255 :\ ED - NEXT
+EQUB LB934 AND 255 :\ EE - ON
+EQUB L93EF AND 255 :\ EF - VDU
+EQUB L93AE AND 255 :\ F0 - PLOT
+EQUB L8D33 AND 255 :\ F1 - PRINT
+EQUB L92B6 AND 255 :\ F2 - PROC
+EQUB LBB39 AND 255 :\ F3 - READ
+EQUB L8AED AND 255 :\ F4 - REM
+EQUB LBBFF AND 255 :\ F5 - REPEAT
+EQUB LBFE6 AND 255 :\ F6 - REPORT
+EQUB LBB00 AND 255 :\ F7 - RESTORE
+EQUB LB8D5 AND 255 :\ F8 - RETURN
+EQUB LBD29 AND 255 :\ F9 - RUN
+EQUB L8A59 AND 255 :\ FA - STOP
+EQUB L9346 AND 255 :\ FB - COLOUR
+EQUB L9243 AND 255 :\ FC - TRACE
+EQUB LBBCC AND 255 :\ FD - UNTIL
+EQUB LB4CC AND 255 :\ FE - WIDTH
+EQUB L9839 AND 255 :\ FF - OSCLI   - unused in BASIC 1, reserved for WHILE ?
+
+\ FUNCTION/COMMAND DISPATCH TABLE, ADDRESS HIGH BYTES
+\ ==================================================
+.L83CB
+EQUB LBF50 DIV 256 :\ 8F - PTR
+EQUB LAEEF DIV 256 :\ 90 - PAGE
+EQUB LAEE3 DIV 256 :\ 91 - TIME
+EQUB LAF2B DIV 256 :\ 92 - LOMEM
+EQUB LAF32 DIV 256 :\ 93 - HIMEM
+EQUB LAD8D DIV 256 :\ 94 - ABS
+EQUB LA8C6 DIV 256 :\ 95 - ACS
+EQUB LAB56 DIV 256 :\ 96 - ADVAL
+EQUB LACC4 DIV 256 :\ 97 - ASC
+EQUB LA8CC DIV 256 :\ 98 - ASN
+EQUB LA907 DIV 256 :\ 99 - ATN
+EQUB LBF78 DIV 256 :\ 9A - BGET
+EQUB LA989 DIV 256 :\ 9B - COS
+EQUB LAF26 DIV 256 :\ 9C - COUNT
+EQUB LABE7 DIV 256 :\ 9D - DEG
+EQUB LAFCE DIV 256 :\ 9E - ERL
+EQUB LAFD5 DIV 256 :\ 9F - ERR
+EQUB LAC12 DIV 256 :\ A0 - EVAL
+EQUB LAAB4 DIV 256 :\ A1 - EXP
+EQUB LBF4F DIV 256 :\ A2 - EXT
+EQUB LAEF9 DIV 256 :\ A3 - FALSE
+EQUB LB1C4 DIV 256 :\ A4 - FN
+EQUB LAFE8 DIV 256 :\ A5 - GET
+EQUB LACD3 DIV 256 :\ A6 - INKEY
+EQUB LAD08 DIV 256 :\ A7 - INSTR(
+EQUB LAC9E DIV 256 :\ A8 - INT
+EQUB LAF00 DIV 256 :\ A9 - LEN
+EQUB LA804 DIV 256 :\ AA - LN
+EQUB LABCD DIV 256 :\ AB - LOG
+EQUB LACF7 DIV 256 :\ AC - NOT
+EQUB LBF85 DIV 256 :\ AD - OPENIN
+EQUB LBF81 DIV 256 :\ AE - OPENOUT
+EQUB LABF0 DIV 256 :\ AF - PI
+EQUB LAB64 DIV 256 :\ B0 - POINT(
+EQUB LAB92 DIV 256 :\ B1 - POS
+EQUB LABD6 DIV 256 :\ B2 - RAD
+EQUB LAF78 DIV 256 :\ B3 - RND
+EQUB LABAD DIV 256 :\ B4 - SGN
+EQUB LA994 DIV 256 :\ B5 - SIN
+EQUB LA7B4 DIV 256 :\ B6 - SQR
+EQUB LA6C9 DIV 256 :\ B7 - TAN
+EQUB LAF0B DIV 256 :\ B8 - TO
+EQUB LACEA DIV 256 :\ B9 - TRUE
+EQUB LABFB DIV 256 :\ BA - USR
+EQUB LAC55 DIV 256 :\ BB - VAL
+EQUB LAB9B DIV 256 :\ BC - VPOS
+EQUB LB3EE DIV 256 :\ BD - CHR$
+EQUB LAFEE DIV 256 :\ BE - GET$
+EQUB LB055 DIV 256 :\ BF - INKEY$
+EQUB LAFFB DIV 256 :\ C0 - LEFT$(
+EQUB LB068 DIV 256 :\ C1 - MID$(
+EQUB LB01D DIV 256 :\ C2 - RIGHT$(
+EQUB LB0C3 DIV 256 :\ C3 - STR$
+EQUB LB0F1 DIV 256 :\ C4 - STRING$(
+EQUB LACDE DIV 256 :\ C5 - EOF
+EQUB L905F DIV 256 :\ C6 - AUTO
+EQUB L8ECE DIV 256 :\ C7 - DELETE
+EQUB LBF2D DIV 256 :\ C8 - LOAD
+EQUB LB5B5 DIV 256 :\ C9 - LIST
+EQUB L8A7D DIV 256 :\ CA - NEW
+EQUB L8A3D DIV 256 :\ CB - OLD
+EQUB L8F37 DIV 256 :\ CC - RENUMBER
+EQUB LBEFA DIV 256 :\ CD - SAVE
+EQUB L9839 DIV 256 :\ CE - EDIT
+EQUB LBF39 DIV 256 :\ CF - PTR
+EQUB L9239 DIV 256 :\ D0 - PAGE
+EQUB L927B DIV 256 :\ D1 - TIME
+EQUB L9224 DIV 256 :\ D2 - LOMEM
+EQUB L9212 DIV 256 :\ D3 - HIMEM
+EQUB LB461 DIV 256 :\ D4 - SOUND
+EQUB LBF61 DIV 256 :\ D5 - BPUT
+EQUB L8E6C DIV 256 :\ D6 - CALL
+EQUB LBF33 DIV 256 :\ D7 - CHAIN
+EQUB L9326 DIV 256 :\ D8 - CLEAR
+EQUB LBF9E DIV 256 :\ D9 - CLOSE
+EQUB L8E57 DIV 256 :\ DA - CLG
+EQUB L8E5E DIV 256 :\ DB - CLS
+EQUB L8AED DIV 256 :\ DC - DATA
+EQUB L8AED DIV 256 :\ DD - DEF
+EQUB L90DD DIV 256 :\ DE - DIM
+EQUB L93A5 DIV 256 :\ DF - DRAW
+EQUB L8A50 DIV 256 :\ E0 - END
+EQUB L9310 DIV 256 :\ E1 - ENDPROC
+EQUB LB49C DIV 256 :\ E2 - ENVELOPE
+EQUB LB7DF DIV 256 :\ E3 - FOR
+EQUB LB8B4 DIV 256 :\ E4 - GOSUB
+EQUB LB8EB DIV 256 :\ E5 - GOTO
+EQUB L932F DIV 256 :\ E6 - GCOL
+EQUB L9893 DIV 256 :\ E7 - IF
+EQUB LBA62 DIV 256 :\ E8 - INPUT
+EQUB L8B57 DIV 256 :\ E9 - LET
+EQUB L92D5 DIV 256 :\ EA - LOCAL
+EQUB L935A DIV 256 :\ EB - MODE
+EQUB L93A1 DIV 256 :\ EC - MOVE
+EQUB LB6AE DIV 256 :\ ED - NEXT
+EQUB LB934 DIV 256 :\ EE - ON
+EQUB L93EF DIV 256 :\ EF - VDU
+EQUB L93AE DIV 256 :\ F0 - PLOT
+EQUB L8D33 DIV 256 :\ F1 - PRINT
+EQUB L92B6 DIV 256 :\ F2 - PROC
+EQUB LBB39 DIV 256 :\ F3 - READ
+EQUB L8AED DIV 256 :\ F4 - REM
+EQUB LBBFF DIV 256 :\ F5 - REPEAT
+EQUB LBFE6 DIV 256 :\ F6 - REPORT
+EQUB LBB00 DIV 256 :\ F7 - RESTORE
+EQUB LB8D5 DIV 256 :\ F8 - RETURN
+EQUB LBD29 DIV 256 :\ F9 - RUN
+EQUB L8A59 DIV 256 :\ FA - STOP
+EQUB L9346 DIV 256 :\ FB - COLOUR
+EQUB L9243 DIV 256 :\ FC - TRACE
+EQUB LBBCC DIV 256 :\ FD - UNTIL
+EQUB LB4CC DIV 256 :\ FE - WIDTH
+EQUB L9839 DIV 256 :\ FF - OSCLI
+
+\ ASSEMBLER
+\ =========
+
+\ Packed mnemonic table, low bytes
+\ --------------------------------
+.L843C
+EQUB FNmnemL("BRK"):EQUB FNmnemL("CLC"):EQUB FNmnemL("CLD")
+EQUB FNmnemL("CLI"):EQUB FNmnemL("CLV"):EQUB FNmnemL("DEX")
+EQUB FNmnemL("DEY"):EQUB FNmnemL("INX"):EQUB FNmnemL("INY")
+EQUB FNmnemL("NOP"):EQUB FNmnemL("PHA"):EQUB FNmnemL("PHP")
+EQUB FNmnemL("PLA"):EQUB FNmnemL("PLP"):EQUB FNmnemL("RTI")
+EQUB FNmnemL("RTS"):EQUB FNmnemL("SEC"):EQUB FNmnemL("SED")
+EQUB FNmnemL("SEI"):EQUB FNmnemL("TAX"):EQUB FNmnemL("TAY")
+EQUB FNmnemL("TSX"):EQUB FNmnemL("TXA"):EQUB FNmnemL("TXS")
+EQUB FNmnemL("TYA")
+
+EQUB FNmnemL("BCC"):EQUB FNmnemL("BCS"):EQUB FNmnemL("BEQ")
+EQUB FNmnemL("BMI"):EQUB FNmnemL("BNE"):EQUB FNmnemL("BPL")
+EQUB FNmnemL("BVC"):EQUB FNmnemL("BVS")
+
+EQUB FNmnemL("AND"):EQUB FNmnemL("EOR"):EQUB FNmnemL("ORA")
+EQUB FNmnemL("ADC"):EQUB FNmnemL("CMP"):EQUB FNmnemL("LDA")
+EQUB FNmnemL("SBC"):EQUB FNmnemL("ASL"):EQUB FNmnemL("LSR")
+EQUB FNmnemL("ROL"):EQUB FNmnemL("ROR"):EQUB FNmnemL("DEC")
+EQUB FNmnemL("INC"):EQUB FNmnemL("CPX"):EQUB FNmnemL("CPY")
+EQUB FNmnemL("BIT")
+
+EQUB FNmnemL("JMP"):EQUB FNmnemL("JSR"):EQUB FNmnemL("LDX")
+EQUB FNmnemL("LDY"):EQUB FNmnemL("STA"):EQUB FNmnemL("STX")
+EQUB FNmnemL("STY"):EQUB FNmnemL("OPT")
+
+\ Packed mnemonic table, high bytes
+\ ---------------------------------
+.L8475
+EQUB FNmnemH("BRK"):EQUB FNmnemH("CLC"):EQUB FNmnemH("CLD")
+EQUB FNmnemH("CLI"):EQUB FNmnemH("CLV"):EQUB FNmnemH("DEX")
+EQUB FNmnemH("DEY"):EQUB FNmnemH("INX"):EQUB FNmnemH("INY")
+EQUB FNmnemH("NOP"):EQUB FNmnemH("PHA"):EQUB FNmnemH("PHP")
+EQUB FNmnemH("PLA"):EQUB FNmnemH("PLP"):EQUB FNmnemH("RTI")
+EQUB FNmnemH("RTS"):EQUB FNmnemH("SEC"):EQUB FNmnemH("SED")
+EQUB FNmnemH("SEI"):EQUB FNmnemH("TAX"):EQUB FNmnemH("TAY")
+EQUB FNmnemH("TSX"):EQUB FNmnemH("TXA"):EQUB FNmnemH("TXS")
+EQUB FNmnemH("TYA")
+
+EQUB FNmnemH("BCC"):EQUB FNmnemH("BCS"):EQUB FNmnemH("BEQ")
+EQUB FNmnemH("BMI"):EQUB FNmnemH("BNE"):EQUB FNmnemH("BPL")
+EQUB FNmnemH("BVC"):EQUB FNmnemH("BVS")
+
+EQUB FNmnemH("AND"):EQUB FNmnemH("EOR"):EQUB FNmnemH("ORA")
+EQUB FNmnemH("ADC"):EQUB FNmnemH("CMP"):EQUB FNmnemH("LDA")
+EQUB FNmnemH("SBC"):EQUB FNmnemH("ASL"):EQUB FNmnemH("LSR")
+EQUB FNmnemH("ROL"):EQUB FNmnemH("ROR"):EQUB FNmnemH("DEC")
+EQUB FNmnemH("INC"):EQUB FNmnemH("CPX"):EQUB FNmnemH("CPY")
+EQUB FNmnemH("BIT")
+
+EQUB FNmnemH("JMP"):EQUB FNmnemH("JSR"):EQUB FNmnemH("LDX")
+EQUB FNmnemH("LDY"):EQUB FNmnemH("STA"):EQUB FNmnemH("STX")
+EQUB FNmnemH("STY"):EQUB FNmnemH("OPT")
+
+\ Opcode base table
+\ -----------------
+.L84AE
+
+\ No arguments
+\ ------------
+BRK:CLC:CLD:CLI:CLV:DEX:DEY:INX
+INY:NOP:PHA:PHP:PLA:PLP:RTI:RTS
+SEC:SED:SEI:TAX:TAY:TSX:TXA:TXS:TYA
+
+\ Branches
+\ --------
+EQUB &90:EQUB &B0:EQUB &F0:EQUB &30:\ BMI, BCC, BCS, BEQ
+EQUB &D0:EQUB &10:EQUB &50:EQUB &70:\ BNE, BPL, BVC, BVS
+
+\ Arithmetic
+\ ----------
+EQUB &21:EQUB &41:EQUB &01:EQUB &61:\ AND, EOR, ORA, ADC
+EQUB &C1:EQUB &A1:EQUB &E1:EQUB &06:\ CMP, LDA, SBC, ASL
+EQUB &46:EQUB &26:EQUB &66:EQUB &C6:\ LSR, ROL, ROR, DEC
+EQUB &E6:EQUB &E0:EQUB &C0:EQUB &20:\ INC, CPX, CPY, BIT
+
+\ Others
+\ ------
+EQUB &4C:EQUB &20:EQUB &A2:EQUB &A0:\ JMP, JSR, LDX, LDY
+EQUB &81:EQUB &86:EQUB &84         :\ STA, STX, STY
+
+\ Exit Assembler
+\ --------------
+.L84E6
+LDA #&FF:STA &28         :\ Set OPT to 'BASIC'
+JMP L8B14                :\ Return to execution loop
+ 
+.L84ED
+LDA #&03
+.L84EF
+STA &28
+.L84F1
+JSR L8A1E
+CMP #ASC"]":BEQ L84E6    :\ ']' - exit assembler
+JSR L9826
+.L84FB
+DEC &0A
+JSR L85A1
+LDA &28
+LSR A
+BCC L8541
+LDA &38
+JSR L8570
+LDA &37
+JSR L856A
+LDX #&00
+.L8511
+DEY
+BMI L851C
+LDA &29,X
+JSR L856A
+INX
+BNE L8511
+.L851C
+CPX #&03:BEQ L852C
+JSR LB57B
+JSR LB571
+JSR LB571
+INX
+BNE L851C
+.L852C
+LDY #&00
+.L852E
+LDA (&0B),Y
+CMP #&3A:BEQ L853E
+CMP #&0D:BEQ L853E
+JSR LB53A
+INY
+BNE L852E
+.L853E
+JSR LBC42
+.L8541
+LDY #&FF
+.L8543
+INY
+LDA (&0B),Y
+CMP #&3A:BEQ L854E
+CMP #&0D:BNE L8543
+.L854E
+STY &0A
+JSR L9810
+DEY
+LDA (&0B),Y
+INY
+CMP #&3A:BEQ L8567
+LDA &0C
+CMP #&07+(ws/256)
+BNE L8564
+JMP L8A99
+ 
+.L8564
+JSR L9862
+.L8567
+JMP L84F1
+ 
+.L856A
+JSR L8570
+JMP LB57B
+ 
+.L8570
+PHA
+LSR A
+LSR A
+LSR A
+LSR A
+JSR L857B
+PLA
+AND #&0F
+.L857B
+CMP #&0A
+BCC L8581
+ADC #&06
+.L8581
+ADC #&30
+JMP LB571
+ 
+.L8586
+JSR L9548
+BEQ L85EB
+BCS L85EB
+JSR LBDAC
+LDA ws+&0440 :\ Get P%
+LDY ws+&0441
+JSR LAF19
+STA &27
+JSR LB4E0
+JSR L87EA
+.L85A1
+LDX #&03              :\ Prepare to fetch three characters
+JSR L8A1E
+LDY #&00:STY &3D
+CMP #ASC":":BEQ L8612 :\ End of statement
+CMP #&0D:BEQ L8612    :\ End of line
+CMP #ASC"\":BEQ L8612 :\ Comment
+CMP #ASC".":BEQ L8586 :\ Label
+DEC &0A
+.L85BC
+LDY &0A:INC &0A       :\ Get current character, inc. index
+LDA (&0B),Y:BMI L85EE :\ Token, check for tokenised AND, EOR, OR
+CMP #&20:BEQ L85D8    :\ Space, step past
+LDY #&05
+ASL A:ASL A:ASL A     :\ Compact first character
+.L85CD
+ASL A:ROL &3D:ROL &3E
+DEY:BNE L85CD
+DEX:BNE L85BC         :\ Loop to fetch three characters
+
+\ The current opcode has now been compressed into two bytes
+\ ---------------------------------------------------------
+.L85D8
+LDX #&39                :\ Point to end of opcode lookup table
+LDA &3D                 :\ Get low byte of compacted mnemonic
+.L85DC
+CMP L843C-1,X:BNE L85E8 :\ Low half doesn't match
+LDY L8475-1,X           :\ Check high half
+CPY &3E:BEQ L8607       :\ Mnemonic matches
+.L85E8
+DEX:BNE L85DC           :\ Loop through opcode lookup table
+.L85EB
+JMP L9839               :\ Mnemonic not matched, Mistake
+ 
+.L85EE
+LDX #&22                :\ opcode number for 'AND'
+CMP #tknAND:BEQ L8607   :\ Tokenised 'AND'
+INX                     :\ opcode number for 'EOR'
+CMP #tknEOR:BEQ L8607   :\ Tokenised 'EOR'
+INX                     :\ opcode number for 'ORA'
+CMP #tknOR:BNE L85EB    :\ Not tokenised 'OR'
+INC &0A:INY:LDA (&0B),Y :\ Get next character
+CMP #ASC"A":BNE L85EB   :\ Ensure 'OR' followed by 'A'
+
+\ Opcode found
+\ ------------
+.L8607
+LDA L84AE-1,X:STA &29   :\ Get base opcode
+LDY #&01                :\ Y=1 for one byte
+CPX #&1A:BCS L8634      :\ Opcode &1A+ have arguments
+.L8612
+LDA ws+&0440:STA &37    :\ Get P%
+LDA ws+&0441:STA &38
+STY &39                 :\ Remember byte count for listing
+.L861E
+DEY:BMI L8631
+LDA &0029,Y:STA (&37),Y :\ Copy bytes to memory
+INC ws+&0440:BNE L861E  :\ Increment P%
+INC ws+&0441
+JMP L861E
+.L8631
+LDY &39:RTS             :\ Get byte count and return
+ 
+.L8634
+CPX #&22:BCS L8677      :\ Not a branch
+JSR L87E4
+CLC
+LDA &2A
+SBC ws+&0440
+TAY
+LDA &2B
+SBC ws+&0441
+CPY #&01
+DEY
+SBC #&00:BEQ L8672
+CMP #&FF:BEQ L866D
+.L8652
+LDA &28:LSR A:BEQ L8666 :\ If OPT.b0=0, ignore error
+BRK:EQUB 1:EQUS "Out of range":BRK
+
+.L8666
+TAY
+.L8667
+STY &2A
+.L8669
+LDY #&02:BNE L8612
+
+.L866D
+TYA
+BMI L8667
+BPL L8652
+
+.L8672
+TYA
+BPL L8667
+BMI L8652
+
+.L8677
+CPX #&29:BCS L8693
+JSR L8A1E
+CMP #ASC"#"
+BNE L869A
+JSR L87F2
+.L8685
+JSR L87E4
+.L8688
+LDA &2B:BEQ L8669
+.L868C
+BRK:EQUB 2:EQUS "Byte":BRK
+
+.L8693
+CPX #&36:BNE L8703
+JSR L8A1E
+.L869A
+CMP #ASC"(":BNE L86D5
+JSR L87E4
+JSR L8A1E
+CMP #ASC")":BNE L86BB
+JSR L8A1E
+CMP #ASC",":BNE L86CD
+JSR L87EF
+JSR L8A1E
+CMP #ASC"Y":BNE L86CD
+BEQ L8688
+.L86BB
+CMP #ASC",":BNE L86CD
+JSR L8A1E
+CMP #ASC"X":BNE L86CD
+JSR L8A1E
+CMP #ASC")":BEQ L8688
+.L86CD
+BRK:EQUB 3:EQUS "Index":BRK
+
+.L86D5
+DEC &0A
+JSR L87E4
+JSR L8A1E
+CMP #ASC",":BNE L86F7
+JSR L87EF
+JSR L8A1E
+CMP #ASC"X":BEQ L86F7
+CMP #ASC"Y":BNE L86CD
+.L86EF
+JSR L87F2
+LDY #&03:JMP L8612
+ 
+.L86F7
+JSR L87F5
+.L86FA
+LDA &2B:BNE L86EF
+LDY #&02:JMP L8612
+ 
+.L8703
+CPX #&2F:BCS L8733
+CPX #&2D:BCS L8714
+JSR L8A1E
+CMP #ASC"A":BEQ L872B
+DEC &0A
+.L8714
+JSR L87E4
+JSR L8A1E
+CMP #ASC",":BNE L86FA
+JSR L87EF
+JSR L8A1E
+CMP #ASC"X":BEQ L86FA
+JMP L86CD
+ 
+.L872B
+JSR L87F5
+LDY #&01
+JMP L8612
+ 
+.L8733
+CPX #&32:BCS L874D
+CPX #&31:BEQ L8747
+JSR L8A1E
+CMP #ASC"#":BNE L8745
+JMP L8685
+ 
+.L8745
+DEC &0A
+.L8747
+JSR L87E4
+JMP L86F7
+ 
+.L874D
+CPX #&33:BEQ L875C
+BCS L8777
+JSR L8A1E
+CMP #ASC"(":BEQ L8764
+DEC &0A
+.L875C
+JSR L87E4
+.L875F
+LDY #&03
+JMP L8612
+ 
+.L8764
+JSR L87EF
+JSR L87EF
+JSR L87E4
+JSR L8A1E
+CMP #ASC")":BEQ L875F
+JMP L86CD
+ 
+.L8777
+CPX #&39:BCS L87D8
+LDA &3D
+EOR #&01
+AND #&1F
+PHA
+CPX #&37:BCS L87B5
+JSR L8A1E
+CMP #ASC"#":BNE L8791
+PLA:JMP L8685
+ 
+.L8791
+DEC &0A
+JSR L87E4
+PLA
+STA &37
+JSR L8A1E
+CMP #ASC",":BEQ L87A3
+JMP L86F7
+ 
+.L87A3
+JSR L8A1E
+AND #&1F
+CMP &37
+BNE L87B2
+JSR L87EF
+JMP L86F7
+ 
+.L87B2
+JMP L86CD
+ 
+.L87B5
+JSR L87E4
+PLA
+STA &37
+JSR L8A1E
+CMP #ASC",":BNE L87D5
+JSR L8A1E
+AND #&1F
+CMP &37
+BNE L87B2
+JSR L87EF
+LDA &2B
+BEQ L87D5
+JMP L868C
+ 
+.L87D5
+JMP L86FA
+ 
+.L87D8
+JSR L87E4
+LDA &2A
+STA &28
+LDY #&00
+JMP L8612
+ 
+.L87E4
+JSR L9AF7
+JSR L92A1
+.L87EA
+LDY &1B
+STY &0A
+RTS
+ 
+.L87EF
+JSR L87F2
+.L87F2
+JSR L87F5
+.L87F5
+LDA &29
+CLC
+ADC #&04
+STA &29
+RTS
+ 
+.L87FD
+PHA
+CLC
+TYA
+ADC &37
+STA &39
+LDA #&00
+ADC &38
+STA &3A
+PLA
+LDY #&00
+STA (&37),Y
+.L880F
+INY
+LDA (&39),Y
+STA (&37),Y
+CMP #&0D:BNE L880F
+RTS
+ 
+.L8819
+AND #&0F:STA &3D
+LDA #&00:STA &3E
+.L8821
+INY:LDA (&37),Y
+CMP #ASC"9"+1:BCS L885E
+CMP #ASC"0":BCC L885E
+AND #&0F
+PHA
+LDX &3E
+LDA &3D
+ASL A
+ROL &3E
+BMI L8859
+ASL A
+ROL &3E
+BMI L8859
+ADC &3D
+STA &3D
+TXA
+ADC &3E
+ASL &3D
+ROL A
+BMI L8859
+BCS L8859
+STA &3E
+PLA
+ADC &3D
+STA &3D
+BCC L8821
+INC &3E
+BPL L8821
+PHA
+.L8859
+PLA
+LDY #&00
+SEC
+RTS
+ 
+.L885E
+DEY
+LDA #&8D
+JSR L87FD
+LDA &37
+CLC
+ADC #&03
+STA &39
+LDA &38
+ADC #&00
+STA &3A
+.L8871
+LDA (&37),Y:STA (&39),Y
+DEY:BNE L8871
+LDY #&03
+.L887A
+LDA &3E
+ORA #&40
+STA (&37),Y
+DEY
+LDA &3D
+AND #&3F
+ORA #&40
+STA (&37),Y
+DEY
+LDA &3D
+AND #&C0
+STA &3D
+LDA &3E
+AND #&C0
+LSR A
+LSR A
+ORA &3D
+LSR A
+LSR A
+EOR #&54
+STA (&37),Y
+JSR L88CC
+JSR L88CC
+JSR L88CC
+CLC
+LDY #&00
+RTS
+ 
+.L88AB
+CMP #&7B:BCS L88C3
+CMP #&5F:BCS L88C4
+CMP #&5B:BCS L88C3
+CMP #&41:BCS L88C4
+.L88BB
+CMP #&3A:BCS L88C3
+CMP #&30:BCS L88C4
+.L88C3
+CLC
+.L88C4
+RTS
+ 
+.L88C5
+CMP #&2E:BNE L88BB
+RTS
+ 
+.L88CA
+LDA (&37),Y
+.L88CC
+INC &37:BNE L88D2
+INC &38
+.L88D2
+RTS
+ 
+\ Tokenise line at &37/8
+\ ======================
+.L88D3
+LDY #&00:STY &3B      :\ Set tokeniser to left-hand-side
+.L88D7
+STY &3C
+.L88D9
+LDA (&37),Y           :\ Get current character
+CMP #&0D:BEQ L88D2    :\ Exit with <cr>
+CMP #&20:BNE L88E9    :\ Skip <spc>
+.L88E3
+JSR L88CC:JMP L88D9
+ 
+.L88E9
+CMP #ASC"&":BNE L8901 :\ Jump if not '&'
+.L88ED
+JSR L88CC
+LDA (&37),Y
+JSR L88BB:BCS L88ED
+CMP #ASC"A":BCC L88D9    :\ Loop back if <'A'
+CMP #ASC"F"+1:BCC L88ED  :\ Step to next if 'A'..'F'
+BCS L88D9
+.L8901
+CMP #&22:BNE L8913
+.L8905
+JSR L88CC
+LDA (&37),Y
+CMP #&22:BEQ L88E3
+CMP #&0D:BNE L8905
+RTS
+ 
+.L8913
+CMP #&3A:BNE L891D
+STY &3B:STY &3C
+BEQ L88E3
+.L891D
+CMP #&2C:BEQ L88E3
+CMP #&2A:BNE L892A
+LDA &3B:BNE L896A
+RTS
+ 
+.L892A
+CMP #&2E:BEQ L893C
+JSR L88BB:BCC L8966
+LDX &3C:BEQ L893C
+JSR L8819:BCC L8970
+.L893C
+LDA (&37),Y
+JSR L88C5:BCC L8949
+JSR L88CC
+JMP L893C
+ 
+.L8949
+LDX #&FF
+STX &3B:STY &3C
+JMP L88D9
+ 
+.L8952
+JSR L88AB:BCC L896A
+.L8957
+LDY #&00
+.L8959
+LDA (&37),Y
+JSR L88AB:BCC L8949
+JSR L88CC
+JMP L8959
+ 
+.L8966
+CMP #&41:BCS L8973
+.L896A
+LDX #&FF
+STX &3B:STY &3C
+.L8970
+JMP L88E3
+ 
+.L8973
+CMP #&58:BCS L8952
+LDX #L806D AND 255
+STX &39
+LDX #L806D DIV 256
+STX &3A
+.L897F
+CMP (&39),Y
+BCC L8959
+BNE L8994
+.L8985
+INY
+LDA (&39),Y:BMI L89BE
+CMP (&37),Y:BEQ L8985
+LDA (&37),Y
+CMP #&2E:BEQ L899F
+.L8994
+INY
+LDA (&39),Y:BPL L8994
+CMP #&FE:BNE L89AC
+BCS L8957
+.L899F
+INY
+.L89A0
+LDA (&39),Y
+BMI L89BE
+INC &39:BNE L89A0
+INC &3A:BNE L89A0
+.L89AC
+SEC
+INY
+TYA
+ADC &39
+STA &39
+BCC L89B7
+INC &3A
+.L89B7
+LDY #&00
+LDA (&37),Y
+JMP L897F
+ 
+.L89BE
+TAX
+INY
+LDA (&39),Y
+STA &3D
+DEY
+LSR A
+BCC L89CF
+LDA (&37),Y
+JSR L88AB
+BCS L8957
+.L89CF
+TXA
+BIT &3D
+BVC L89DB
+LDX &3B
+BNE L89DB
+CLC
+ADC #&40
+.L89DB
+DEY
+JSR L87FD
+LDY #&00
+LDX #&FF
+LDA &3D
+LSR A
+LSR A
+BCC L89ED
+STX &3B
+STY &3C
+.L89ED
+LSR A
+BCC L89F4
+STY &3B
+STY &3C
+.L89F4
+LSR A
+BCC L8A08
+PHA
+INY
+.L89F9
+LDA (&37),Y
+JSR L88AB
+BCC L8A06
+JSR L88CC
+JMP L89F9
+ 
+.L8A06
+DEY
+PLA
+.L8A08
+LSR A
+BCC L8A0D
+STX &3C
+.L8A0D
+LSR A
+BCS L8A1D
+JMP L88E3
+ 
+.L8A13
+LDY &1B
+INC &1B
+LDA (&19),Y
+CMP #&20
+BEQ L8A13
+.L8A1D
+RTS
+ 
+.L8A1E
+LDY &0A
+INC &0A
+LDA (&0B),Y
+CMP #&20:BEQ L8A1E
+RTS
+ 
+.L8A29
+BRK:EQUB 5:EQUS "Missing ,":BRK
+
+.L8A35
+JSR L8A13
+CMP #ASC",":BNE L8A29
+RTS
+ 
+\ OLD - Attempt to restore program
+\ ================================
+.L8A3D
+JSR L9810                 :\ Check end of statement
+.L8A40
+LDA &18:STA &38           :\ Point &37/8 to PAGE
+LDA #&00:STA &37
+STA (&37),Y               :\ Remove end marker
+.L8A4A
+OPT FNif(VALversion$>=1.10):CLI:OPT FNendif
+JSR LBE88                 :\ Check program and set TOP
+JMP L8A96                 :\ Jump to clear heap and go to immediate mode
+ 
+\ END - Return to immediate mode
+\ ==============================
+.L8A50
+JSR L9810                 :\ Check end of statement
+JSR LBE88                 :\ Check program and set TOP
+JMP L8A99                 :\ Jump to immediate mode, keeping variables, etc
+ 
+\ STOP - Terminate program with a message
+\ =======================================
+.L8A59
+JSR L9810                 :\ Check end of statement
+JSR LB3F6
+JSR LBFCB                 :\ Print inline text
+EQUB 13:EQUS "STOP at line ":NOP
+JSR LAFCE
+JSR L98F1
+JSR LBC42
+JMP L8A99                 :\ Jump to immediate mode, keeping variables, etc
+ 
+\ NEW - Clear program, enter immediate mode
+\ =========================================
+.L8A7D
+JSR L9810                 :\ Check for end of statement
+
+\ NEW the program in memory
+\ =========================
+\ Enters here from startup
+\
+.L8A80
+LDA #&0D:LDY &18:STY &13  :\ TOP hi=PAGE hi
+LDY #&00:STY &12:STY &20  :\ TOP=PAGE, TRACE OFF
+STA (&12),Y               :\ ?(PAGE+0)=<cr>
+LDA #&FF:INY:STA (&12),Y  :\ ?(PAGE+1)=&FF
+INY:STY &12               :\ TOP=PAGE+2
+
+.L8A96
+JSR LBD38                 :\ Clear variables, heap, stack
+
+\ IMMEDIATE LOOP
+\ ==============
+.L8A99
+LDY #&07+(ws/256):STY &0C :\ PtrA=&0700 - input buffer
+LDY #&00:STY &0B
+LDA #LB443 AND 255:STA &16:\ ON ERROR OFF
+LDA #LB443 DIV 256:STA &17
+LDA #ASC">":JSR LBC1D     :\ Print '>' prompt, read input to buffer at PtrA
+
+\ Execute line at program pointer in &0B/C
+\ ----------------------------------------
+.L8AAE
+LDA #LB443 AND 255:STA &16:\ ON ERROR OFF again
+LDA #LB443 DIV 256:STA &17
+.L8AB6
+LDX #&FF:STX &28          :\ OPT=&FF - not within assembler
+STX &3C:TXS               :\ Clear machine stack
+JSR LBD52                 :\ Clear DATA and stacks
+OPT FNif(mos$="bbc")
+ LDA #&7E:JSR OSBYTE      :\ Acknowlege any Escape state
+OPT FNendif
+LDA &0B:STA &37           :\ Point &37/8 to program line
+LDA &0C:STA &38
+LDY #&00
+STY &3B:STY &0A
+JSR L88D9
+JSR L97AE:BCC L8AE1       :\ Tokenise, jump forward if no line number
+JSR LBCAA:JMP L8A96       :\ Insert into program, jump back to immediate loop
+ 
+\ Command entered at immediate prompt
+\ -----------------------------------
+.L8AE1
+JSR L8A1E                 :\ Skip spaces at PtrA
+CMP #&C6:BCC L8B30        :\ Not command token, try variable assignment
+BCS L8B22                 :\ If command token, jump to execute command
+
+.L8AEA
+JMP L8A99                 :\ Jump back to immediate mode
+ 
+\ DATA, DEF, REM, ELSE
+\ ====================
+\ Skip to end of line
+\ -------------------
+.L8AED
+LDA #&0D:LDY &0A:DEY      :\ Get program pointer
+.L8AF2
+INY:CMP (&0B),Y:BNE L8AF2 :\ Loop until <cr> found
+.L8AF7
+CMP #tknELSE:BEQ L8AED    :\ If 'ELSE', jump to skip to end of line
+LDA &0C:CMP #&07+(ws/256)
+BEQ L8AEA                 :\ Program in command buffer, jump back to immediate loop
+JSR L9861:JMP L8B14       :\ Check for end of program, step past <cr>
+ 
+.L8B07
+DEC &0A
+.L8B09
+JSR L9810
+
+\ Main execution loop
+\ -------------------
+.L8B0C
+LDY #&00:LDA (&0B),Y      :\ Get current character
+CMP #ASC":":BNE L8AF7     :\ Not <colon>, check for ELSE
+.L8B14
+LDY &0A:INC &0A           :\ Get program pointer, increment for next time
+LDA (&0B),Y               :\ Get current character
+CMP #&20:BEQ L8B14        :\ Skip spaces
+CMP #&CF:BCC L8B30        :\ Not program command, jump to try variable assignment
+
+\ Dispatch function/command
+\ -------------------------
+.L8B22
+TAX                       :\ Index into dispatch table
+LDA L835A-&8F,X:STA &37   :\ Dispatch address low byte
+LDA L83CB-&8F,X:STA &38   :\ Dispatch address high byte
+JMP (&0037)               :\ Jump to routine
+
+\ Non-command byte, try variable assignment, or =, *, [
+\ -----------------------------------------------------
+.L8B30
+LDX &0B:STX &19           :\ Copy PtrA to PtrB
+LDX &0C:STX &1A
+STY &1B:JSR L95A9         :\ Check if variable or indirection
+BNE L8B5C                 :\ NE - jump for variable assignment
+BCS L8B8E                 :\ CS - not variable assignment, try =, *, [ commands
+
+STX &1B:JSR L97FA         :\ Check for and step past '='
+JSR L94BC                 :\ Create new variable
+LDX #&05                  :\ X=&05 = float
+LDA &2C
+CMP #&05:BNE L8B52        :\ Jump if dest. not a float
+INX                       :\ X=&06
+.L8B52
+JSR L94F7
+DEC &0A
+
+\ LET variable = expression
+\ =========================
+.L8B57
+JSR L9548
+BEQ L8BA4
+.L8B5C
+BCC L8B6E
+JSR LBDAC
+JSR L97E2
+LDA &27
+BNE L8B7E
+JSR L8BD0
+JMP L8B0C
+ 
+.L8B6E
+JSR LBDAC
+JSR L97E2
+LDA &27
+BEQ L8B7E
+JSR LB4E0
+JMP L8B0C
+ 
+.L8B7E
+BRK:EQUB 6:EQUS "Type mismatch":BRK
+
+\ Check for =, *, [ commands
+\ ==========================
+.L8B8E
+LDY &0A:DEY:LDA (&0B),Y   :\ Step program pointer back and fetch char
+CMP #ASC"=":BEQ L8BAA     :\ Jump for '=', return from FN
+CMP #ASC"*":BEQ L8BC3     :\ Jump for '*', embedded *command
+CMP #ASC"[":BEQ L8BA7     :\ Jump for '[', start assembler
+DEC &0A:JMP L8B09         :\ Otherwise, see if end of statement
+ 
+.L8BA4
+JMP L9839
+ 
+.L8BA7
+JMP L84ED
+
+\ =<value> - return from FN
+\ =========================
+\ Stack needs to contain these items,
+\  ret_lo, ret_hi, PtrB_hi, PtrB_lo, PtrB_off, numparams, PtrA_hi, PtrA_lo, PtrA_off, tknFN
+.L8BAA
+TSX:CPX #&FC:BCS L8BBC        :\ If stack is empty, jump to give error
+LDA &01FF:CMP #tknFN:BNE L8BBC:\ If pushed token<>'FN', give error
+JSR L9AF7                     :\ Evaluate expression
+JMP L9805                     :\ Check for end of statement and return to pop from function
+.L8BBC
+BRK:EQUB 7:EQUS "No "+CHR$tknFN:BRK
+
+\ Embedded *command
+\ =================
+.L8BC3
+OPT FNif(mos$="atom")
+ INY:JSR L9826           :\ Step past '*' and update PtrA to current address
+ LDY #&00
+ .LABC1
+ LDA (&0B),Y:STA &0100,Y :\ Copy string onto stack
+ INY:CMP #&0D:BNE LABC1  :\ Atom OSCLI passed string at &100
+OPT FNendif
+:
+OPT FNif(mos$="bbc")
+ JSR L9826               :\ Update PtrA to current address
+ LDX &0B:LDY &0C         :\ BBC OSCLI passed string at XY
+OPT FNendif
+:
+JSR OS_CLI               :\ Pass command to OSCLI
+JMP L8AED                :\ Jump to step to end of line
+ 
+.L8BD0
+JSR LBE02
+.L8BD3
+LDA &2C
+CMP #&80:BEQ L8C36
+LDY #&02
+LDA (&2A),Y
+CMP &36
+BCS L8C18
+LDA &02
+STA &2C
+LDA &03
+STA &2D
+LDA &36
+CMP #&08
+BCC L8BF5
+ADC #&07
+BCC L8BF5
+LDA #&FF
+.L8BF5
+CLC
+PHA
+ADC &02
+TAY
+LDA &03
+ADC #&00
+CPY &04
+TAX
+SBC &05
+BCS L8C4B
+STY &02
+STX &03
+PLA
+LDY #&02
+STA (&2A),Y
+DEY
+LDA &2D
+STA (&2A),Y
+DEY
+LDA &2C
+STA (&2A),Y
+.L8C18
+LDY #&03
+LDA &36
+STA (&2A),Y
+BEQ L8C35
+DEY
+DEY
+LDA (&2A),Y
+STA &2D
+DEY
+LDA (&2A),Y
+STA &2C
+.L8C2B
+LDA ws+&0600,Y
+STA (&2C),Y
+INY
+CPY &36
+BNE L8C2B
+.L8C35
+RTS
+ 
+.L8C36
+JSR LBED3
+CPY #&00
+BEQ L8C48
+.L8C3D
+LDA ws+&0600,Y
+STA (&2A),Y
+DEY
+BNE L8C3D
+LDA ws+&0600
+.L8C48
+STA (&2A),Y
+RTS
+ 
+.L8C4B
+JSR LBFCB :\ Print inline text
+EQUB 13:EQUS "No room":EQUB 13
+NOP
+JMP L8A99 :\ Jump back to immediate mode
+ 
+.L8C5B
+LDA &39
+CMP #&80:BEQ L8C88
+BCC L8C9D
+LDY #&00
+LDA (&04),Y
+TAX
+BEQ L8C7F
+LDA (&37),Y
+SBC #&01
+STA &39
+INY
+LDA (&37),Y
+SBC #&00
+STA &3A
+.L8C77
+LDA (&04),Y
+STA (&39),Y
+INY
+DEX
+BNE L8C77
+.L8C7F
+LDA (&04,X)
+LDY #&03
+.L8C83
+STA (&37),Y
+JMP LBDF4
+ 
+.L8C88
+LDY #&00
+LDA (&04),Y
+TAX
+BEQ L8C99
+.L8C8F
+INY
+LDA (&04),Y
+DEY
+STA (&37),Y
+INY
+DEX
+BNE L8C8F
+.L8C99
+LDA #&0D
+BNE L8C83
+.L8C9D
+LDY #&00
+LDA (&04),Y
+STA (&37),Y
+INY
+CPY &39
+BCS L8CC0
+LDA (&04),Y
+STA (&37),Y
+INY
+LDA (&04),Y
+STA (&37),Y
+INY
+LDA (&04),Y
+STA (&37),Y
+INY
+CPY &39
+BCS L8CC0
+LDA (&04),Y
+STA (&37),Y
+INY
+.L8CC0
+TYA
+CLC
+JMP LBDF9
+ 
+.L8CC5
+DEC &0A
+JSR LBFAE
+.L8CCA
+TYA
+PHA
+JSR L8A13
+CMP #&2C
+BNE L8D12
+JSR L9B03
+JSR LA376
+PLA
+TAY
+LDA &27
+JSR OSBPUT
+LDA &27
+BEQ L8CFF
+BMI L8CF2
+LDX #&03
+.L8CE8
+LDA &2A,X
+JSR OSBPUT
+DEX
+BPL L8CE8
+BMI L8CCA
+.L8CF2
+LDX #&04
+.L8CF4
+LDA ws+&046C,X
+JSR OSBPUT
+DEX
+BPL L8CF4
+BMI L8CCA
+.L8CFF
+LDA &36
+JSR OSBPUT
+TAX
+BEQ L8CCA
+.L8D07
+LDA ws+&05FF,X
+JSR OSBPUT
+DEX
+BNE L8D07
+BEQ L8CCA
+.L8D12
+PLA
+STY &0A
+JMP L8B09
+ 
+.L8D18
+JSR LBC42
+.L8D1B
+JMP L8B07
+ 
+.L8D1E
+LDA #&00
+STA &14
+JSR L8A1E
+CMP #&3A:BEQ L8D1B
+CMP #&0D:BEQ L8D1B
+CMP #&8B:BEQ L8D1B
+BNE L8D6B
+
+\ PRINT [#numeric, variables][print items]
+\ ========================================
+.L8D33
+JSR L8A1E
+CMP #ASC"#":BEQ L8CC5     :\ PRINT#channel
+DEC &0A
+JMP L8D54
+ 
+.L8D3F
+LDA ws+&0400:BEQ L8D54    :\ Print format
+LDA &1E
+.L8D46
+BEQ L8D54
+SBC ws+&0400
+BCS L8D46
+TAY
+.L8D4E
+JSR LB57B
+INY
+BNE L8D4E
+.L8D54
+CLC
+LDA ws+&0400
+STA &14
+.L8D5A
+ROR &15
+.L8D5C
+JSR L8A1E
+CMP #&3A:BEQ L8D18
+CMP #&0D:BEQ L8D18
+CMP #&8B:BEQ L8D18
+.L8D6B
+CMP #ASC"~":BEQ L8D5A
+CMP #ASC",":BEQ L8D3F
+CMP #ASC";":BEQ L8D1E
+JSR L8E0A
+BCC L8D5C
+LDA &14:PHA
+LDA &15:PHA
+DEC &1B
+JSR L9B03
+PLA:STA &15
+PLA:STA &14
+LDA &1B
+STA &0A
+TYA:BEQ L8DA7
+JSR L9ED0
+LDA &14
+SEC
+SBC &36
+BCC L8DA7
+BEQ L8DA7
+TAY
+.L8DA1
+JSR LB57B
+DEY
+BNE L8DA1
+.L8DA7
+LDA &36
+BEQ L8D5C
+LDY #&00
+.L8DAD
+LDA ws+&0600,Y
+JSR LB571
+INY
+CPY &36
+BNE L8DAD
+BEQ L8D5C
+.L8DBA
+JMP L8A29
+
+\ TAB(x [, y])
+\ ------------
+.L8DBD
+CMP #ASC",":BNE L8DBA :\ No comma, jump to TAB(x)
+LDA &2A:PHA           :\ Save X
+JSR LAE85
+JSR L92A1
+
+\ Atom - manually position cursor
+\ -------------------------------
+OPT FNif(mos$="atom")
+ LDA #&1E:JSR OSWRCH   :\ Home cursor
+ LDY &2A:BEQ XADDC     :\ Y=0, no movement needed
+ LDA #&0A
+ .XADD6
+ JSR OSWRCH            :\ Move cursor down
+ DEY:BNE XADD6         :\ Loop until Y position reached
+ .XADDC
+ PLA:BEQ XADE8         :\ X=0, no movement needed
+ TAY:LDA #&09
+ .XADE2
+ JSR OSWRCH            :\ Move cursor right
+ DEY:BNE XADE2         :\ Loop until X position reached
+ .XADE8
+OPT FNendif
+
+\ BBC - send VDU 31,x,y sequence
+\ ------------------------------
+OPT FNif(mos$="bbc")
+ LDA #&1F:JSR OSWRCH   :\ VDU 31
+ PLA:JSR OSWRCH        :\ VDU X coord
+ JSR L9416             :\ VDU Y coord
+OPT FNendif
+
+JMP L8E04             :\ Continue to next PRINT item
+ 
+.L8DD9
+JSR L928C
+JSR L8A13
+CMP #ASC")":BNE L8DBD
+SEC
+LDA &2A
+SBC &1E
+BEQ L8E04
+TAY
+BCS L8DF9
+JSR LBC42
+BEQ L8DF5
+.L8DF2
+JSR L9292
+.L8DF5
+LDY &2A
+BEQ L8E04
+.L8DF9
+JSR LB57B
+DEY
+BNE L8DF9
+BEQ L8E04
+.L8E01
+JSR LBC42
+.L8E04
+CLC
+LDY &1B
+STY &0A
+RTS
+ 
+.L8E0A
+LDX &0B:STX &19
+LDX &0C:STX &1A
+LDX &0A:STX &1B
+CMP #ASC"'":BEQ L8E01
+CMP #tknTAB:BEQ L8DD9
+CMP #tknSPC:BEQ L8DF2
+SEC
+.L8E23
+RTS
+ 
+.L8E24
+JSR L8A1E
+JSR L8E0A
+BCC L8E23
+CMP #&22:BEQ L8E41 :\ Quote
+SEC:RTS
+ 
+.L8E32
+BRK:EQUB 9:EQUS "Missing "+CHR$34:BRK
+
+.L8E3E
+JSR LB571
+.L8E41
+INY
+LDA (&19),Y
+CMP #&0D:BEQ L8E32
+CMP #&22:BNE L8E3E
+INY
+STY &1B
+LDA (&19),Y
+CMP #&22:BNE L8E04
+BEQ L8E3E
+
+\ CLG
+\ ===
+.L8E57
+JSR L9810                 :\ Check end of statement
+LDA #&10:BNE L8E66        :\ Jump to do VDU 16
+
+\ CLS
+\ ===
+.L8E5E
+JSR L9810                 :\ Check end of statement
+JSR LBC45                 :\ Set COUNT to zero
+LDA #&0C                  :\ Do VDU 12
+.L8E66
+JSR OSWRCH:JMP L8B0C      :\ Send A to OSWRCH, jump to execution loop
+ 
+\ CALL numeric [, parameters]
+\ ===========================
+.L8E6C
+JSR L9AF7
+JSR L929F
+JSR LBDAC
+LDA #&00
+STA ws+&0600:STA ws+&06FF :\ Set 'number of parameters' to zero
+.L8E7D
+JSR L8A13
+CMP #ASC",":BNE L8EA9     :\ No more parameters
+LDY &1B
+JSR L95A1
+BEQ L8EB8
+LDY ws+&06FF
+INY
+LDA &2A
+STA ws+&0600,Y
+INY
+LDA &2B
+STA ws+&0600,Y
+INY
+LDA &2C
+STA ws+&0600,Y
+INC ws+&0600
+STY ws+&06FF
+JMP L8E7D
+ 
+.L8EA9
+DEC &1B
+JSR L980B
+JSR LBE02
+JSR L8EBB
+CLD
+JMP L8B0C
+ 
+.L8EB8
+JMP LAE72
+ 
+.L8EBB
+LDA ws+&040C:LSR A        :\ Get Carry from C%
+LDA ws+&0404              :\ Get A from A%
+LDX ws+&0460:LDY ws+&0464 :\ Get X from X%, Y from Y%
+JMP (&002A)               :\ Jump to address in IntA
+ 
+.L8ECB
+JMP L9839
+ 
+\ DELETE linenum, linenum
+\ =======================
+.L8ECE
+JSR L97AE
+BCC L8ECB
+JSR LBDAC
+JSR L8A1E
+CMP #&2C
+BNE L8ECB
+JSR L97AE
+BCC L8ECB
+JSR L9810
+LDA &2A
+STA &39
+LDA &2B
+STA &3A
+JSR LBE02
+.L8EF0
+JSR LBC4A
+JSR L9834
+JSR L91D7
+LDA &39
+CMP &2A
+LDA &3A
+SBC &2B
+BCS L8EF0
+JMP L8A96
+ 
+.L8F06
+LDA #&0A
+JSR LAF07
+JSR L97AE
+JSR LBDAC
+LDA #&0A
+JSR LAF07
+JSR L8A1E
+CMP #&2C
+BNE L8F2A
+JSR L97AE
+LDA &2B
+BNE L8F2F
+LDA &2A
+BEQ L8F2F
+INC &0A
+.L8F2A
+DEC &0A
+JMP L9810
+ 
+.L8F2F
+BRK:EQUB 0:EQUS "Silly":BRK
+ 
+\ RENUMBER [linenum [, linenum]]
+\ ==============================
+.L8F37
+JSR L8F06
+LDX #&39
+JSR LBE25
+JSR LBE88
+LDA &18
+STA &38
+LDX #&01
+STX &37
+LDA &12
+STA &3B
+LDA &13
+STA &3C
+.L8F52
+LDY #&00
+LDA (&37),Y
+BMI L8F82
+STA (&3B),Y
+INY
+LDA (&37),Y
+STA (&3B),Y
+CLC
+LDA &3B
+ADC #&02
+STA &3B
+TAX
+LDA &3C
+ADC #&00
+STA &3C
+CPX &06
+SBC &07
+BCS L8F78
+JSR L9052
+BCC L8F52
+.L8F78
+BRK:EQUB 0:EQUS CHR$tknRENUMBER+" space":BRK
+
+.L8F82
+LDA &18
+STA &38
+LDX #&01
+STX &37
+.L8F8A
+LDY #&00
+LDA (&37),Y
+BMI L8FAD
+LDA &3A
+STA (&37),Y
+LDA &39
+INY
+STA (&37),Y
+CLC
+LDA &2A
+ADC &39
+STA &39
+LDA #&00
+ADC &3A
+AND #&7F
+STA &3A
+JSR L9052
+BCC L8F8A
+.L8FAD
+LDA &18
+STA &0C
+LDY #&00
+STY &0B
+INY
+LDA (&0B),Y
+BMI L8FDA
+.L8FBA
+LDY #&04
+.L8FBC
+LDA (&0B),Y
+CMP #&8D
+BEQ L8FDD
+INY
+CMP #&0D
+BNE L8FBC
+LDA (&0B),Y
+BMI L8FDA
+LDY #&03
+LDA (&0B),Y
+CLC
+ADC &0B
+STA &0B
+BCC L8FBA
+INC &0C
+BCS L8FBA
+.L8FDA
+JMP L8A96
+ 
+.L8FDD
+JSR L97BA
+.L8FE0
+LDA &18:STA &38   :\ &37/8=>PAGE+1
+LDA #&01:STA &37
+LDA &12:STA &39   :\ &39/A=>TOP
+LDA &13:STA &3A
+.L8FF0
+LDY #&00
+LDA (&37),Y
+BMI L902E
+LDA (&39),Y
+INY
+CMP &2B:BNE L901E
+LDA (&39),Y
+CMP &2A:BNE L901E
+LDA (&37),Y
+STA &3D
+DEY
+LDA (&37),Y
+STA &3E
+LDY &0A
+DEY
+LDA &0B
+STA &37
+LDA &0C
+STA &38
+JSR L887A
+LDY &0A
+BNE L8FBC
+.L901E
+JSR L9052
+LDA &39
+CLC
+ADC #&02
+STA &39
+BCC L8FF0
+INC &3A
+BCS L8FF0
+.L902E
+JSR LBFCB:\ Print inline text
+EQUS "Failed at "
+NOP
+LDY #&01
+LDA (&0B),Y:STA &2B
+INY
+LDA (&0B),Y:STA &2A
+JSR L98F1
+JSR LBC42
+LDY &0A
+JMP L8FBC
+ 
+.L9052
+INY
+LDA (&37),Y
+ADC &37
+STA &37
+BCC L905E
+INC &38
+CLC
+.L905E
+RTS
+ 
+\ AUTO [linenum [, linenum]]
+\ ==========================
+.L905F
+JSR L8F06
+LDA &2A
+PHA
+JSR LBE02
+.L9068
+JSR LBDAC
+JSR L98F5
+LDA #&20
+JSR LBC1D
+JSR LBE02
+JSR L88D3
+JSR LBCAA
+JSR LBD38
+PLA
+PHA
+CLC
+ADC &2A
+STA &2A
+BCC L9068
+INC &2B
+BPL L9068
+JMP L8A96
+ 
+.L908F
+JMP L91CD
+ 
+.L9092
+DEC &0A
+JSR L9548
+BEQ L90D5
+BCS L90D5
+JSR LBDAC
+JSR L928C
+JSR L91D7
+CLC
+LDA &2A
+ADC &02
+TAY
+LDA &2B
+ADC &03
+TAX
+CPY &04
+SBC &05
+BCS L908F
+LDA &02
+STA &2A
+LDA &03
+STA &2B
+STY &02
+STX &03
+LDA #&00
+STA &2C
+STA &2D
+LDA #&40
+STA &27
+JSR LB4E0
+LDA &1B
+STA &0A
+JMP L91C0
+ 
+.L90D5
+BRK:EQUB 10:EQUS "Bad "+CHR$tknDIM:BRK
+
+\ DIM [array()|variable numeric [,...]]
+\ =====================================
+.L90DD
+JSR L8A1E
+TYA
+CLC
+ADC &0B
+LDX &0C
+BCC L90EA
+INX
+CLC
+.L90EA
+SBC #&00
+STA &37
+TXA
+SBC #&00
+STA &38
+LDX #&05
+STX &3F
+LDX &0A
+JSR L951F
+CPY #&01:BEQ L90D5
+CMP #&28:BEQ L9119
+CMP #&24:BEQ L910C
+CMP #&25:BNE L9116
+.L910C
+DEC &3F
+INY
+INX
+LDA (&37),Y
+CMP #ASC"(":BEQ L9119
+.L9116
+JMP L9092
+ 
+.L9119
+STY &39
+STX &0A
+JSR L9429
+BNE L90D5
+JSR L94BC
+LDX #&01
+JSR L94F7
+LDA &3F
+PHA
+LDA #&01
+PHA
+JSR LAF07
+.L9133
+JSR LBDAC
+JSR L9AF7
+JSR L92A1
+LDA &1B
+STA &0A
+LDA &2B
+AND #&C0
+ORA &2C
+ORA &2D
+BNE L90D5
+JSR L91D7
+PLA
+TAY
+LDA &2A
+STA (&02),Y
+INY
+LDA &2B
+STA (&02),Y
+INY
+TYA
+PHA
+JSR L91E6
+JSR L8A1E
+CMP #ASC",":BEQ L9133
+CMP #ASC")":BEQ L916C
+JMP L90D5
+ 
+.L916C
+PLA:STA &15
+PLA:STA &3F
+LDA #&00
+STA &40
+JSR L91EB
+LDY #&00
+LDA &15
+STA (&02),Y
+ADC &2A
+STA &2A
+BCC L9187
+INC &2B
+.L9187
+LDA &03
+STA &38
+LDA &02
+STA &37
+CLC
+ADC &2A
+TAY
+LDA &2B
+ADC &03
+BCS L91CD
+TAX
+CPY &04
+SBC &05
+BCS L91CD
+STY &02
+STX &03
+LDA &37
+ADC &15
+TAY
+LDA #&00
+STA &37
+BCC L91B1
+INC &38
+.L91B1
+STA (&37),Y
+INY
+BNE L91B8
+INC &38
+.L91B8
+CPY &02
+BNE L91B1
+CPX &38
+BNE L91B1
+.L91C0
+JSR L8A1E
+CMP #&2C
+BEQ L91CA
+JMP L8B07
+ 
+.L91CA
+JMP L90DD
+ 
+.L91CD
+BRK:EQUB 11:EQUS CHR$tknDIM+" space":BRK
+
+\ IntA=IntA+1
+\ -----------
+.L91D7
+INC &2A:BNE L91E5
+INC &2B:BNE L91E5
+INC &2C:BNE L91E5
+INC &2D
+.L91E5
+RTS
+ 
+.L91E6
+LDX #&3F
+JSR LBE25
+.L91EB
+LDX #&00
+LDY #&00
+.L91EF
+LSR &40
+ROR &3F
+BCC L9200
+CLC
+TYA
+ADC &2A
+TAY
+TXA
+ADC &2B
+TAX
+BCS L920F
+.L9200
+ASL &2A
+ROL &2B
+LDA &3F
+ORA &40
+BNE L91EF
+STY &2A
+STX &2B
+RTS
+ 
+.L920F
+JMP L90D5
+ 
+\ HIMEM=numeric - set top of memory
+\ =================================
+.L9212
+JSR L929C                  :\ Step past '=', evaluate integer
+LDA &2A:STA &06:STA &04    :\ Set HIMEM and bottom of stack
+LDA &2B:STA &07:STA &05
+JMP L8B0C                  :\ Jump back to execution loop
+ 
+\ LOMEM=numeric - set bottom of memory
+\ ====================================
+.L9224
+JSR L929C                  :\ Step past '=', evaluate integer
+LDA &2A:STA &00:STA &02    :\ Set LOMEM and
+LDA &2B:STA &01:STA &03    :\  top of heap
+JSR LBD47                  :\ Clear dynamic variables
+JMP L8B0C                  :\ Jump back to execution loop
+
+\ PAGE=numeric
+\ ============
+.L9239
+JSR L929C                  :\ Step past '=', evaluate integer
+LDA &2B:STA &18            :\ Set PAGE
+JMP L8B0C                  :\ Jump back to execution loop
+ 
+\ TRACE [ON] [OFF] [linenum]
+\ ==========================
+.L9243
+JSR L97AE:BCS L9253       :\ If line number, jump for TRACE linenum
+CMP #tknON:BEQ L9265      :\ Jump for TRACE ON
+CMP #tknOFF:BEQ L9272     :\ Jump for TRACE OFF
+JSR L87E4                 :\ Evaluate integer
+
+\ TRACE numeric
+\ -------------
+.L9253
+JSR L9810                 :\ Check end of statement
+LDA &2A:STA &21           :\ Set trace limit low byte
+LDA &2B:STA &22
+LDA #&FF                  :\ Set TRACE ON
+.L9260
+STA &20:JMP L8B0C         :\ Set TRACE flag, return to execution loop
+ 
+\ TRACE ON
+\ --------
+.L9265
+INC &0A:JSR L9810         :\ Step past, check end of statement
+LDA #&FF
+STA &21:STA &22           :\ Set to TRACE &FFFF
+BNE L9260                 :\ Jump to set TRACE ON and return to execution loop
+
+\ TRACE OFF
+\ ---------
+.L9272
+INC &0A:JSR L9810         :\ Step past, check end of statement
+LDA #&00:BEQ L9260        :\ Jump to set TRACE OFF and return to execution loop
+
+\ TIME=numeric
+\ ============
+.L927B
+JSR L929C                 :\ Step past '=', elaluate integer
+LDX #&2A:LDY #&00:STY &2E :\ Point to integer, set 5th byte to 0
+LDA #&02                  :\ Call OSWORD &02 to do TIME=
+OPT FNif(mos$="bbc"):JSR OSWORD:OPT FNendif
+JMP L8B0C                 :\ Jump to execution loop
+ 
+.L928C
+JSR L9B03
+JMP L92A1
+ 
+.L9292
+JSR LAE1B
+BEQ L92A9
+BPL L92A8
+JMP LA3F2
+ 
+\ Evaluate <equals><integer>
+\ ==========================
+.L929C
+JSR L97D6                 :\ Check for '=', evaluate numeric
+.L929F
+LDA &27                   :\ Get result type
+.L92A1
+BEQ L92A9                 :\ String, jump to 'Type mismatch'
+BPL L92A8                 :\ Integer, return
+JMP LA3F2                 :\ Real, jump to convert to integer
+.L92A8
+RTS
+.L92A9
+JMP L8B7E                 :\ Jump to 'Type mismatch' error
+ 
+\ Evaluate <real>
+\ ===============
+.L92AC
+JSR LAE1B                 :\ Evaluate expression
+
+\ Ensure value is real
+\ --------------------
+.L92AF
+BEQ L92A9                 :\ String, jump to 'Type mismatch'
+BMI L92A8                 :\ Real, return
+JMP LA2AF                 :\ Integer, jump to convert to real
+
+\ PROCname[(parmeters)]
+\ =====================
+.L92B6 
+LDA &0B:STA &19           :\ PtrB=PtrA=>after 'PROC' token
+LDA &0C:STA &1A
+LDA &0A:STA &1B
+LDA #tknPROC:JSR LB1C6    :\ Call PROC/FN dispatcher
+                          :\ Will return here after ENDPROC
+JSR L980B                 :\ Check for end of statement
+JMP L8B0C                 :\ Return to execution loop
+ 
+\ Make string zero length
+\ -----------------------
+.L92CD
+LDY #&03:LDA #&00        :\ Set length to zero
+STA (&2A),Y:BEQ L92F3    :\ Jump to look for next LOCAL item
+
+\ LOCAL variable [...]
+\ ====================
+.L92D5
+TSX:CPX #&FC:BCS L9308   :\ Not inside subroutine, error
+JSR L9548:BEQ L9305      :\ Find variable, jump if bad variable name
+JSR LB33C                :\ Push value on stack, push variable info on stack
+LDY &2C:BMI L92CD        :\ If a string, jump to make zero length
+JSR LBDAC
+LDA #&00:JSR LAF07       :\ Set IntA to zero
+STA &27:JSR LB4E0        :\ Set current variable to IntA (zero)
+
+\ Next LOCAL item
+\ ---------------
+.L92F3
+TSX:INC &0106,X           :\ Increment number of LOCAL items
+LDY &1B:STY &0A           :\ Update line pointer
+JSR L8A1E                 :\ Get next character
+CMP #ASC",":BEQ L92D5     :\ Comma, loop back to do another item
+JMP L8B07                 :\ Jump to main execution loop
+ 
+.L9305
+JMP L8B09
+ 
+.L9308
+BRK:EQUB 12:EQUS "Not "+CHR$tknLOCAL:BRK
+
+\ ENDPROC
+\ =======
+\ Stack needs to contain these items,
+\  ret_lo, ret_hi, PtrB_hi, PtrB_lo, PtrB_off, numparams, PtrA_hi, PtrA_lo, PtrA_off, tknPROC
+.L9310
+TSX:CPX #&FC:BCS L931F          :\ If stack empty, jump to give error
+LDA &01FF:CMP #tknPROC:BNE L931F:\ If pushed token<>'PROC', give error
+JMP L9810                       :\ Check for end of statement and return to pop from subroutine
+.L931F
+BRK:EQUB 13:EQUS "No "+CHR$tknPROC:BRK
+
+\ CLEAR
+\ =====
+.L9326 
+JSR L9810                 :\ Check end of statement
+JSR LBD38                 :\ Clear heap, stack, data, variables
+JMP L8B0C                 :\ Jump to execution loop
+
+\ GCOL numeric, numeric
+\ =====================
+.L932F
+JSR L87E4:JSR L8A35       :\ Evaluate integer, check for comma
+LDA &2A:PHA
+JSR L928C
+JSR L980B                 :\ Update program pointer, check for end of statement
+LDA #&12:JSR OSWRCH       :\ Send VDU 18 for GCOL
+JMP L9397                 :\ Jump to send two bytes to OSWRCH
+ 
+\ COLOUR numeric
+\ ==============
+.L9346
+LDA #&11:PHA              :\ Stack VDU 17 for COLOUR
+JSR L87E4:JSR L9810       :\ Evaluate integer, check end of statement
+JMP L9397                 :\ Jump to send two bytes to OSWRCH
+ 
+.L9352
+BRK:EQUB 25:EQUS "Bad "+CHR$tknMODE:BRK
+
+\ MODE numeric
+\ ============
+.L935A
+LDA #&16:PHA               :\ Stack VDU 22 for MODE
+JSR L87E4:JSR L9810        :\ Evaluate integer, check end of statement
+
+\ BBC - Check if changing MODE will move screen into stack
+\ --------------------------------------------------------
+OPT FNif(mos$="bbc")
+ JSR LBEF0                  :\ Read memory high word
+ CPX #&FF:BNE L9397         :\ Not I/O processor, skip memory test
+ CPY #&FF:BNE L9397         :\ Not I/O processor, skip memory test
+ 
+ \ MODE change in I/O processor, must check memory limits
+ \ ------------------------------------------------------
+ LDA &04:CMP &06:BNE L9352      :\ Stack not empty, give 'Bad MODE' error
+ LDA &05:CMP &07:BNE L9352
+ LDX &2A:LDA #&85:JSR OSBYTE    :\ Get top of memory if we used this MODE
+ CPX &02:TYA:SBC &03:BCC L9352  :\ Would be below top of heap, give error
+ CPX &12:TYA:SBC &13:BCC L9352  :\ Would be below TOP, give error
+ 
+ \ BASIC stack is empty, and screen would not hit heap or program
+ \ --------------------------------------------------------------
+ STX &06:STX &04            :\ Set new HIMEM and stackbottom
+ STY &07:STY &05            :\  to new screen start
+OPT FNendif
+
+\ Send two bytes to OSWRCH, stacked byte, then IntA
+\ -------------------------------------------------
+.L9397
+PLA:JSR OSWRCH             :\ Send saved VDU character
+JSR L9416:JMP L8B0C        :\ Send current value, and return to execution loop
+ 
+\ MOVE numeric, numeric
+\ =====================
+.L93A1
+LDA #&04:BNE L93A7        :\ Jump forward to do PLOT 4 for MOVE
+
+\ DRAW numeric,numeric
+\ ====================
+.L93A5
+LDA #&05                  :\ Do PLOT 5 for DRAW
+.L93A7
+PHA:JSR L9AF7             :\ Evaluate first expression
+JMP L93BA                 :\ Jump to evaluate second expression and send to OSWRCH
+
+\ PLOT numeric, numeric, numeric
+\ ==============================
+.L93AE 
+JSR L87E4:LDA &2A:PHA     :\ Evaluate integer, the PLOT number
+JSR L8A35:JSR L9B03       :\ Step past comma, evaluate expression
+.L93BA
+JSR L929F                 :\ Confirm numeric and ensure is integer
+JSR LBDAC                 :\ Stack integer
+JSR L8A35                 :\ Check for comma
+JSR L928C                 :\ Step past command and evaluate integer
+JSR L980B                 :\ Update program pointer, check for end of statement
+LDA #&19:JSR OSWRCH       :\ Send VDU 25 for PLOT
+PLA:JSR OSWRCH            :\ Send PLOT action
+JSR LBE23                 :\ Pop integer to temporary store at &37/8
+LDA &37:JSR OSWRCH        :\ Send first coordinate to OSWRCH
+LDA &38:JSR OSWRCH
+JSR L9416                 :\ Send IntA to OSWRCH, second coordinate
+LDA &2B:JSR OSWRCH        :\ Send IntA high byte to OSWRCH
+JMP L8B0C                 :\ Jump to execution loop
+ 
+.L93EA
+LDA &2B:JSR OSWRCH        :\ Send IntA byte 2 to OSWRCH
+
+\ VDU num[,][;][...]
+\ ==================
+.L93EF
+JSR L8A1E                 :\ Get next character
+.L93F2
+CMP #ASC":":BEQ L9413     :\ If end of statement, jump to exit
+CMP #&0D:BEQ L9413
+CMP #tknELSE:BEQ L9413
+DEC &0A                   :\ Step back to current character
+JSR L87E4:JSR L9416       :\ Evaluate integer and output low byte
+JSR L8A1E                 :\ Get next character
+CMP #ASC",":BEQ L93EF     :\ Comma, loop to read another number
+CMP #ASC";":BNE L93F2     :\ Not semicolon, loop to check for end of statement
+BEQ L93EA                 :\ Loop to output high byte and read another
+.L9413
+JMP L8B07                 :\ Jump back to execution loop
+ 
+\ Send IntA to OSWRCH via WRCHV
+\ =============================
+.L9416
+LDA &2A
+JMP (WRCHV)
+ 
+\ VARIABLE PROCESSING
+\ ===================
+\ Look for a FN/PROC in heap
+\
+.L941B
+LDY #&01:LDA (&37),Y
+LDY #&F6
+CMP #&F2:BEQ L942F
+LDY #&F8:BNE L942F
+.L9429
+LDY #&01:LDA (&37),Y
+ASL A:TAY
+.L942F
+LDA ws+&0400,Y:STA &3A
+LDA ws+&0401,Y:STA &3B
+.L9439
+LDA &3B:BEQ L9472
+LDY #&00:LDA (&3A),Y:STA &3C
+INY:LDA (&3A),Y:STA &3D
+INY:LDA (&3A),Y:BNE L945A
+DEY:CPY &39:BNE L9473
+INY:BCS L9467
+.L9455
+INY:LDA (&3A),Y:BEQ L9473
+.L945A
+CMP (&37),Y:BNE L9473
+CPY &39:BNE L9455
+INY:LDA (&3A),Y
+BNE L9473
+.L9467
+TYA:ADC &3A:STA &2A
+LDA &3B:ADC #&00:STA &2B
+.L9472
+RTS
+ 
+.L9473
+LDA &3D:BEQ L9472
+LDY #&00:LDA (&3C),Y:STA &3A
+INY:LDA (&3C),Y:STA &3B
+INY:LDA (&3C),Y:BNE L9494
+DEY:CPY &39:BNE L9439
+INY:BCS L94A1
+.L948F
+INY:LDA (&3C),Y:BEQ L9439
+.L9494
+CMP (&37),Y:BNE L9439
+CPY &39:BNE L948F
+INY:LDA (&3C),Y
+BNE L9439
+.L94A1
+TYA:ADC &3C:STA &2A
+LDA &3D:ADC #&00:STA &2B
+RTS
+ 
+.L94AD
+LDY #&01
+LDA (&37),Y
+TAX
+LDA #&F6
+CPX #&F2
+BEQ L94C1
+LDA #&F8
+BNE L94C1
+.L94BC
+LDY #&01
+LDA (&37),Y
+ASL A
+.L94C1
+STA &3A
+LDA #&04+(ws/256)
+STA &3B
+.L94C7
+LDA (&3A),Y
+BEQ L94D6
+TAX
+DEY
+LDA (&3A),Y
+STA &3A
+STX &3B
+INY
+BPL L94C7
+.L94D6
+LDA &03
+STA (&3A),Y
+LDA &02
+DEY
+STA (&3A),Y
+INY
+LDA #&00
+STA (&02),Y
+CPY &39
+BEQ L951E
+.L94E8
+INY
+LDA (&37),Y
+STA (&02),Y
+CPY &39
+BNE L94E8
+RTS
+
+.L94F2
+JSR L94BC
+LDX #&05
+.L94F7
+LDA #&00
+.L94F9
+INY
+STA (&02),Y
+DEX
+BNE L94F9
+.L94FF
+SEC
+TYA
+ADC &02
+BCC L9507
+INC &03
+.L9507
+LDY &03
+CPY &05
+BCC L951C
+BNE L9513
+CMP &04
+BCC L951C
+.L9513
+LDA #&00
+LDY #&01
+STA (&3A),Y
+JMP L8C4B
+ 
+.L951C
+STA &02
+.L951E
+RTS
+ 
+\ Check if variable name is valid
+\ ===============================
+.L951F
+LDY #&01
+.L9521
+LDA (&37),Y
+CMP #&30:BCC L953F
+CMP #&40:BCS L9537
+CMP #&3A:BCS L953F
+CPY #&01:BEQ L953F
+.L9533
+INX:INY:BNE L9521
+.L9537
+CMP #&5F:BCS L9540
+CMP #&5B:BCC L9533
+.L953F
+RTS
+ 
+.L9540
+CMP #&7B:BCC L9533
+RTS
+ 
+.L9545
+JSR L94F7
+.L9548
+JSR L9595
+BNE L956C
+BCS L956C
+JSR L94BC
+LDX #&05
+LDA &2C
+CMP #&05
+BNE L9545
+INX
+BNE L9545
+.L955D
+CMP #&21:BEQ L9571
+CMP #&3F:BEQ L956D
+CMP #&24:BEQ L957C
+LDA #&00:SEC
+.L956C
+RTS
+ 
+.L956D
+LDA #&00
+BEQ L9573
+.L9571
+LDA #&04
+.L9573
+PHA
+INC &1B
+JSR L9292
+JMP L966B
+ 
+.L957C
+INC &1B
+JSR L9292
+.L9581
+LDA &2B
+BEQ L958B
+LDA #&80
+STA &2C
+SEC
+RTS
+ 
+.L958B
+BRK:EQUB 8:EQUS "$ range":BRK
+.L9595
+LDA &0B:STA &19
+LDA &0C:STA &1A
+LDY &0A:DEY
+.L95A0
+INY
+.L95A1
+STY &1B:LDA (&19),Y
+CMP #&20:BEQ L95A0
+.L95A9
+CMP #&40:BCC L955D
+CMP #&5B:BCS L95CB
+ASL A:ASL A:STA &2A
+LDA #&04+(ws/256):STA &2B
+INY:LDA (&19),Y:INY
+CMP #ASC"%":BNE L95CB
+LDX #&04:STX &2C        :\ &04=Integer
+LDA (&19),Y
+CMP #ASC"(":BNE L9631
+.L95CB
+LDX #&05:STX &2C        :\ &05=Real
+LDA &1B:CLC:ADC &19
+LDX &1A:BCC L95DA
+INX:CLC
+.L95DA
+SBC #&00:STA &37
+BCS L95E1
+DEX
+.L95E1
+STX &38
+LDX &1B
+LDY #&01
+.L95E7
+LDA (&37),Y
+CMP #&41:BCS L95F9
+CMP #&30:BCC L960D
+CMP #&3A:BCS L960D
+INX:INY:BNE L95E7
+.L95F9
+CMP #&5B:BCS L9601
+INX:INY:BNE L95E7
+.L9601
+CMP #&5F:BCC L960D
+CMP #&7B:BCS L960D
+INX:INY:BNE L95E7
+.L960D
+DEY:BEQ L963F
+CMP #ASC"$":BEQ L967B
+CMP #ASC"%":BNE L9620
+DEC &2C
+INY:INX:INY
+LDA (&37),Y:DEY
+.L9620
+STY &39
+CMP #ASC"(":BEQ L9672
+JSR L9429:BEQ L9643
+STX &1B
+.L962D
+LDY &1B
+LDA (&19),Y
+.L9631
+CMP #ASC"!":BEQ L964B
+CMP #ASC"?":BEQ L9647
+CLC:STY &1B
+LDA #&FF
+RTS
+ 
+.L963F
+LDA #&00:SEC:RTS
+ 
+.L9643
+LDA #&00:CLC:RTS
+ 
+.L9647
+LDA #&00
+BEQ L964D
+.L964B
+LDA #&04
+.L964D
+PHA
+INY
+STY &1B
+JSR LB35B
+JSR L92A1
+LDA &2B:PHA
+LDA &2A:PHA
+JSR L9292
+CLC
+PLA:ADC &2A:STA &2A
+PLA:ADC &2B:STA &2B
+.L966B
+PLA:STA &2C
+CLC:LDA #&FF
+RTS
+ 
+.L9672
+INX
+INC &39
+JSR L96AB
+JMP L962D
+ 
+.L967B
+INX
+INY
+STY &39
+INY
+DEC &2C
+LDA (&37),Y
+CMP #ASC"(":BEQ L9695
+JSR L9429
+BEQ L9643
+STX &1B
+LDA #&81
+STA &2C
+SEC
+RTS
+ 
+.L9695
+INX
+STY &39
+DEC &2C
+JSR L96AB
+LDA #&81
+STA &2C
+SEC
+RTS
+ 
+.L96A3
+BRK:EQUB 14:EQUS "Array":BRK
+
+.L96AB
+JSR L9429
+BEQ L96A3
+STX &1B
+LDA &2C:PHA
+LDA &2A:PHA
+LDA &2B:PHA
+LDY #&00
+LDA (&2A),Y
+CMP #&04:BCS L96C6
+JMP L973B
+ 
+.L96C6
+TYA
+JSR LAF07
+LDA #&01
+STA &2D
+.L96CE
+JSR LBDAC
+JSR L928C
+INC &1B
+CPX #&2C:BNE L96A3
+LDX #&39
+JSR LBE25
+LDY &3C
+PLA:STA &38
+PLA:STA &37
+PHA:LDA &38
+PHA:JSR L9789
+STY &2D
+LDA (&37),Y:STA &3F
+INY
+LDA (&37),Y:STA &40
+LDA &2A:ADC &39:STA &2A
+LDA &2B:ADC &3A:STA &2B
+JSR L91EB
+LDY #&00
+SEC
+LDA (&37),Y
+SBC &2D
+CMP #&03
+BCS L96CE
+JSR LBDAC
+JSR LAE85
+JSR L92A1
+PLA:STA &38
+PLA:STA &37
+LDX #&39
+JSR LBE25
+LDY &3C
+JSR L9789
+CLC
+LDA &39:ADC &2A:STA &2A
+LDA &3A:ADC &2B:STA &2B
+BCC L974C
+.L973B
+JSR LAE85
+JSR L92A1
+PLA:STA &38
+PLA:STA &37
+LDY #&01
+JSR L9789
+.L974C
+PLA:STA &2C
+CMP #&05
+BNE L976A
+LDX &2B
+LDA &2A
+ASL &2A
+ROL &2B
+ASL &2A
+ROL &2B
+ADC &2A
+STA &2A
+TXA
+ADC &2B
+STA &2B
+BCC L9772
+.L976A
+ASL &2A
+ROL &2B
+ASL &2A
+ROL &2B
+.L9772
+TYA
+ADC &2A
+STA &2A
+BCC L977C
+INC &2B
+CLC
+.L977C
+LDA &37:ADC &2A:STA &2A
+LDA &38:ADC &2B:STA &2B
+RTS
+ 
+.L9789
+LDA &2B
+AND #&C0
+ORA &2C
+ORA &2D
+BNE L97A0
+LDA &2A
+CMP (&37),Y
+INY
+LDA &2B
+SBC (&37),Y
+BCS L97A0
+INY
+RTS
+ 
+.L97A0
+BRK:EQUB 15:EQUS "Subscript":BRK
+
+\ Extract embedded line number
+\ ----------------------------
+.L97AC
+INC &0A
+.L97AE
+LDY &0A:LDA (&0B),Y   :\ Get current character
+CMP #&20:BEQ L97AC    :\ Skip spaces
+CMP #&8D:BNE L97D4    :\ Not a line number
+.L97BA
+INY:LDA (&0B),Y
+ASL A
+ASL A
+TAX
+AND #&C0
+INY
+EOR (&0B),Y
+STA &2A
+TXA
+ASL A
+ASL A
+INY
+EOR (&0B),Y
+STA &2B
+INY
+STY &0A
+SEC:RTS
+ 
+.L97D4
+CLC:RTS
+ 
+.L97D6
+LDA &0B:STA &19
+LDA &0C:STA &1A
+LDA &0A:STA &1B
+.L97E2
+LDY &1B
+INC &1B
+LDA (&19),Y
+CMP #&20:BEQ L97E2
+CMP #&3D:BEQ L9802
+.L97F0
+BRK:EQUB 4:EQUS "Mistake":BRK
+
+.L97FA
+JSR L8A13
+CMP #ASC"=":BNE L97F0
+RTS
+ 
+.L9802
+JSR L9B03
+.L9805
+TXA
+LDY &1B
+JMP L981A
+ 
+.L980B
+LDY &1B
+JMP L9812
+ 
+\ Check for end of statement, check for Escape
+\ ============================================
+.L9810
+LDY &0A                     :\ Get program pointer offset
+.L9812
+DEY                         :\ Step back to previous character
+.L9813
+INY:LDA (&0B),Y             :\ Get next character
+CMP #&20:BEQ L9813          :\ Skip spaces
+.L981A
+CMP #ASC":":BEQ L9826       :\ Colon, jump to update program pointer
+CMP #&0D:BEQ L9826          :\ <cr>, jump to update program pointer
+CMP #tknELSE:BNE L9839      :\ Not 'ELSE', jump to 'Syntax error'
+
+\ Update program pointer
+\ ----------------------
+.L9826
+CLC:TYA:ADC &0B:STA &0B     :\ Update program pointer in PtrA
+BCC L9830:INC &0C
+.L9830
+LDY #&01:STY &0A
+
+\ Check background Escape state
+\ -----------------------------
+.L9834
+
+\ Atom - check keyboard matrix
+\ ----------------------------
+OPT FNif(target$="atom")
+ PHA                       :\ Save A
+ LDA &B001:AND #&20        :\ Check keyboard matrix
+ BEQ L9848                 :\ Escape key pressed, jump to error
+ PLA                       :\ Restore A
+OPT FNendif
+:
+\ System - check current keypress
+\ -------------------------------
+OPT FNif(target$="system")
+ BIT &0E21:BMI L9838       :\ Nothing pressed
+ PHA:LDA &0E21             :\ Save A, get keypress
+ CMP #&1B:BEQ L9848        :\ If Escape, jump to error
+ PLA                       :\ Restore A
+OPT FNendif
+:
+\ BBC - check background Escape state
+\ -----------------------------------
+OPT FNif(mos$="bbc")
+ BIT ESCFLG:BMI L9848      :\ Escape state set, jump to error
+OPT FNendif
+:
+.L9838
+RTS                       :\ Return
+ 
+.L9839
+BRK:EQUB 16:EQUS "Syntax error":BRK
+
+\ Escape error
+\ ------------
+.L9848
+OPT FNif(target$="atom")
+ LDA &B001:AND #&20:BEQ L9848   :\ Loop until Escape not pressed
+OPT FNendif
+:
+OPT FNif(target$="system")
+ CMP &0E21:BEQ L9848            :\ Loop until key no longer pressed
+OPT FNendif
+:
+BRK:EQUB 17:EQUS "Escape":BRK
+
+.L9851
+JSR L9810
+DEY:LDA (&0B),Y
+CMP #&3A:BEQ L9838
+LDA &0C
+CMP #&01:BEQ L988D
+.L9861
+INY
+.L9862
+LDA (&0B),Y:BMI L988D
+LDA &20:BEQ L987D
+TYA:PHA
+INY:LDA (&0B),Y:PHA
+DEY:LDA (&0B),Y:TAY
+PLA
+JSR LAF19
+JSR L98D6
+PLA:TAY
+.L987D
+INY:SEC:TYA
+ADC &0B:STA &0B
+BCC L9888:INC &0C
+.L9888
+LDY #&01:STY &0A
+RTS
+ 
+.L988D
+JMP L8A99
+ 
+.L9890
+JMP L8B7E
+ 
+\ IF numeric [THEN] [statments] [ELSE statements]
+\ ===============================================
+.L9893
+JSR L9AF7
+BEQ L9890
+BPL L989D
+JSR LA3F2
+.L989D
+LDY &1B
+STY &0A
+LDA &2A:ORA &2B
+ORA &2C:ORA &2D
+BEQ L98C2
+CPX #tknTHEN:BEQ L98B2
+.L98AF
+JMP L8B14
+ 
+.L98B2
+INC &0A
+.L98B4
+JSR L97AE
+BCC L98AF
+JSR LB9CD
+JSR L9830
+JMP LB8F1
+ 
+.L98C2
+LDY &0A
+.L98C4
+LDA (&0B),Y
+CMP #&0D:BEQ L98D3
+INY
+CMP #tknELSE:BNE L98C4
+STY &0A:BEQ L98B4
+.L98D3
+JMP L8AF7
+ 
+.L98D6
+LDA &2A:CMP &21
+LDA &2B:SBC &22
+BCS L98F0
+LDA #&5B
+JSR LB571
+JSR L98F1
+LDA #&5D
+JSR LB571
+JMP LB57B
+ 
+.L98F0
+RTS
+ 
+.L98F1
+LDA #&00
+BEQ L98F7
+.L98F5
+LDA #&05
+.L98F7
+STA &14
+LDX #&04
+.L98FB
+LDA #&00
+STA &3F,X
+SEC
+.L9900
+LDA &2A
+SBC L993D,X :\ Subtract low byte
+TAY
+LDA &2B
+SBC L99B8,X :\ Subtract high byte
+BCC L9915
+STA &2B
+STY &2A
+INC &3F,X
+BNE L9900
+.L9915
+DEX
+BPL L98FB
+LDX #&05
+.L991A
+DEX
+BEQ L9921
+LDA &3F,X
+BEQ L991A
+.L9921
+STX &37
+LDA &14
+BEQ L9932
+SBC &37
+BEQ L9932
+TAY
+.L992C
+JSR LB57B
+DEY
+BNE L992C
+.L9932
+LDA &3F,X
+ORA #&30
+JSR LB571
+DEX
+BPL L9932
+RTS
+ 
+\ Low bytes of multiples of ten
+\ -----------------------------
+.L993D
+EQUB 1 AND 255
+EQUB 10 AND 255
+EQUB 100 AND 255
+EQUB 1000 AND 255
+EQUB 10000 AND 255
+
+\ Line search
+\ ===========
+\ IntA (&2A/B)=line number to find
+\
+.L9942
+LDY #&00:STY &3D  :\ Start at PAGE
+LDA &18:STA &3E
+.L994A
+LDY #&01:LDA (&3D),Y
+CMP &2B:BCS L9960
+.L9952
+LDY #&03:LDA (&3D),Y :\ Get line length
+ADC &3D:STA &3D      :\ Step to next line
+BCC L994A:INC &3E
+BCS L994A            :\ Loop to check next line
+.L9960
+BNE L9976
+LDY #&02
+LDA (&3D),Y:CMP &2A
+BCC L9952
+BNE L9976
+TYA:ADC &3D:STA &3D
+BCC L9976
+INC &3E:CLC          :\ CC=line found
+.L9976
+LDY #&02:RTS         :\ CS=line not found
+ 
+.L9979
+TAY
+JSR L92A1
+LDA &2D
+PHA
+JSR LAD94
+JSR L9DFA
+STX &27
+TAY
+JSR L92A1
+PLA
+STA &38
+EOR &2D
+STA &37
+JSR LAD94
+LDX #&39
+JSR LBE25
+LDY #&00
+STY &3D
+STY &3E
+STY &3F
+STY &40
+RTS
+ 
+.L99A6
+BRK:EQUB 18:EQUS "Division by zero"
+
+\ High byte of multiples of ten
+\ -----------------------------
+.L99B8
+EQUB 1 DIV 256 :\ Also terminating BRK
+EQUB 10 DIV 256
+EQUB 100 DIV 256
+EQUB 1000 DIV 256
+EQUB 10000 DIV 256
+
+.L99BD
+JSR L9979
+LDA &2D:ORA &2A
+ORA &2B:ORA &2C
+BEQ L99A6
+LDY #&20
+.L99CC
+DEY:BEQ L9A10
+ASL &39:ROL &3A
+ROL &3B:ROL &3C
+BPL L99CC
+.L99D9
+ROL &39:ROL &3A:ROL &3B
+ROL &3C:ROL &3D:ROL &3E
+ROL &3F:ROL &40
+SEC
+LDA &3D:SBC &2A:PHA
+LDA &3E:SBC &2B:PHA
+LDA &3F:SBC &2C:TAX
+LDA &40:SBC &2D
+BCC L9A0B
+STA &40
+STX &3F
+PLA:STA &3E
+PLA:STA &3D
+BCS L9A0D
+.L9A0B
+PLA:PLA
+.L9A0D
+DEY:BNE L99D9
+.L9A10
+RTS
+ 
+.L9A11
+STX &27
+JSR LBE02
+JSR LBD69
+JSR LA2AF
+JSR LA20F
+JSR LBD96
+JSR LA3A6
+JMP L9A3A
+ 
+.L9A28
+JSR LBD69
+JSR L9C1D
+STX &27
+TAY
+JSR L92AF
+JSR LBD96
+.L9A37
+JSR LA33F
+
+\ Compare FPA = FPB
+\ -----------------
+.L9A3A
+LDX &27:LDY #&00
+LDA &3B:AND #&80:STA &3B
+LDA &2E:AND #&80:CMP &3B:BNE L9A6A
+LDA &3D:CMP &30:BNE L9A6B
+LDA &3E:CMP &31:BNE L9A6B
+LDA &3F:CMP &32:BNE L9A6B
+LDA &40:CMP &33:BNE L9A6B
+LDA &41:CMP &34:BNE L9A6B
+.L9A6A
+RTS
+ 
+.L9A6B
+ROR A:EOR &3B:ROL A
+LDA #&01
+RTS
+ 
+.L9A72
+JMP L8B7E
+ 
+\ Evaluate next expression and compare with previous
+\ --------------------------------------------------
+.L9A75
+TXA
+.L9A76
+BEQ L9ABF                 :\ Jump if current is string
+BMI L9A28                 :\ Jump if current is float
+JSR LBDAC                 :\ Stack integer
+JSR L9C1D:TAY             :\ Evaluate next expression
+BEQ L9A72                 :\ Error if string
+BMI L9A11                 :\ Float, jump to compare floats
+
+\ Compare IntA with top of stack
+\ ------------------------------
+LDA &2D:EOR #&80:STA &2D
+SEC:LDY #&00
+LDA (&04),Y:SBC &2A:STA &2A:INY
+LDA (&04),Y:SBC &2B:STA &2B:INY
+LDA (&04),Y:SBC &2C:STA &2C:INY
+LDA (&04),Y:LDY #&00:EOR #&80
+SBC &2D:ORA &2A:ORA &2B:ORA &2C
+PHP:CLC:LDA #&04:ADC &04  :\ Drop integer from stack
+STA &04:BCC L9ABD:INC &05
+.L9ABD
+PLP:RTS
+
+\ Compare string with next expression
+\ -----------------------------------
+.L9ABF
+JSR LBDCA
+JSR L9C1D
+TAY
+BNE L9A72
+STX &37
+LDX &36
+LDY #&00
+LDA (&04),Y
+STA &39
+CMP &36
+BCS L9AD7
+TAX
+.L9AD7
+STX &3A
+LDY #&00
+.L9ADB
+CPY &3A
+BEQ L9AE9
+INY
+LDA (&04),Y
+CMP ws+&05FF,Y
+BEQ L9ADB
+BNE L9AED
+.L9AE9
+LDA &39
+CMP &36
+.L9AED
+PHP
+JSR LBDF4
+LDX &37
+LDY #&00
+PLP
+RTS
+
+\ EXPRESSION EVALUATOR
+\ ====================
+
+\ Evaluate expression at PtrA
+\ ---------------------------
+.L9AF7
+LDA &0B:STA &19          :\ Copy PtrA to PtrB
+LDA &0C:STA &1A
+LDA &0A:STA &1B
+
+\ Evaluate expression at PtrB
+\ ---------------------------
+\ TOP LEVEL EVALUATOR
+\
+\ Evaluator Level 7 - OR, EOR
+\ ---------------------------
+.L9B03
+JSR L9B4C                 :\ Call Evaluator Level 6 - AND
+                          :\ Returns A=type, value in IntA/FPA/StrA, X=next char
+.L9B06
+CPX #tknOR:BEQ L9B14      :\ Jump if next char is OR
+CPX #tknEOR:BEQ L9B2F     :\ Jump if next char is EOR
+DEC &1B                   :\ Step PtrB back to last char
+TAY:STA &27:RTS           :\ Set flags from type, store type in &27 and return
+ 
+\ OR numeric
+\ ----------
+.L9B14
+JSR L9B45:TAY             :\ Stack as integer, call Evaluator Level 6
+JSR L92A1:LDY #&03        :\ If float, convert to integer
+.L9B1D
+LDA (&04),Y:ORA &002A,Y   :\ OR IntA with top of stack
+STA &002A,Y:DEY:BPL L9B1D :\ Store result in IntA
+.L9B28
+JSR LBE17                 :\ Drop integer from stack
+LDA #&40:BNE L9B06        :\ Return type=Int, jump to check for more OR/EOR
+
+\ EOR numeric
+\ -----------
+.L9B2F
+JSR L9B45:TAY
+JSR L92A1:LDY #&03        :\ If float, convert to integer
+.L9B38
+LDA (&04),Y:EOR &002A,Y   :\ EOR IntA with top of stack
+STA &002A,Y:DEY:BPL L9B38 :\ Store result in IntA
+BMI L9B28                 :\ Jump to drop from stack and continue
+
+\ Stack current as integer, evaluate another Level 6
+\ --------------------------------------------------
+.L9B45
+TAY:JSR L92A1:JSR LBDAC   :\ If float, convert to integer, push into stack
+
+\ Evaluator Level 6 - AND
+\ -----------------------
+.L9B4C
+JSR L9B76                 :\ Call Evaluator Level 5, < <= = >= > <>
+.L9B4F
+CPX #tknAND:BEQ L9B54:RTS :\ Return if next char not AND
+
+\ AND numeric
+\ ----------- 
+.L9B54
+TAY:JSR L92A1:JSR LBDAC   :\ If float, convert to integer, push onto stack
+JSR L9B76                 :\ Call Evaluator Level 5, < <= = >= > <>
+TAY:JSR L92A1:LDY #&03    :\ If float, convert to integer
+.L9B64
+LDA (&04),Y:AND &002A,Y   :\ AND IntA with top of stack
+STA &002A,Y:DEY:BPL L9B64 :\ Store result in IntA
+JSR LBE17                 :\ Drop integer from stack
+LDA #&40:BNE L9B4F        :\ Return type=Int, jump to check for another AND
+
+\ Evaluator Level 5 - >... =... or <...
+\ -------------------------------------
+.L9B76
+JSR L9C1D                 :\ Call Evaluator Level 4, + -
+CPX #ASC">"+1:BCS L9B81   :\ Larger than '>', return
+CPX #ASC"<":BCS L9B82     :\ Smaller than '<', return
+.L9B81
+RTS
+ 
+\ >... =... or <...
+\ -----------------
+.L9B82
+BEQ L9B9A                 :\ Jump with '<'
+CPX #ASC">":BEQ L9BC2     :\ Jump with '>'
+                          :\ Must be '='
+\ = numeric
+\ ---------
+TAX:JSR L9A76:BNE L9B8F   :\ Jump with result=0 for not equal
+.L9B8E
+DEY                       :\ Decrement to &FF for equal
+.L9B8F
+STY &2A:STY &2B:STY &2C   :\ Store 0/-1 in IntA
+STY &2D:LDA #&40:RTS      :\ Return type=Int
+
+\ < <= <>
+\ ------- 
+.L9B9A
+TAX:LDY &1B:LDA (&19),Y   :\ Get next char from PtrB
+CMP #ASC"=":BEQ L9BAE     :\ Jump for <=
+CMP #ASC">":BEQ L9BB9     :\ Jump for <>
+
+\ Must be < numeric
+\ -----------------
+JSR L9A75                 :\ Evaluate next and compare
+BCC L9B8E:BCS L9B8F       :\ Jump to return TRUE if <, FALSE if not <
+
+\ <= numeric
+\ ----------
+.L9BAE
+INC &1B:JSR L9A75         :\ Step past '=', evaluate next and compare
+BEQ L9B8E:BCC L9B8E       :\ Jump to return TRUE if =, TRUE if <
+BCS L9B8F                 :\ Jump to return FALSE otherwise
+
+\ <> numeric
+\ ----------
+.L9BB9
+INC &1B:JSR L9A75         :\ Step past '>', evaluate next and compare
+BNE L9B8E:BEQ L9B8F       :\ Jump to return TRUE if <>, FALSE if =
+
+\ > >=
+\ ----
+.L9BC2
+TAX:LDY &1B:LDA (&19),Y   :\ Get next char from PtrB
+CMP #ASC"=":BEQ L9BD4     :\ Jump for >=
+
+\ > numeric
+\ ---------
+JSR L9A75                 :\ Evaluate next and compare
+BEQ L9B8F:BCS L9B8E       :\ Jump to return FALSE if =, TRUE if >
+BCC L9B8F                 :\ Jump to return FALSE if <
+
+\ >= numeric
+\ ----------
+.L9BD4
+INC &1B:JSR L9A75         :\ Step past '=', evaluate next and compare
+BCS L9B8E:BCC L9B8F       :\ Jump to return TRUE if >=, FALSE if <
+
+.L9BDD
+BRK:EQUB 19:EQUS "String too long":BRK
+
+\ String addition
+\ ---------------
+.L9BEF
+JSR LBDCA:JSR L9DFD       :\ Stack string, call Evaluator Level 2
+TAY:BNE L9C63             :\ string + number, jump to 'Type mismatch' error
+CLC:STX &37
+LDY #&00:LDA (&04),Y      :\ Get stacked string length
+ADC &36:BCS L9BDD         :\ If added string length >255, jump to error
+TAX:PHA:LDY &36           :\ Save new string length
+.L9C07
+LDA ws+&05FF,Y            :\ Move current string up in string buffer
+STA ws+&05FF,X
+DEX:DEY:BNE L9C07
+JSR LBDE3                 :\ Unstack string to start of string buffer
+PLA:STA &36:LDX &37       :\ Set new string length
+LDA #&00:BEQ L9C20        :\ Set type=string, jump to check for more + or -
+
+\ Evaluator Level 4, + -
+\ ----------------------
+.L9C1D
+JSR L9DAE                 :\ Call Evaluator Level 3, * / DIV MOD
+.L9C20
+CPX #ASC"+":BEQ L9C29     :\ Jump with addition
+CPX #ASC"-":BEQ L9C90     :\ Jump with subtraction
+RTS                       :\ Return otherwise
+
+\ + <value>
+\ --------- 
+.L9C29
+TAY:BEQ L9BEF             :\ Jump if current value is a string
+BMI L9C66                 :\ Jump if current value is a float
+
+\ Integer addition
+\ ----------------
+JSR L9DAB                 :\ Stack current and call Evaluator Level 3
+TAY:BEQ L9C63             :\ If int + string, jump to 'Type mismatch' error
+BMI L9C82                 :\ If int + float, jump ...
+LDY #&00
+CLC:LDA (&04),Y:ADC &2A:STA &2A  :\ Add top of stack to IntA
+INY:LDA (&04),Y:ADC &2B:STA &2B  :\ Store result in IntA
+INY:LDA (&04),Y:ADC &2C:STA &2C
+INY:LDA (&04),Y:ADC &2D
+.L9C52
+STA &2D:CLC
+LDA &04:ADC #&04:STA &04  :\ Drop integer from stack
+LDA #&40:BCC L9C20        :\ Set result=integer, jump to check for more + or -
+INC &05:BCS L9C20         :\ Jump to check for more + or -
+
+.L9C63
+JMP L8B7E                 :\ Jump to 'Type mismatch' error
+ 
+\ Real addition
+\ -------------
+.L9C66
+JSR LBD69:JSR L9DAE       :\ Stack float, call Evaluator Level 3
+TAY:BEQ L9C63             :\ float + string, jump to 'Type mismatch' error
+STX &27:BMI L9C76         :\ float + float, skip conversion
+JSR LA2AF                 :\ float + int, convert int to float
+.L9C76
+JSR LBD96                 :\ Pop float from stack, point FPTR to it
+JSR LA50E                 :\ Unstack float to FPA2 and add to FPA1
+.L9C7C
+LDX &27                   :\ Get nextchar back
+LDA #&FF:BNE L9C20        :\ Set result=float, loop to check for more + or -
+
+\ int + float
+\ -----------
+.L9C82
+STX &27:JSR LBE02         :\ Unstack integer to IntA
+JSR LBD69:JSR LA2AF       :\ Stack float, convert integer in IntA to float in FPA1
+JMP L9C76                 :\ Jump to do float + <stacked float>
+
+\ - numeric
+\ --------- 
+.L9C90
+TAY:BEQ L9C63             :\ If current value is a string, jump to error
+BMI L9CBC                 :\ Jump if current value is a float
+
+\ Integer subtraction
+\ -------------------
+JSR L9DAB                 :\ Stack current and call Evaluator Level 3
+TAY:BEQ L9C63
+BMI L9CD5
+SEC:LDY #&00
+LDA (&04),Y:SBC &2A:STA &2A
+INY:LDA (&04),Y:SBC &2B:STA &2B :\ Subtract IntA from top of stack
+INY:LDA (&04),Y:SBC &2C:STA &2C :\ Store in IntA
+INY:LDA (&04),Y:SBC &2D
+JMP L9C52                 :\ Jump to pop stack and loop for more + or -
+
+\ Real subtraction
+\ ---------------- 
+.L9CBC
+JSR LBD69:JSR L9DAE       :\ Stack float, call Evaluator Level 3
+TAY:BEQ L9C63             :\ float - string, jump to 'Type mismatch' error
+STX &27:BMI L9CCC         :\ float - float, skip conversion
+JSR LA2AF                 :\ float - int, convert int to float
+.L9CCC
+JSR LBD96                 :\ Pop float from stack and point FPTR to it
+JSR LA50B                 :\ Unstack float to FPA2 and subtract it from FPA1
+JMP L9C7C                 :\ Jump to set result and loop for more + or -
+
+\ int - float
+\ ----------- 
+.L9CD5
+STX &27:JSR LBE02         :\ Unstack integer to IntA
+JSR LBD69:JSR LA2AF       :\ Stack float, convert integer in IntA to float in FPA1
+JSR LBD96                 :\ Pop float from stack, point FPTR to it
+JSR LA505                 :\ Subtract FPTR float from FPA1 float
+JMP L9C7C                 :\ Jump to set result and loop for more + or -
+ 
+.L9CE9
+JSR LA2AF
+.L9CEC
+JSR LBE02
+JSR LBD69
+JSR LA2AF
+JMP L9D07
+ 
+.L9CF8
+JSR LA2AF
+.L9CFB
+JSR LBD69
+JSR L9DFD
+STX &27
+TAY
+JSR L92AF
+.L9D07
+JSR LBD96
+JSR LA661
+LDA #&FF
+LDX &27
+JMP L9DB1
+ 
+.L9D14
+JMP L8B7E
+ 
+\ * <value>
+\ ---------
+.L9D17
+TAY:BEQ L9D14             :\ If current value is string, jump to error
+BMI L9CFB                 :\ Jump if current valus ia a float
+LDA &2D:CMP &2C:BNE L9CF8
+CMP #&00:BEQ L9D2A
+CMP #&FF:BNE L9CF8
+
+.L9D2A
+EOR &2B:BMI L9CF8
+JSR L9DFA
+STX &27
+TAY:BEQ L9D14
+BMI L9CEC
+LDA &2D:CMP &2C:BNE L9CE9
+CMP #&00:BEQ L9D46
+CMP #&FF:BNE L9CE9
+.L9D46
+EOR &2B:BMI L9CE9
+LDA &2D:PHA
+JSR LAD94
+LDX #&39
+JSR LBE5C
+JSR LBE02
+PLA:EOR &2D:STA &37
+JSR LAD94
+LDY #&00
+STY &3E:STY &3F:STY &40
+.L9D68
+LSR &3A:ROR &39:BCC L9D85
+CLC:TYA:ADC &2A:TAY
+LDA &3E:ADC &2B:STA &3E
+LDA &3F:ADC &2C:STA &3F
+LDA &40:ADC &2D:STA &40
+.L9D85
+ASL &2A:ROL &2B:ROL &2C:ROL &2D
+LDA &39:ORA &3A:BNE L9D68
+STY &3D:LDA &37:PHP
+.L9D98
+LDX #&3D
+.L9D9A
+JSR LAF85
+PLP:BPL L9DA3
+JSR LADB5
+.L9DA3
+LDX &27
+JMP L9DB1
+ 
+\ * <value>
+\ ---------
+.L9DA8
+JMP L9D17        :\ Bounce back to multiply code
+
+\ Stack current value and continue into Evaluator Level 3
+\ ------------------------------------------------------- 
+.L9DAB
+JSR LBDAC
+
+\ Evaluator Level 3, * / DIV MOD
+\ ------------------------------
+.L9DAE
+JSR L9DFD                   :\ Call Evaluator Level 2, ^
+.L9DB1
+CPX #ASC"*":BEQ L9DA8       :\ Jump with multiply
+CPX #ASC"/":BEQ L9DC2       :\ Jump with divide
+CPX #tknMOD:BEQ L9DDE       :\ Jump with MOD
+CPX #tknDIV:BEQ L9DE7:RTS   :\ Jump with DIV
+
+\ / <value>
+\ --------- 
+.L9DC2
+TAY:JSR L92AF               :\ Ensure current value is real
+JSR LBD69:JSR L9DFD         :\ Stack float, call Evaluator Level 2
+STX &27:TAY:JSR L92AF       :\ Ensure current value is real
+JSR LBD96:JSR LA6B8         :\ Unstack to FPTR, call divide routine
+LDX &27:LDA #&FF:BNE L9DB1  :\ Set result, loop for more * / MOD DIV
+
+\ MOD <value>
+\ -----------
+.L9DDE
+JSR L99BD                   :\ Ensure current value is integer
+LDA &38:PHP
+JMP L9D98                   :\ Jump to MOD routine
+
+\ DIV <value>
+\ ----------- 
+.L9DE7
+JSR L99BD                   :\ Ensure current value is integer
+ROL &39:ROL &3A:ROL &3B     :\ Multiply IntA by 2
+ROL &3C:BIT &37:PHP
+LDX #&39:JMP L9D9A          :\ Jump to DIV routine
+
+
+\ Stack current integer and evaluate another Level 2
+\ -------------------------------------------------- 
+.L9DFA
+JSR LBDAC                   :\ Stack integer
+
+\ Evaluator Level 2, ^
+\ --------------------
+.L9DFD
+JSR LAE1B                   :\ Call Evaluator Level 1, - + NOT function ( ) ? ! $ | "
+.L9E00
+PHA
+.L9E01
+LDY &1B:INC &1B:LDA (&19),Y :\ Get character
+CMP #&20:BEQ L9E01          :\ Skip spaces
+TAX:PLA
+CPX #ASC"^":BEQ L9E12:RTS   :\ Return if not ^
+
+\ ^ <value>
+\ --------- 
+.L9E12
+TAY:JSR L92AF               :\ Ensure current value is a float
+JSR LBD69:JSR L92AC         :\ Stack float, evaluate a real
+LDA &30:CMP #&87:BCS L9E6A
+JSR LA494:BNE L9E37
+JSR LBD96:JSR LA3A6
+LDA &4A:JSR LAB35
+LDA #&FF:JMP L9E00         :\ Set result=real, loop to check for more ^
+ 
+.L9E37
+JSR LA372
+LDA &04:STA &4B
+LDA &05:STA &4C
+JSR LA3A6
+LDA &4A:JSR LAB35
+JSR LA36E
+.L9E4D
+JSR LBD96:JSR LA3A6
+JSR LA807:JSR LA7F7
+JSR LA661:JSR LAAB7
+JSR LA7F3:JSR LA661
+LDA #&FF:JMP L9E00         :\ Set result=real, loop to check for more ^
+ 
+.L9E6A
+JSR LA372:JSR LA6A4
+JSR LA36E:JMP L9E4D
+
+.L9E76
+JSR LBD96:JSR LA6A4
+LDA #&FF:JMP L9E00
+ 
+\ Convert number to hex string
+\ ----------------------------
+.L9E81
+TYA:BPL L9E87              :\ Skip if value is integer
+JSR LA3F2                  :\ Convert Float to Integer
+.L9E87
+LDX #&00:LDY #&00
+.L9E8B
+LDA &002A,Y:PHA
+AND #&0F:STA &3F,X:PLA
+LSR A:LSR A:LSR A:LSR A
+INX:STA &3F,X:INX:INY
+CPY #&04:BNE L9E8B
+.L9EA1
+DEX:BEQ L9EA8
+LDA &3F,X:BEQ L9EA1
+.L9EA8
+LDA &3F,X:CMP #&0A
+BCC L9EB0:ADC #&06
+.L9EB0
+ADC #&30:JSR LA057
+DEX:BPL L9EA8:RTS
+ 
+.L9EB9
+BPL L9EC2
+LDA #&2D:STA &2E
+JSR LA057
+.L9EC2
+LDA &30
+CMP #&81:BCS L9F16
+JSR LA1E5
+DEC &49:JMP L9EC2
+ 
+.L9ED0
+LDX ws+&0402
+CPX #&03:BCC L9ED9
+LDX #&00
+.L9ED9
+STX &37
+LDA ws+&0401:BEQ L9EE6
+CMP #&09:BCS L9EEA
+BCC L9EEC
+.L9EE6
+CPX #&02:BEQ L9EEC
+.L9EEA
+LDA #&09
+.L9EEC
+STA &38:STA &4E
+LDA #&00
+STA &36:STA &49
+BIT &15:BMI L9E81
+TYA:BMI L9F00
+JSR LA2AF
+.L9F00
+JSR LA1CB:BNE L9EB9
+LDA &37:BNE L9F0E
+LDA #ASC"0":JMP LA057
+ 
+.L9F0E
+JMP L9F8D
+ 
+.L9F11
+JSR LA6A4:BNE L9F25
+.L9F16
+CMP #&84:BCC L9F2A
+BNE L9F22
+LDA &31
+CMP #&A0:BCC L9F2A
+.L9F22
+JSR LA23E
+.L9F25
+INC &49:JMP L9EC2
+ 
+.L9F2A
+LDA &35:STA &27
+JSR LA376
+LDA &4E:STA &38
+LDX &37
+CPX #&02:BNE L9F4D
+ADC &49:BMI L9F91
+STA &38
+CMP #&0A:BCC L9F4D
+LDA #&09:STA &38
+LDA #&00:STA &37
+.L9F4D
+JSR LA691
+LDA #&A0:STA &31
+LDA #&83:STA &30
+LDX &38:BEQ L9F62
+.L9F5C
+JSR LA23E
+DEX:BNE L9F5C
+.L9F62
+JSR LA7FB
+JSR LA33F
+LDA &27:STA &42
+JSR LA513
+.L9F6F
+LDA &30
+CMP #&84:BCS L9F83
+ROR &31:ROR &32:ROR &33
+ROR &34:ROR &35:INC &30
+BNE L9F6F
+.L9F83
+LDA &31
+CMP #&A0:BCS L9F11
+LDA &38:BNE L9F9E
+.L9F8D
+CMP #&01:BEQ L9FD7
+.L9F91
+JSR LA691
+LDA #&00:STA &49
+LDA &4E:STA &38
+INC &38
+.L9F9E
+LDA #&01
+CMP &37:BEQ L9FD7
+LDY &49:BMI L9FB4
+CPY &38:BCS L9FD7
+LDA #&00:STA &49
+INY:TYA:BNE L9FD7
+.L9FB4
+LDA &37
+CMP #&02:BEQ L9FC0
+LDA #&01
+CPY #&FF:BNE L9FD7
+.L9FC0
+LDA #ASC"0":JSR LA057
+LDA #ASC".":JSR LA057
+LDA #ASC"0"
+.L9FCC
+INC &49:BEQ L9FD5
+JSR LA057
+BNE L9FCC
+.L9FD5
+LDA #&80
+.L9FD7
+STA &4E
+.L9FD9
+JSR LA031
+DEC &4E
+BNE L9FE5
+LDA #&2E
+JSR LA057
+.L9FE5
+DEC &38
+BNE L9FD9
+LDY &37
+DEY:BEQ LA006
+DEY:BEQ LA002
+LDY &36
+.L9FF3
+DEY
+LDA ws+&0600,Y
+CMP #ASC"0":BEQ L9FF3
+CMP #ASC".":BEQ LA000
+INY
+.LA000
+STY &36
+.LA002
+LDA &49:BEQ LA030
+.LA006
+LDA #ASC"E":JSR LA057
+LDA &49:BPL LA019
+LDA #ASC"-":JSR LA057
+SEC:LDA #&00:SBC &49
+.LA019
+JSR LA043
+LDA &37:BEQ LA030
+LDA #&20
+LDY &49
+BMI LA029
+JSR LA057
+.LA029
+CPX #&00:BNE LA030
+JMP LA057
+ 
+.LA030
+RTS
+ 
+.LA031
+LDA &31
+LSR A:LSR A:LSR A:LSR A
+JSR LA055
+LDA &31:AND #&0F:STA &31
+JMP LA188
+ 
+.LA043
+LDX #&FF:SEC
+.LA046
+INX:SBC #&0A:BCS LA046
+ADC #&0A
+PHA
+TXA
+BEQ LA054
+JSR LA055
+.LA054
+PLA
+.LA055
+ORA #&30
+.LA057
+STX &3B
+LDX &36
+STA ws+&0600,X
+LDX &3B
+INC &36
+RTS
+ 
+.LA063
+CLC
+STX &35
+JSR LA1CB
+LDA #&FF
+RTS
+ 
+.LA06C
+LDX #&00:STX &31:STX &32:STX &33
+STX &34:STX &35:STX &48:STX &49
+CMP #&2E:BEQ LA091
+CMP #&3A:BCS LA063
+SBC #&2F:BMI LA063
+STA &35
+.LA08A
+INY:LDA (&19),Y
+CMP #ASC".":BNE LA099
+.LA091
+LDA &48:BNE LA0D9
+INC &48:BNE LA08A
+.LA099
+CMP #ASC"E":BEQ LA0D2
+CMP #ASC"9"+1:BCS LA0D9
+SBC #ASC"0"-1:BCC LA0D9
+LDX &31
+CPX #&18:BCC LA0B3
+LDX &48:BNE LA08A
+INC &49:BCS LA08A
+.LA0B3
+LDX &48:BEQ LA0B9
+DEC &49
+.LA0B9
+JSR LA188
+ADC &35:STA &35
+BCC LA08A
+INC &34:BNE LA08A
+INC &33:BNE LA08A
+INC &32:BNE LA08A
+INC &31:BNE LA08A
+.LA0D2
+JSR LA131
+ADC &49:STA &49
+.LA0D9
+STY &1B
+LDA &49:ORA &48
+BEQ LA110
+JSR LA1CB
+BEQ LA10C
+.LA0E6
+LDA #&A8
+STA &30
+.LA0EA
+LDA #&00
+STA &2F
+STA &2E
+JSR LA2F4
+LDA &49
+BMI LA102
+BEQ LA109
+.LA0F9
+JSR LA1E5
+DEC &49
+BNE LA0F9
+BEQ LA109
+.LA102
+JSR LA23E
+INC &49
+BNE LA102
+.LA109
+JSR LA667
+.LA10C
+SEC
+LDA #&FF
+RTS
+ 
+.LA110
+LDA &32:STA &2D
+AND #&80:ORA &31
+BNE LA0E6
+LDA &35:STA &2A
+LDA &34:STA &2B
+LDA &33:STA &2C
+LDA #&40:SEC:RTS
+ 
+.LA12A
+JSR LA13C
+EOR #&FF
+SEC:RTS
+ 
+.LA131
+INY:LDA (&19),Y
+CMP #ASC"-":BEQ LA12A
+CMP #ASC"+":BNE LA13F
+.LA13C
+INY:LDA (&19),Y
+.LA13F
+CMP #ASC"9"+1:BCS LA165
+SBC #ASC"0"-1:BCC LA165
+STA &4A
+INY:LDA (&19),Y
+CMP #ASC"9"+1:BCS LA161
+SBC #ASC"0"-1:BCC LA161
+INY
+STA &43
+LDA &4A
+ASL A
+ASL A
+ADC &4A
+ASL A
+ADC &43
+RTS
+ 
+.LA161
+LDA &4A:CLC:RTS
+ 
+.LA165
+LDA #&00:CLC:RTS
+ 
+.LA169
+LDA &35:ADC &42:STA &35
+LDA &34:ADC &41:STA &34
+LDA &33:ADC &40:STA &33
+LDA &32:ADC &3F:STA &32
+LDA &31:ADC &3E:STA &31
+RTS
+ 
+.LA188
+PHA:LDX &34
+LDA &31:PHA
+LDA &32:PHA
+LDA &33:PHA
+LDA &35:ASL A
+ROL &34:ROL &33:ROL &32:ROL &31
+ASL A:ROL &34:ROL &33:ROL &32:ROL &31
+ADC &35:STA &35
+TXA:ADC &34:STA &34
+PLA:ADC &33:STA &33
+PLA:ADC &32:STA &32
+PLA:ADC &31:ASL &35
+ROL &34:ROL &33:ROL &32:ROL A:STA &31
+PLA:RTS
+ 
+.LA1CB
+LDA &31:ORA &32:ORA &33:ORA &34:ORA &35
+BEQ LA1DE
+LDA &2E:BNE LA1E4
+LDA #&01:RTS
+ 
+.LA1DE
+STA &2E:STA &30:STA &2F
+.LA1E4
+RTS
+ 
+.LA1E5
+CLC
+LDA &30:ADC #&03:STA &30
+BCC LA1F0
+INC &2F
+.LA1F0
+JSR LA20F
+JSR LA233
+JSR LA233
+.LA1F9
+JSR LA169
+.LA1FC
+BCC LA20E
+ROR &31:ROR &32:ROR &33
+ROR &34:ROR &35:INC &30
+BNE LA20E
+INC &2F
+.LA20E
+RTS
+ 
+.LA20F
+LDA &2E:STA &3B
+LDA &2F:STA &3C
+LDA &30:STA &3D
+LDA &31:STA &3E
+LDA &32:STA &3F
+LDA &33:STA &40
+LDA &34:STA &41
+LDA &35:STA &42
+RTS
+ 
+.LA230
+JSR LA20F
+.LA233
+LSR &3E:ROR &3F:ROR &40
+ROR &41:ROR &42
+RTS
+ 
+.LA23E
+SEC
+LDA &30:SBC #&04:STA &30
+BCS LA249
+DEC &2F
+.LA249
+JSR LA230
+JSR LA1F9
+JSR LA230
+JSR LA233
+JSR LA233
+JSR LA233
+JSR LA1F9
+LDA #&00:STA &3E
+LDA &31:STA &3F
+LDA &32:STA &40
+LDA &33:STA &41
+LDA &34:STA &42
+LDA &35:ROL A
+JSR LA1F9
+LDA #&00
+STA &3E:STA &3F
+LDA &31:STA &40
+LDA &32:STA &41
+LDA &33:STA &42
+LDA &34:ROL A
+JSR LA1F9
+LDA &32:ROL A:LDA &31
+.LA295
+ADC &35:STA &35:BCC LA2AE
+INC &34:BNE LA2AE
+INC &33:BNE LA2AE
+INC &32:BNE LA2AE
+INC &31:BNE LA2AE
+JMP LA1FC
+.LA2AE
+RTS
+ 
+.LA2AF
+LDX #&00:STX &35:STX &2F
+LDA &2D:BPL LA2BE
+JSR LADB5
+LDX #&FF
+.LA2BE
+STX &2E
+LDA &2A:STA &34
+LDA &2B:STA &33
+LDA &2C:STA &32
+LDA &2D:STA &31
+LDA #&A0:STA &30
+JMP LA2F4
+ 
+.LA2D7
+STA &2E:STA &30:STA &2F
+.LA2DD
+RTS
+ 
+.LA2DE
+PHA:JSR LA691:PLA
+BEQ LA2DD
+BPL LA2EE
+STA &2E
+LDA #&00:SEC:SBC &2E
+.LA2EE
+STA &31
+LDA #&88:STA &30
+.LA2F4
+LDA &31:BMI LA2DD
+ORA &32:ORA &33:ORA &34
+ORA &35:BEQ LA2D7
+LDA &30
+.LA304
+LDY &31
+BMI LA2DD
+BNE LA32B
+LDX &32:STX &31
+LDX &33:STX &32
+LDX &34:STX &33
+LDX &35:STX &34
+STY &35
+SEC:SBC #&08
+STA &30:BCS LA304
+DEC &2F:BCC LA304
+.LA327
+LDY &31:BMI LA2DD
+.LA32B
+ASL &35:ROL &34:ROL &33
+ROL &32:ROL &31
+SBC #&00:STA &30
+BCS LA327
+DEC &2F:BCC LA327
+.LA33F
+LDY #&04
+LDA (&4B),Y:STA &41:DEY
+LDA (&4B),Y:STA &40:DEY
+LDA (&4B),Y:STA &3F:DEY
+LDA (&4B),Y:STA &3B:DEY
+STY &42:STY &3C
+LDA (&4B),Y
+STA &3D:ORA &3B:ORA &3F
+ORA &40:ORA &41:BEQ LA36B
+LDA &3B:ORA #&80
+.LA36B
+STA &3E:RTS
+ 
+.LA36E
+LDA #&71
+BNE LA378
+.LA372
+LDA #&76
+BNE LA378
+.LA376
+LDA #&6C
+.LA378
+STA &4B
+LDA #&04+(ws/256)
+STA &4C
+.LA37E
+LDY #&00
+LDA &30
+STA (&4B),Y
+INY
+LDA &2E
+AND #&80
+STA &2E
+LDA &31
+AND #&7F
+ORA &2E
+STA (&4B),Y
+LDA &32
+INY
+STA (&4B),Y
+LDA &33
+INY
+STA (&4B),Y
+LDA &34
+INY
+STA (&4B),Y
+RTS
+ 
+.LA3A3
+JSR LA7FB
+.LA3A6
+LDY #&04
+LDA (&4B),Y:STA &34:DEY
+LDA (&4B),Y:STA &33:DEY
+LDA (&4B),Y:STA &32:DEY
+LDA (&4B),Y:STA &2E:DEY
+LDA (&4B),Y:STA &30
+STY &35:STY &2F
+ORA &2E:ORA &32:ORA &33
+ORA &34:BEQ LA3D5
+LDA &2E:ORA #&80:STA &31
+RTS
+ 
+.LA3D5
+STA &31:RTS
+
+.LA3D8
+LDA &35:CMP #&80
+BCC LA3E5
+BEQ LA3EA
+LDA #&FF:JSR LA295
+.LA3E5
+LDA #&00:STA &35:RTS
+ 
+.LA3EA
+LDA &34:ORA #&01:STA &34
+BNE LA3E5
+.LA3F2
+JSR LA40C
+.LA3F5
+LDA &31:STA &2D
+LDA &32:STA &2C
+LDA &33:STA &2B
+LDA &34:STA &2A
+RTS
+ 
+.LA406
+JSR LA20F
+JMP LA691
+ 
+.LA40C
+LDA &30
+BPL LA406
+JSR LA463
+JSR LA1CB
+BNE LA44A
+BEQ LA476
+.LA41A
+LDA &30
+CMP #&A0:BCS LA45E
+CMP #&99:BCS LA44A
+ADC #&08:STA &30
+LDA &40:STA &41
+LDA &3F:STA &40
+LDA &3E:STA &3F
+LDA &34:STA &3E
+LDA &33:STA &34
+LDA &32:STA &33
+LDA &31:STA &32
+LDA #&00:STA &31
+BEQ LA41A
+
+.LA44A
+LSR &31:ROR &32:ROR &33
+ROR &34:ROR &3E:ROR &3F
+ROR &40:ROR &41:INC &30
+BNE LA41A
+.LA45E
+BEQ LA476
+.LA460
+JMP LA677
+ 
+.LA463
+LDA #&00
+STA &3B:STA &3C:STA &3D
+STA &3E:STA &3F:STA &40
+STA &41:STA &42:RTS
+ 
+.LA476
+LDA &2E:BPL LA493
+.LA47A
+SEC:LDA #&00:SBC &34:STA &34
+LDA #&00:SBC &33:STA &33
+LDA #&00:SBC &32:STA &32
+LDA #&00:SBC &31:STA &31
+.LA493
+RTS
+ 
+.LA494
+LDA &30:BMI LA49F
+LDA #&00:STA &4A
+JMP LA1CB
+ 
+.LA49F
+JSR LA40C
+LDA &34:STA &4A
+JSR LA4F0
+LDA #&80:STA &30
+LDX &31:BPL LA4C1
+EOR &2E:STA &2E
+BPL LA4BC
+INC &4A:JMP LA4BE
+ 
+.LA4BC
+DEC &4A
+.LA4BE
+JSR LA47A
+.LA4C1
+JMP LA2F4
+ 
+.LA4C4
+INC &34:BNE LA4D4
+INC &33:BNE LA4D4
+INC &32:BNE LA4D4
+INC &31:BEQ LA460
+.LA4D4
+RTS
+ 
+.LA4D5
+JSR LA47A
+JSR LA4C4
+JMP LA47A
+ 
+.LA4DE
+JSR LA33F
+JSR LA37E
+.LA4E4
+LDA &3B:STA &2E
+LDA &3C:STA &2F
+LDA &3D:STA &30
+.LA4F0
+LDA &3E:STA &31
+LDA &3F:STA &32
+LDA &40:STA &33
+LDA &41:STA &34
+LDA &42:STA &35
+.LA504
+RTS
+ 
+.LA505
+JSR LA50B
+JMP LADA0
+ 
+.LA50B
+JSR LADA0
+.LA50E
+JSR LA33F
+BEQ LA504
+.LA513
+JSR LA1CB
+BEQ LA4E4
+LDY #&00
+SEC
+LDA &30
+SBC &3D
+BEQ LA598
+BCC LA55A
+CMP #&21
+BCS LA504
+PHA
+AND #&38
+BEQ LA545
+LSR A
+LSR A
+LSR A
+TAX
+.LA530
+LDA &41:STA &42
+LDA &40:STA &41
+LDA &3F:STA &40
+LDA &3E:STA &3F
+STY &3E
+DEX:BNE LA530
+.LA545
+PLA
+AND #&07
+BEQ LA598
+TAX
+.LA54B
+LSR &3E:ROR &3F:ROR &40
+ROR &41:ROR &42
+DEX:BNE LA54B
+BEQ LA598
+
+.LA55A
+SEC
+LDA &3D:SBC &30
+CMP #&21:BCS LA4E4
+PHA
+AND #&38
+BEQ LA581
+LSR A:LSR A:LSR A
+TAX
+.LA56C
+LDA &34:STA &35
+LDA &33:STA &34
+LDA &32:STA &33
+LDA &31:STA &32
+STY &31
+DEX:BNE LA56C
+.LA581
+PLA
+AND #&07
+BEQ LA594
+TAX
+.LA587
+LSR &31:ROR &32:ROR &33
+ROR &34:ROR &35
+DEX:BNE LA587
+.LA594
+LDA &3D:STA &30
+.LA598
+LDA &2E:EOR &3B:BPL LA5E7
+LDA &31:CMP &3E:BNE LA5BF
+LDA &32:CMP &3F:BNE LA5BF
+LDA &33:CMP &40:BNE LA5BF
+LDA &34:CMP &41:BNE LA5BF
+LDA &35:CMP &42:BNE LA5BF
+JMP LA691
+ 
+.LA5BF
+BCS LA5EE:SEC
+LDA &42:SBC &35:STA &35
+LDA &41:SBC &34:STA &34
+LDA &40:SBC &33:STA &33
+LDA &3F:SBC &32:STA &32
+LDA &3E:SBC &31:STA &31
+LDA &3B:STA &2E
+JMP LA664
+ 
+.LA5E7
+CLC
+JSR LA1F9
+JMP LA667
+ 
+.LA5EE
+SEC
+LDA &35:SBC &42:STA &35
+LDA &34:SBC &41:STA &34
+LDA &33:SBC &40:STA &33
+LDA &32:SBC &3F:STA &32
+LDA &31:SBC &3E:STA &31
+JMP LA664
+ 
+.LA610
+RTS
+ 
+.LA611
+JSR LA1CB:BEQ LA610
+JSR LA33F:BNE LA61E
+JMP LA691
+ 
+.LA61E
+CLC
+LDA &30:ADC &3D:BCC LA628
+INC &2F:CLC
+.LA628
+SBC #&7F:STA &30:BCS LA630
+DEC &2F
+.LA630
+LDX #&05:LDY #&00
+.LA634
+LDA &30,X:STA &42,X
+STY &30,X
+DEX:BNE LA634
+LDA &2E:EOR &3B:STA &2E
+LDY #&20
+.LA645
+LSR &3E:ROR &3F:ROR &40
+ROR &41:ROR &42:ASL &46
+ROL &45:ROL &44:ROL &43
+BCC LA65D
+CLC:JSR LA169
+.LA65D
+DEY:BNE LA645:RTS
+ 
+.LA661
+JSR LA611
+.LA664
+JSR LA2F4
+.LA667
+LDA &35
+CMP #&80:BCC LA687
+BEQ LA681
+LDA #&FF:JSR LA295
+JMP LA687
+ 
+.LA677
+BRK:EQUB 20:EQUS "Too big":BRK
+
+.LA681
+LDA &34:ORA #&01:STA &34
+.LA687
+LDA #&00:STA &35
+LDA &2F:BEQ LA6A3
+BPL LA677
+.LA691
+LDA #&00
+STA &2E:STA &2F:STA &30:STA &31
+STA &32:STA &33:STA &34:STA &35
+.LA6A3
+RTS
+ 
+.LA6A4
+JSR LA691
+LDY #&80:STY &31
+INY:STY &30
+TYA:RTS
+ 
+.LA6B0
+JSR LA376
+JSR LA6A4
+BNE LA6F2
+.LA6B8
+JSR LA1CB
+BEQ LA6C6
+JSR LA20F
+JSR LA3A6
+BNE LA6FC
+RTS
+ 
+.LA6C6
+JMP L99A6
+ 
+\ =TAN numeric
+\ ============
+.LA6C9
+JSR L92AC
+JSR LA9DA
+LDA &4A
+PHA
+JSR LA7EF
+JSR LA37E
+INC &4A
+JSR LA99A
+JSR LA7EF
+JSR LA4DE
+PLA
+STA &4A
+JSR LA99A
+JSR LA7EF
+JSR LA6F2
+LDA #&FF
+RTS
+ 
+.LA6F2
+JSR LA1CB
+BEQ LA6A3
+JSR LA33F
+BEQ LA6C6
+.LA6FC
+LDA &2E
+EOR &3B
+STA &2E
+SEC
+LDA &30
+SBC &3D
+BCS LA70C
+DEC &2F
+SEC
+.LA70C
+ADC #&80
+STA &30
+BCC LA715
+INC &2F
+CLC
+.LA715
+LDX #&20
+.LA717
+BCS LA731
+LDA &31:CMP &3E:BNE LA72F
+LDA &32:CMP &3F:BNE LA72F
+LDA &33:CMP &40:BNE LA72F
+LDA &34:CMP &41
+.LA72F
+BCC LA74A
+.LA731
+LDA &34:SBC &41:STA &34
+LDA &33:SBC &40:STA &33
+LDA &32:SBC &3F:STA &32
+LDA &31:SBC &3E:STA &31
+SEC
+.LA74A
+ROL &46:ROL &45:ROL &44:ROL &43
+ASL &34:ROL &33:ROL &32:ROL &31
+DEX:BNE LA717
+LDX #&07
+.LA75F
+BCS LA779
+LDA &31:CMP &3E:BNE LA777
+LDA &32:CMP &3F:BNE LA777
+LDA &33:CMP &40:BNE LA777
+LDA &34:CMP &41
+.LA777
+BCC LA792
+.LA779
+LDA &34:SBC &41:STA &34
+LDA &33:SBC &40:STA &33
+LDA &32:SBC &3F:STA &32
+LDA &31:SBC &3E:STA &31
+SEC
+.LA792
+ROL &35:ASL &34:ROL &33
+ROL &32:ROL &31
+DEX:BNE LA75F
+ASL &35
+LDA &46:STA &34
+LDA &45:STA &33
+LDA &44:STA &32
+LDA &43:STA &31
+JMP LA664
+ 
+\ =SQR numeric
+\ ============
+.LA7B4
+JSR L92AC
+.LA7B7
+JSR LA1CB
+BEQ LA7EC
+BPL LA7C9
+BRK:EQUB 21:EQUS "-ve root":BRK
+
+.LA7C9
+JSR LA376
+LDA &30:LSR A:ADC #&40:STA &30
+LDA #&05:STA &4A
+.LA7D7
+JSR LA36E
+JSR LA7FB
+JSR LA6B8
+JSR LA7F3
+JSR LA50E
+DEC &30
+DEC &4A:BNE LA7D7
+.LA7EC
+LDA #&FF:RTS
+ 
+.LA7EF
+LDA #&7B:BNE LA7FD
+.LA7F3
+LDA #&71:BNE LA7FD
+.LA7F7
+LDA #&76:BNE LA7FD
+.LA7FB
+LDA #&6C
+.LA7FD
+STA &4B
+LDA #&04+(ws/256)
+STA &4C
+RTS
+ 
+\ =LN numeric
+\ ===========
+.LA804
+JSR L92AC
+.LA807
+JSR LA1CB
+BEQ LA80E
+BPL LA81A
+.LA80E
+BRK:EQUB 22:EQUS "Log range":BRK
+
+.LA81A
+LDA &30:PHA
+JSR LA463
+LDA #&C0:STA &3E
+LDA #&81:STA &30
+STA &3D:STA &3B
+JSR LA513
+INC &30
+LDA #LA860 AND 255
+LDY #LA860 DIV 256
+JSR LA889
+JSR LA376
+PLA
+SEC
+SBC #&81
+JSR LA2DE
+LDA #LA85B AND 255:STA &4B
+LDA #LA85B DIV 256:STA &4C
+JSR LA661
+JSR LA7FB
+JSR LA50E
+LDA #&FF:RTS
+
+\ Data for trigonometric functions
+\ --------------------------------
+.LA856
+EQUB &7F
+LSR &D85B,X
+TAX
+.LA85B
+EQUB &80
+EQUB &31
+EQUB &72
+EQUB &17
+SED
+.LA860
+EQUB &07
+STA &17
+EQUB &6E
+EQUB &D4
+EQUB &85
+EQUB &80
+EQUB &28
+EQUB &C7
+EQUB &12
+EQUB &A0
+STY &70
+LSR &F25F
+STA (&00,X)
+BRK
+INC &84EF,X
+EQUB &0F
+EQUB &FF
+EQUB &DA
+SBC (&81,X)
+EQUB &7F
+EQUB &FF
+EQUB &FF
+EQUB &93
+EQUB &82
+RTI
+ 
+BRK
+BRK
+EQUB &0C
+EQUB &7F
+EQUB &4F
+STA &651F,Y
+
+.LA889
+STA &4D
+STY &4E
+JSR LA376
+.LA890
+LDY #&00
+LDA (&4D),Y
+STA &48
+INC &4D
+BNE LA89C
+INC &4E
+.LA89C
+LDA &4D:STA &4B
+LDA &4E:STA &4C
+JSR LA3A6
+.LA8A7
+JSR LA7FB
+JSR LA6B8
+CLC
+LDA &4D
+ADC #&05
+STA &4D
+STA &4B
+LDA &4E
+ADC #&00
+STA &4E
+STA &4C
+JSR LA50E
+DEC &48
+BNE LA8A7
+RTS
+ 
+.LA8C6
+JSR LA8CC
+JMP LA929
+ 
+.LA8CC
+JSR L92AC
+JSR LA1CB
+BPL LA8DE
+LDA #&00
+STA &2E
+JSR LA8DE
+JMP LA918
+ 
+.LA8DE
+JSR LA372
+JSR LA661
+JSR LA376
+JSR LA6A4
+JSR LA505
+JSR LA7B7
+JSR LA1CB
+BEQ LA8FE
+JSR LA7F7
+JSR LA6B8
+JMP LA90A
+ 
+.LA8FE
+JSR LAA69
+JSR LA3A6
+.LA904
+LDA #&FF
+RTS
+
+.LA907 
+JSR L92AC
+.LA90A
+JSR LA1CB
+BEQ LA904
+BPL LA91D
+LDA #&00
+STA &2E
+JSR LA91D
+.LA918
+LDA #&80
+STA &2E
+RTS
+ 
+.LA91D
+LDA &30
+CMP #&81
+BCC LA932
+JSR LA6B0
+JSR LA932
+.LA929
+JSR LAA69
+JSR LA50B
+LDA #&FF
+RTS
+ 
+.LA932
+LDA &30
+CMP #&73
+BCC LA904
+JSR LA372
+JSR LA463
+LDA #&80
+STA &3D
+STA &3E
+STA &3B
+JSR LA513
+LDA #LA956 AND 255
+LDY #LA956 DIV 256
+JSR LA889
+JSR LAAF4
+LDA #&FF
+RTS
+
+\ More data
+\ ---------
+.LA956 
+ORA #&85
+EQUB &A3
+EOR &67E8,Y
+EQUB &80
+EQUB &1C
+ 
+STA &3607,X
+EQUB &80
+EQUB &57
+ 
+EQUB &BB
+SEI
+EQUB &DF
+EQUB &80
+EQUB &CA
+ 
+TXS
+EQUB &0E
+EQUB &83
+EQUB &84
+EQUB &8C
+EQUB &BB
+EQUB &CA
+EQUB &6E
+EQUB &81
+EQUB &95
+STX &06,Y
+DEC &0A81,X
+EQUB &C7
+JMP (&7F52)
+ 
+EQUB &7D
+EQUB &AD
+EQUB &90
+LDA (&82,X)
+EQUB &FB
+EQUB &62
+EQUB &57
+EQUB &2F
+EQUB &80
+EQUB &6D
+EQUB &63
+SEC
+EQUB &2C
+
+\ =COS numeric
+\ ============
+.LA989
+JSR L92AC
+JSR LA9DA
+INC &4A
+JMP LA99A
+ 
+\ =SIN numeric
+\ ============
+.LA994
+JSR L92AC
+JSR LA9DA
+.LA99A
+LSR &4A
+BCC LA9A1
+JSR LA929
+.LA9A1
+LSR &4A
+BCC LA9AB
+JSR LA9AB
+.LA9A8
+JMP LADA0
+ 
+.LA9AB
+LDA &32
+CMP #&0F
+LDA &31
+SBC #&C9
+LDA &30
+SBC #&81
+BCC LA9BF
+JSR LA6A4
+LDA #&FF
+RTS
+ 
+.LA9BF
+JSR LA372
+JSR LAA69
+JSR LA33F
+DEC &3D
+SEC
+ROR &3B
+JSR LA513
+LDA #LAA86 AND 255
+LDY #LAA86 DIV 256
+JSR LA889
+JMP LAAF4
+ 
+.LA9DA
+LDA &30:CMP #&98:BCS LAA45
+JSR LA376
+JSR LAA69
+JSR LA6F2
+JSR LA40C
+LDA &34
+STA &4A
+ORA &33
+ORA &32
+ORA &31
+BEQ LAA56
+LDA #&A0
+STA &30
+LDY #&00
+STY &35
+LDA &31
+STA &2E
+BPL LAA09
+JSR LA47A
+.LAA09
+JSR LA2F4
+JSR LA36E
+JSR LAA5C
+JSR LA661
+JSR LA7FB
+JSR LA50E
+JSR LA37E
+JSR LA7F3
+JSR LA3A6
+JSR LAA60
+JSR LA661
+JSR LA7FB
+JSR LA50E
+.LAA30
+LDA &2E
+BPL LAA55
+JSR LAA60
+JSR LA505
+JSR LAA5C
+JSR LA505
+DEC &4A
+JMP LAA30
+ 
+.LAA45
+BRK:EQUB 23:EQUS "Accuracy lost":BRK
+
+.LAA55
+RTS
+ 
+.LAA56
+JSR LA3A3
+JMP LAA30
+ 
+.LAA5C
+LDA #LAA6D AND 255
+OPT FNif((LAA6D AND 255)<>0):BNE LAA62:OPT FNendif
+OPT FNif((LAA6D AND 255)=0) :BEQ LAA62:OPT FNendif
+.LAA60
+LDA #LAA72 AND 255
+.LAA62
+STA &4B
+LDA #LAA6D DIV 256
+STA &4C
+RTS
+.LAA69
+LDA #LAA77 AND 255
+OPT FNif((LAA62 AND 255)<>0):BNE LAA62:OPT FNendif
+OPT FNif((LAA62 AND 255)=0) :BEQ LAA62:OPT FNendif
+:
+\ More data
+\ ---------
+]:IF (opt% AND 2):IF (LAA6D EOR LAA77)>255:V.7:P."TABLES IN DIFFERENT PAGES":END
+[OPT opt%
+.LAA6D
+STA (&C9,X)
+BRK
+BRK
+BRK
+.LAA72
+ADC &FD,X
+TAX
+EQUB &22
+EQUB &17
+.LAA77
+STA (&49,X)
+EQUB &0F
+EQUB &DA
+EQUB &A2
+.LAA7C
+EQUB &7B
+ASL &35FA
+EQUB &12
+.LAA81
+EQUB &86
+ADC &2E
+CPX #&D3
+.LAA86
+PHP
+STY &04
+EQUB &C7
+EQUB &3C
+EQUB &FB
+EQUB &81
+CPX #&4F
+EQUB &5D
+EQUB &AD
+EQUB &82
+EQUB &80
+EQUB &00
+ 
+.LAA94
+ADC #&B8
+EQUB &82
+EQUB &5B
+EQUB &CF
+EQUB &1D
+EQUB &B5
+EQUB &82
+EQUB &BF
+DEC &1E82
+EQUB &82
+EOR &44
+EQUB &7F
+EQUB &32
+EQUB &7F
+EQUB &62
+EQUB &44
+EQUB &5A
+EQUB &D2
+EQUB &83
+EQUB &82
+EQUB &14
+EQUB &8A
+EQUB &27
+EQUB &80
+EQUB &66
+ 
+EQUB &7B
+AND (&4D,X)
+.LAAB4
+JSR L92AC
+.LAAB7
+LDA &30
+CMP #&87
+BCC LAADB
+BNE LAAC5
+LDY &31
+CPY #&B3
+BCC LAADB
+.LAAC5
+LDA &2E
+BPL LAACF
+JSR LA691
+LDA #&FF
+RTS
+ 
+.LAACF
+BRK:EQUB 24:EQUS "Exp range":BRK
+
+.LAADB
+JSR LA494
+JSR LAAFD
+JSR LA372
+LDA #LAB07 AND 255
+STA &4B
+LDA #LAB07 DIV 256
+STA &4C
+JSR LA3A6
+LDA &4A
+JSR LAB35
+.LAAF4
+JSR LA7F7
+JSR LA661
+LDA #&FF
+RTS
+ 
+.LAAFD
+LDA #LAB0C AND 255
+LDY #LAB0C DIV 256
+JSR LA889
+LDA #&FF
+RTS
+
+\ More data
+\ ---------
+.LAB07
+EQUB &82
+AND &54F8
+CLI
+.LAB0C
+EQUB &07
+EQUB &83
+CPX #&20
+STX &5B
+EQUB &82
+EQUB &80
+EQUB &53
+ 
+EQUB &93
+CLV
+.LAB17
+EQUB &83
+JSR &0600
+LDA (&82,X)
+BRK
+BRK
+AND (&63,X)
+EQUB &82
+CPY #&00
+BRK
+EQUB &02
+EQUB &82
+EQUB &80
+EQUB &00
+ 
+.LAB29
+BRK
+EQUB &0C
+EQUB &81
+EQUB &00
+BRK
+BRK
+BRK
+STA (&00,X)
+BRK
+BRK
+BRK
+.LAB35
+TAX
+BPL LAB41
+DEX
+TXA
+EOR #&FF
+PHA
+JSR LA6B0
+PLA
+.LAB41
+PHA
+JSR LA376
+JSR LA6A4
+.LAB48
+PLA
+BEQ LAB55
+SEC
+SBC #&01
+PHA
+JSR LA661
+JMP LAB48
+ 
+.LAB55
+RTS
+ 
+\ =ADVAL numeric - Call OSBYTE to read buffer/device
+\ ==================================================
+.LAB56
+JSR L9292       :\ Evaluate numeric
+OPT FNif(mos$="bbc")
+ LDX &2A:LDA #&80
+ JSR OSBYTE:TXA
+OPT FNendif
+JMP LAF19       :\ Return int16 in YA
+ 
+\ =POINT(numeric, numeric)
+\ ========================
+.LAB64
+JSR L928C
+JSR LBDAC
+JSR L8A35
+JSR LAE85
+JSR L92A1
+OPT FNif(mos$="bbc")
+ LDA &2A:PHA
+ LDA &2B:PHA
+ JSR LBE02
+ PLA:STA &2D
+ PLA:STA &2C
+ LDX #&2A:LDY #&00
+ LDA #&09:JSR OSWORD
+ LDA &2E:BMI LABC2  :\ If <0, jump to return -1
+OPT FNendif
+JMP LAF07           :\ Jump to return int8 in A
+ 
+\ =POS
+\ ====
+.LAB92
+OPT FNif(mos$="bbc")
+ LDA #&86:JSR OSBYTE:TXA
+OPT FNendif
+JMP LAF07           :\ Jump to return int8 in A
+ 
+\ =VPOS
+\ =====
+.LAB9B
+OPT FNif(mos$="bbc")
+ LDA #&86:JSR OSBYTE:TYA
+OPT FNendif
+JMP LAF07           :\ Jump to return int8 in A
+ 
+.LABA4
+JSR LA1CB
+BEQ LABC7
+BPL LABC5
+BMI LABC2
+
+\ =SGN numeric
+\ ============
+.LABAD
+JSR LAE1B
+BEQ LAC0F
+BMI LABA4
+LDA &2D
+ORA &2C
+ORA &2B
+ORA &2A
+BEQ LABCA
+LDA &2D
+BPL LABC5
+.LABC2
+JMP LACEA
+ 
+.LABC5
+LDA #&01
+.LABC7
+JMP LAF07
+ 
+.LABCA
+LDA #&40
+RTS
+ 
+\ =LOG numeric
+\ ============
+.LABCD
+JSR LA804
+LDY #LA856 AND 255
+LDA #LA856 DIV 256
+BNE LABDD
+
+\ =RAD numeric
+\ ============
+.LABD6
+JSR L92AC
+LDY #LAA7C AND 255
+LDA #LAA7C DIV 256
+.LABDD
+STY &4B
+STA &4C
+JSR LA661
+LDA #&FF
+RTS
+ 
+\ =DEG numeric
+\ ============
+.LABE7
+JSR L92AC
+LDY #LAA81 AND 255
+LDA #LAA81 DIV 256
+BNE LABDD
+
+\ =PI
+\ ===
+.LABF0
+JSR LAA69
+JSR LA3A6
+INC &30
+LDA #&FF
+RTS
+ 
+\ =USR numeric
+\ ============
+.LABFB
+JSR L9292
+JSR L8EBB
+STA &2A
+STX &2B
+STY &2C
+PHP
+PLA
+STA &2D
+CLD
+LDA #&40
+RTS
+ 
+.LAC0F
+JMP L8B7E
+ 
+\ =EVAL string$ - Tokenise and evaluate expression
+\ ================================================
+.LAC12
+JSR LAE1B:BNE LAC0F     :\ Evaluate value, error if not string
+INC &36:LDY &36         :\ Increment string length to add a <cr>
+LDA #&0D:STA ws+&05FF,Y :\ Put in terminating <cr>
+JSR LBDCA               :\ Stack the string
+                        :\ String has to be stacked as otherwise would
+                        :\  be overwritten by any string operations
+                        :\  called by Evaluator
+LDA &19:PHA             :\ Save PTRB
+LDA &1A:PHA
+LDA &1B:PHA
+LDY &04:LDX &05         :\ YX=>stackbottom (wrong way around)
+INY                     :\ Step over length byte
+STY &19                 :\ PTRB=>stacked string
+STY &37                 :\ GPTR=>stacked string
+BNE LAC38:INX           :\ Inc high byte if next page
+.LAC38
+STX &1A:STX &38         :\ PTRB and GPTR high bytes
+OPT FNif(VALversion$<1.10)
+ LDA #&00:STA &1B       :\ Point PTRB offset back to start
+ JSR L88D3              :\ Tokenise string on stack at GPTR
+                        :\ This calls the tokeniser set to left-hand-side
+                        :\ This means EVAL("PAGE") gets PAGE as a command
+                        :\  instead of PAGE as a function
+OPT FNelse
+ LDY #&FF:STY &3B       :\ Set tokeniser to right-hand-side
+ INY:STY &1B            :\ Point PTRB offset back to start
+ JSR L88D7              :\ Tokenise string on stack at GPTR
+OPT FNendif
+
+:
+JSR L9B03            :\ Call expression evaluator
+JSR LBDF4            :\ Drop string from stack
+.LAC49
+PLA:STA &1B          :\ Restore PTRB
+PLA:STA &1A
+PLA:STA &19
+LDA &27              :\ Get expression return value
+RTS                  :\ And return
+ 
+\ =VAL numeric
+\ ============
+.LAC55
+JSR LAE1B
+BNE LACC1
+.LAC5A
+LDY &36
+LDA #&00
+STA ws+&0600,Y
+LDA &19:PHA
+LDA &1A:PHA
+LDA &1B:PHA
+LDA #&00:STA &1B
+LDA #&00:STA &19
+LDA #&06+(ws/256):STA &1A
+JSR L8A13
+CMP #ASC"-":BEQ LAC8C
+CMP #ASC"+":BNE LAC84
+JSR L8A13
+.LAC84
+DEC &1B
+JSR LA06C
+JMP LAC99
+ 
+.LAC8C
+JSR L8A13
+DEC &1B
+JSR LA06C
+BCC LAC99
+JSR LADB1
+.LAC99
+STA &27
+JMP LAC49
+ 
+\ =INT numeric
+\ ============
+.LAC9E
+JSR LAE1B
+BEQ LACC1
+BPL LACC0
+LDA &2E
+PHP
+JSR LA40C
+.LACAB
+PLP
+BPL LACBB
+LDA &3E
+ORA &3F
+ORA &40
+ORA &41
+BEQ LACBB
+JSR LA4D5
+.LACBB
+JSR LA3F5
+LDA #&40
+.LACC0
+RTS
+ 
+.LACC1
+JMP L8B7E
+ 
+\ =ASC string$
+\ ============
+.LACC4
+JSR LAE1B
+BNE LACC1
+LDA &36
+BEQ LACEA
+LDA ws+&0600
+.LACD0
+JMP LAF07
+ 
+\ =INKEY numeric
+\ ==============
+.LACD3
+JSR LAFDC
+CPY #&00
+BNE LACEA
+TXA
+JMP LAF19
+ 
+\ =EOF#numeric
+\ ============
+.LACDE
+JSR LBFBA
+TAX
+LDA #&7F
+OPT FNif(mos$="bbc"):JSR OSBYTE:OPT FNendif
+TXA:BEQ LACD0
+
+\ =TRUE
+\ =====
+.LACEA
+LDA #&FF
+STA &2A
+STA &2B
+STA &2C
+STA &2D
+LDA #&40
+RTS
+ 
+\ =NOT numeric
+\ ============
+.LACF7
+JSR L9292
+LDX #&03
+.LACFC
+LDA &2A,X
+EOR #&FF
+STA &2A,X
+DEX
+BPL LACFC
+LDA #&40
+RTS
+ 
+\ =INSTR(string1$, string2$ [, numeric])
+\ ======================================
+\ Bug - fails if string1$ is shorter than string2$
+\
+.LAD08
+JSR L9B03
+BNE LACC1
+CPX #ASC",":BNE LAD29
+INC &1B
+JSR LBDCA
+JSR L9B03
+BNE LACC1
+LDA #&01
+STA &2A
+INC &1B
+CPX #ASC")":BEQ LAD38
+CPX #ASC",":BEQ LAD2C
+.LAD29
+JMP L8A29
+ 
+.LAD2C
+JSR LBDCA
+JSR LAE85
+JSR L92A1
+JSR LBDE3
+.LAD38
+LDY #&00
+LDX &2A
+BNE LAD40
+LDX #&01
+.LAD40
+STX &2A
+TXA
+DEX
+STX &2D
+CLC
+ADC &04
+STA &37
+TYA
+ADC &05
+STA &38
+LDA (&04),Y
+SEC
+SBC &2D
+BCC LAD78
+SBC &36
+BCC LAD78
+ADC #&00
+STA &2B
+JSR LBDF4
+.LAD62
+LDY #&00
+LDX &36
+BEQ LAD73
+.LAD68
+LDA (&37),Y
+CMP ws+&0600,Y
+BNE LAD7C
+INY
+DEX
+BNE LAD68
+.LAD73
+LDA &2A
+.LAD75
+JMP LAF07
+
+.LAD78
+OPT FNif(VALversion$>=1.10):JSR LDDDB:OPT FNendif
+.LCD32
+LDA #&00
+BEQ LAD75
+
+.LAD7C
+INC &2A
+DEC &2B
+BEQ LCD32
+INC &37
+BNE LAD62
+INC &38
+BNE LAD62
+.LAD8A
+JMP L8B7E
+ 
+\ =ABS numeric
+\ ============
+.LAD8D
+JSR LAE1B
+BEQ LAD8A
+BMI LAD99
+.LAD94
+BIT &2D
+BMI LADB5
+OPT FNif(mos$="atom") :BPL LCD8A:OPT FNendif
+OPT FNif(mos$<>"atom"):RTS      :OPT FNendif
+ 
+.LAD99
+JSR LA1CB
+BPL LADAB
+BMI LADA5
+.LADA0
+JSR LA1CB
+BEQ LADAB
+.LADA5
+LDA &2E
+EOR #&80
+STA &2E
+.LADAB
+LDA #&FF
+RTS
+ 
+.LADAE
+JSR LAE31
+.LADB1
+BEQ LAD8A
+BMI LADA0
+.LADB5
+SEC
+LDA #&00
+TAY:SBC &2A:STA &2A
+TYA:SBC &2B:STA &2B
+TYA:SBC &2C:STA &2C
+TYA:SBC &2D:STA &2D
+.LCD8A
+LDA #&40:RTS
+ 
+OPT FNif(VALversion$<1.10)
+ .LADCF
+ JSR LBD38
+ BRK:EQUB 0:EQUS CHR$tknLINE+" space":BRK
+OPT FNendif
+
+.LADDC
+JSR L8A13
+CMP #&22:BEQ LADF8
+LDX #&00
+.LADE5
+LDA (&19),Y
+STA ws+&0600,X
+INY:INX
+CMP #&0D:BEQ LADF4
+CMP #&2C:BNE LADE5
+.LADF4
+DEY:JMP LAE10
+ 
+.LADF8
+LDX #&00
+.LADFA
+INY
+.LADFB
+LDA (&19),Y
+CMP #&0D:BEQ LAE18
+INY
+STA ws+&0600,X
+INX
+CMP #&22:BNE LADFB
+LDA (&19),Y
+CMP #&22:BEQ LADFA
+.LAE10
+DEX
+STX &36
+STY &1B
+LDA #&00
+RTS
+ 
+.LAE18
+JMP L8E32
+ 
+\ Evaluator Level 1, - + NOT function ( ) ? ! $ | "
+\ -------------------------------------------------
+.LAE1B
+LDY &1B:INC &1B:LDA (&19),Y    :\ Get next character
+CMP #ASC" ":BEQ LAE1B          :\ Loop to skip spaces
+CMP #ASC"-":BEQ LADAE          :\ Jump with unary minus
+CMP #ASC"""":BEQ LADF8         :\ Jump with string
+CMP #ASC"+":BNE LAE34          :\ Jump with unary plus
+.LAE31
+JSR L8A13                      :\ Get current character
+.LAE34
+CMP #&8F:BCC LAE3F             :\ Lowest function token, test for indirections
+CMP #&C6:BCS LAE72             :\ Highest function token, jump to error
+JMP L8B22                      :\ Jump via function dispatch table
+ 
+\ Indirection, hex, brackets
+\ --------------------------
+.LAE3F
+CMP #ASC"?":BCS LAE4F :\ Jump with ?numeric or higher
+CMP #ASC".":BCS LAE59 :\ Jump with .numeric or higher
+CMP #ASC"&":BEQ LAE9C :\ Jump with hex number
+CMP #ASC"(":BEQ LAE85 :\ Jump with brackets
+.LAE4F
+DEC &1B
+JSR L95A9
+BEQ LAE5F       :\ Jump with undefined variable or bad name
+JMP LB35B
+ 
+.LAE59
+JSR LA06C
+BCC LAE72
+RTS
+ 
+.LAE5F
+LDA &28         :\ Check assembler option
+AND #&02        :\ Is 'ignore undefiened variables' set?
+BNE LAE72       :\ b1=1, jump to give No such variable
+BCS LAE72       :\ Jump with bad variable name
+STX &1B
+LDA ws+&0440    :\ Use P% for undefined variable
+LDY ws+&0441
+JMP LAF19       :\ Jump to return 16-bit integer
+ 
+.LAE72
+BRK:EQUB 26:EQUS "No such variable":BRK
+ 
+.LAE85
+JSR L9B03
+INC &1B
+CPX #ASC")":BNE LAE90
+TAY:RTS
+ 
+.LAE90
+BRK:EQUB 27:EQUS "Missing )":BRK
+
+.LAE9C
+LDX #&00
+STX &2A:STX &2B
+STX &2C:STX &2D
+LDY &1B
+.LAEA8
+LDA (&19),Y
+CMP #ASC"0":BCC LAED1
+CMP #ASC"9"+1:BCC LAEBC
+SBC #&37:CMP #&0A
+BCC LAED1
+CMP #&10:BCS LAED1
+.LAEBC
+ASL A:ASL A:ASL A:ASL A
+LDX #&03
+.LAEC2
+ASL A:ROL &2A:ROL &2B
+ROL &2C:ROL &2D
+DEX:BPL LAEC2
+INY:BNE LAEA8
+.LAED1
+TXA:BPL LAED9
+STY &1B
+LDA #&40:RTS
+ 
+.LAED9
+BRK:EQUB 28:EQUS "Bad HEX":BRK
+
+\ =TIME - Read system TIME
+\ ========================
+.LAEE3
+LDX #&2A:LDY #&00         :\ Point to integer accumulator
+LDA #&01                  :\ Read TIME to IntA via OSWORD &01
+OPT FNif(mos$="bbc"):JSR OSWORD:OPT FNendif
+LDA #&40:RTS              :\ Return 'integer'
+
+\ =PAGE - Read PAGE
+\ =================
+.LAEEF
+LDA #&00:LDY &18:JMP LAF19
+ 
+.LAEF6
+JMP LAE72
+ 
+\ =FALSE
+\ ======
+.LAEF9
+LDA #&00:BEQ LAF07        :\ Jump to return &00 as 16-bit integer
+
+.LAEFD
+JMP L8B7E
+ 
+\ =LEN string$
+\ ============
+.LAF00
+JSR LAE1B
+BNE LAEFD
+LDA &36
+
+\ Return 8-bit integer
+\ --------------------
+.LAF07
+LDY #&00:BEQ LAF19        :\ Clear b8-b15, jump to return 16-bit int
+
+\ =TOP - Return top of program
+\ ============================
+.LAF0B
+LDY &1B
+LDA (&19),Y
+CMP #ASC"P"
+BNE LAEF6
+INC &1B
+LDA &12
+LDY &13
+
+\ Return 16-bit integer in AY
+\ ---------------------------
+.LAF19
+STA &2A:STY &2B           :\ Store AY in integer accumulator
+LDA #&00:STA &2C:STA &2D  :\ Set b16-b31 to 0
+LDA #&40:RTS              :\ Return 'integer'
+ 
+\ =COUNT - Return COUNT
+\ =====================
+.LAF26
+LDA &1E:JMP LAF07         :\ Get COUNT, jump to return 8-bit integer
+ 
+\ =LOMEM - Start of BASIC heap
+\ ============================
+.LAF2B
+LDA &00:LDY &01:JMP LAF19 :\ Get LOMEM to AY, jump to return as integer
+ 
+\ =HIMEM - Top of BASIC memory
+\ ============================
+.LAF32
+LDA &06:LDY &07:JMP LAF19 :\ Get HIMEM to AY, jump to return as integer
+
+\ =RND(numeric)
+\ -------------
+.LAF39
+INC &1B
+JSR LAE85
+JSR L92A1
+LDA &2D
+BMI LAF6E
+ORA &2C
+ORA &2B
+BNE LAF53
+LDA &2A
+BEQ LAF9B
+CMP #&01
+BEQ LAF98
+.LAF53
+JSR LA2AF
+JSR LBD69
+JSR LAF98
+JSR LBD96
+JSR LA611
+JSR LA2F4
+JSR LA3F2
+JSR L91D7
+LDA #&40
+RTS
+ 
+.LAF6E
+LDX #&0D
+JSR LBE5C
+LDA #&40
+STA &11
+RTS
+ 
+\ RND [(numeric)]
+\ ===============
+.LAF78
+LDY &1B:LDA (&19),Y     :\ Get current character
+CMP #ASC"(":BEQ LAF39   :\ Jump with RND(numeric)
+JSR LAFB6               :\ Get random number
+LDX #&0D
+.LAF85
+LDA &00,X:STA &2A       :\ Copy random number to IntA
+LDA &01,X:STA &2B
+LDA &02,X:STA &2C
+LDA &03,X:STA &2D
+LDA #&40:RTS            :\ Return Integer
+ 
+.LAF98
+JSR LAFB6
+.LAF9B
+LDX #&00
+STX &2E
+STX &2F
+STX &35
+LDA #&80
+STA &30
+.LAFA7
+LDA &0D,X
+STA &31,X
+INX
+CPX #&04
+.LAFAE
+BNE LAFA7
+JSR LA664
+LDA #&FF
+RTS
+ 
+.LAFB6
+LDY #&20
+.LAFB8
+LDA &0F
+LSR A
+LSR A
+LSR A
+EOR &11
+ROR A
+ROL &0D
+ROL &0E
+ROL &0F
+ROL &10
+ROL &11
+DEY
+BNE LAFB8
+RTS
+ 
+\ =ERL - Return error line number
+\ ===============================
+.LAFCE
+LDY &09:LDA &08:JMP LAF19 :\ Get ERL to AY, jump to return 16-bit integer
+ 
+\ =ERR - Return current error number
+\ ==================================
+.LAFD5
+LDY #&00:LDA (FAULT),Y    :\ Get error number
+JMP LAF19                 :\ Jump to return 16-bit integer
+ 
+\ Wait for a keypress
+\ -------------------
+.LAFDC
+JSR L9292       :\ Evaluate <numeric>
+
+\ Atom/System - Manually implement INKEY(num)
+\ -------------------------------------------
+ .LCF8D
+OPT FNif(target$="atom")
+ JSR &FE71:BCC LCFAB         :\ Key pressed
+OPT FNendif
+OPT FNif(target$="system")
+ LDA &0E21:BPL LCFAB         :\ Key pressed
+OPT FNendif
+OPT FNif(mos$="atom")
+ LDA &2A:ORA &2D:BEQ LCFB4   :\ Timeout=0
+ LDY #&08                    :\ &0800 gives 100cs delays
+ .LCF9A
+ DEX:BNE LCF9A:DEY:BNE LCF9A :\ Wait 1cs
+ LDA &2A:BNE LCFA6:DEC &2D   :\ Decrement timeout
+ .LCFA6
+ DEC &2A:JMP LCF8D           :\ Loop to keep waiting
+ .LCFAB
+OPT FNendif
+OPT FNif(target$="atom")
+ JSR LCFB7                   :\ Convert keypress
+OPT FNendif
+OPT FNif(target$="system")
+ LDY &0E21:BPL LCFAB         :\ Loop until key released
+OPT FNendif
+OPT FNif(mos$="atom")
+ LDY #&00:TAX:RTS            :\ Y=0, X=key, return
+ .LCFB4
+ LDY #&FF:RTS                :\ Y=&FF for no keypress
+OPT FNendif
+OPT FNif(target$="atom")
+ .LCFB7
+ PHP:JMP &FEA4               :\ Convert Atom keypress
+OPT FNendif
+
+\ BBC - Call MOS to wait for keypress
+\ -----------------------------------
+OPT FNif(mos$="bbc")
+ LDA #&81:LDX &2A
+ LDY &2B:JMP OSBYTE
+OPT FNendif
+ 
+\ =GET
+\ ====
+.LAFE8
+JSR OSRDCH
+JMP LAF07
+ 
+\ =GET$
+\ =====
+.LAFEE
+JSR OSRDCH
+.LAFF1
+STA ws+&0600            :\ Store in string buffer
+LDA #&01:STA &36        :\ Length=1
+LDA #&00:RTS            :\ Return String
+ 
+\ =LEFT$(string$, numeric)
+\ ========================
+.LAFFB
+JSR L9B03
+BNE LB062
+CPX #&2C
+BNE LB065
+INC &1B
+JSR LBDCA
+JSR LAE85
+JSR L92A1
+JSR LBDE3
+LDA &2A
+CMP &36
+BCS LB01A
+STA &36
+.LB01A
+LDA #&00
+RTS
+ 
+\ =RIGHT$(string$, numeric)
+\ =========================
+.LB01D
+JSR L9B03
+BNE LB062
+CPX #&2C
+BNE LB065
+INC &1B
+JSR LBDCA
+JSR LAE85
+JSR L92A1
+JSR LBDE3
+.LB034
+LDA &36
+SEC
+SBC &2A
+BCC LB052
+BEQ LB054
+TAX
+LDA &2A
+STA &36
+BEQ LB054
+LDY #&00
+.LB046
+LDA ws+&0600,X
+STA ws+&0600,Y
+INX
+INY
+DEC &2A
+BNE LB046
+.LB052
+LDA #&00
+.LB054
+RTS
+ 
+\ = INKEY$ numeric
+\ ================ 
+.LB055
+JSR LAFDC:TXA
+CPY #&00:BEQ LAFF1
+.LB05D
+LDA #&00:STA &36       :\ Set length to zero
+RTS                    :\ Return String
+ 
+.LB062
+JMP L8B7E
+ 
+.LB065
+JMP L8A29
+ 
+\ =MID$(string$, numeric [,numeric])
+\ ==================================
+.LB068
+JSR L9B03
+BNE LB062
+CPX #ASC",":BNE LB065
+JSR LBDCA
+INC &1B
+JSR L928C
+LDA &2A
+PHA
+LDA #&FF
+STA &2A
+INC &1B
+CPX #ASC")":BEQ LB090
+CPX #ASC",":BNE LB065
+JSR LAE85
+JSR L92A1
+.LB090
+JSR LBDE3
+PLA
+TAY
+CLC
+BEQ LB09E
+SBC &36
+BCS LB05D
+DEY
+TYA
+.LB09E
+STA &2C
+TAX
+LDY #&00
+LDA &36
+SEC
+SBC &2C
+CMP &2A
+BCS LB0AE
+STA &2A
+.LB0AE
+LDA &2A
+BEQ LB05D
+.LB0B2
+LDA ws+&0600,X
+STA ws+&0600,Y
+INY
+INX
+CPY &2A
+BNE LB0B2
+STY &36
+LDA #&00
+RTS
+ 
+\ =STR$[~] numeric
+\ ================
+.LB0C3
+JSR L8A13
+LDY #&FF
+CMP #ASC"~":BEQ LB0D0
+LDY #&00:DEC &1B
+.LB0D0
+TYA
+PHA
+JSR LAE1B
+BEQ LB0EE
+TAY
+PLA
+STA &15
+LDA ws+&0403
+BNE LB0E8
+STA &37
+JSR L9EEA
+LDA #&00
+RTS
+ 
+.LB0E8
+JSR L9ED0
+LDA #&00
+RTS
+ 
+.LB0EE
+JMP L8B7E
+ 
+\ =STRING$(numeric, string$)
+\ ==========================
+.LB0F1
+JSR L928C
+JSR LBDAC
+JSR L8A35
+JSR LAE85
+BNE LB0EE
+JSR LBE02
+LDY &36
+BEQ LB124
+LDA &2A
+BEQ LB127
+DEC &2A
+BEQ LB124
+.LB10E
+LDX #&00
+.LB110
+LDA ws+&0600,X
+STA ws+&0600,Y
+INX
+INY
+BEQ LB12A
+CPX &36
+BCC LB110
+DEC &2A
+BNE LB10E
+STY &36
+.LB124
+LDA #&00
+RTS
+ 
+.LB127
+STA &36
+RTS
+ 
+.LB12A
+JMP L9BDD
+ 
+.LB12D
+PLA:STA &0C
+PLA:STA &0B
+BRK:EQUB 29:EQUS "No such "+CHR$tknFN+"/"+CHR$tknPROC:BRK
+
+\ Look through program for FN/PROC
+\ --------------------------------
+.LB141
+LDA &18:STA &0C         :\ Start at PAGE
+LDA #&00:STA &0B
+.LB149
+LDY #&01:LDA (&0B),Y    :\ Get line number high byte
+BMI LB12D               :\ End of program, jump to 'No such FN/PROC' error
+LDY #&03
+.LB151
+INY:LDA (&0B),Y
+CMP #&20:BEQ LB151      :\ Skip past spaces
+CMP #tknDEF:BEQ LB16B   :\ Found DEF at start of line
+.LB15C
+LDY #&03:LDA (&0B),Y    :\ Get line length
+CLC:ADC &0B:STA &0B     :\ Point to next line
+BCC LB149:INC &0C
+BCS LB149               :\ Loop back to check this line
+
+.LB16B
+INY:STY &0A:JSR L8A1E
+TYA:TAX:CLC
+ADC &0B:LDY &0C
+BCC LB17C
+INY:CLC
+.LB17C
+SBC #&00:STA &3C
+TYA:SBC #&00:STA &3D
+LDY #&00
+.LB187
+INY:INX
+LDA (&3C),Y:CMP (&37),Y
+BNE LB15C
+CPY &39:BNE LB187
+INY:LDA (&3C),Y
+JSR L88AB
+BCS LB15C
+TXA
+TAY
+JSR L9826
+JSR L94AD
+LDX #&01
+JSR L94F7
+LDY #&00
+LDA &0B
+STA (&02),Y
+INY
+LDA &0C
+STA (&02),Y
+JSR L94FF
+JMP LB223
+ 
+.LB1B9
+BRK:EQUB 30:EQUS "Bad call":BRK
+
+\ =FNname [parameters]
+\ ====================
+.LB1C4
+LDA #tknFN                 :\ A='FN' token
+
+\ Call subroutine
+\ ---------------
+\ A=FN or PROC
+\ PtrA=>start of FN/PROC name
+\
+.LB1C6
+STA &27                  :\ Save PROC/FN token
+TSX:TXA:CLC:ADC &04      :\ Drop BASIC stack by size of 6502 stack
+JSR LBE46                :\ Store new BASIC stack pointer, check for No Room
+LDY #&00:TXA:STA (&04),Y :\ Store 6502 Stack Pointer on BASIC stack
+.LB1D5
+INX:INY
+LDA &0100,X:STA (&04),Y  :\ Copy 6502 stack onto BASIC stack
+CPX #&FF:BNE LB1D5
+TXS                      :\ Clear 6502 stack
+LDA &27:PHA              :\ Push PROC/FN token
+LDA &0A:PHA:LDA &0B:PHA  :\ Push PtrA line pointer
+LDA &0C:PHA              :\ Push PtrA line pointer offset
+LDA &1B:TAX:CLC
+ADC &19:LDY &1A
+BCC LB1F9
+INY:CLC
+.LB1F9
+SBC #&01:STA &37
+TYA:SBC #&00:STA &38     :\ &37/8=>FN/PROC token
+LDY #&02:JSR L9521       :\ Check name is valid
+CPY #&02:BEQ LB1B9       :\ No valid characters, jump to 'Bad call' error
+STX &1B                  :\ Line pointer offset => after valid FN/PROC name
+DEY:STY &39
+JSR L941B:BNE LB218      :\ Look for FN/PROC name in heap, if found, jump to it
+JMP LB141                :\ Not in heap, jump to look through program
+ 
+\ FN/PROC destination found
+\ -------------------------
+.LB218
+LDY #&00:LDA (&2A),Y:STA &0B :\ Set PtrA to address from FN/PROC infoblock
+INY:LDA (&2A),Y:STA &0C
+.LB223
+LDA #&00:PHA:STA &0A         :\ Push 'no parameters'
+JSR L8A1E
+CMP #ASC"(":BEQ LB27C
+DEC &0A
+.LB231
+LDA &1B:PHA
+LDA &19:PHA
+LDA &1A:PHA
+JSR L8B14
+PLA:STA &1A
+PLA:STA &19
+PLA:STA &1B
+PLA:BEQ LB255
+STA &3F
+.LB24B
+JSR LBE23
+JSR L8C5B
+DEC &3F
+BNE LB24B
+.LB255
+PLA:STA &0C
+PLA:STA &0B
+PLA:STA &0A
+PLA:LDY #&00
+LDA (&04),Y
+TAX:TXS
+.LB265
+INY:INX
+LDA (&04),Y:STA &0100,X  :\ Copy stacked 6502 stack back onto 6502 stack
+CPX #&FF:BNE LB265
+TYA:ADC &04:STA &04      :\ Adjust BASIC stack pointer
+BCC LB279:INC &05
+.LB279
+LDA &27:RTS
+ 
+.LB27C
+LDA &1B:PHA
+LDA &19:PHA
+LDA &1A:PHA
+JSR L9548
+BEQ LB2E4
+LDA &1B:STA &0A
+PLA:STA &1A
+PLA:STA &19
+PLA:STA &1B
+PLA:TAX
+LDA &2C:PHA
+LDA &2B:PHA
+LDA &2A:PHA
+INX:TXA:PHA
+JSR LB33C
+JSR L8A1E
+CMP #ASC",":BEQ LB27C
+CMP #ASC")":BNE LB2E4
+LDA #&00:PHA
+JSR L8A13
+CMP #ASC"(":BNE LB2E4
+.LB2BD
+JSR L9B03
+JSR LBDA8
+LDA &27:STA &2D
+JSR LBDAC
+PLA:TAX
+INX
+TXA:PHA
+JSR L8A13
+CMP #ASC",":BEQ LB2BD
+CMP #ASC")":BNE LB2E4
+PLA
+PLA:STA &4D:STA &4E
+CPX &4D:BEQ LB2F9
+.LB2E4
+LDX #&FB:TXS
+PLA:STA &0C
+PLA:STA &0B
+BRK:EQUB 31:EQUS "Arguments":BRK
+
+.LB2F9
+JSR LBE02
+PLA:STA &2A
+PLA:STA &2B
+PLA:STA &2C
+BMI LB328
+LDA &2D:BEQ LB2E4
+STA &27
+LDX #&37
+JSR LBE5C
+LDA &27
+BPL LB31F
+JSR LBD96
+JSR LA3A6
+JMP LB322
+ 
+.LB31F
+JSR LBE02
+.LB322
+JSR LB4E3
+JMP LB332
+ 
+.LB328
+LDA &2D
+BNE LB2E4
+JSR LBDE3
+JSR L8BD3
+.LB332
+DEC &4D
+BNE LB2F9
+LDA &4E
+PHA
+JMP LB231
+ 
+\ Push a value onto the stack
+\ ---------------------------
+.LB33C
+LDY &2C
+CPY #&04
+BNE LB347
+LDX #&37
+JSR LBE5C
+.LB347
+JSR LB35B
+PHP
+JSR LBDA8
+PLP
+BEQ LB358
+BMI LB358
+LDX #&37
+JSR LAF85
+.LB358
+JMP LBDAC
+ 
+.LB35B
+LDY &2C
+BMI LB3B3
+BEQ LB37E
+CPY #&05
+BEQ LB383
+LDY #&03
+LDA (&2A),Y
+STA &2D
+DEY
+LDA (&2A),Y
+STA &2C
+DEY
+LDA (&2A),Y
+TAX
+DEY
+LDA (&2A),Y
+STA &2A
+STX &2B
+LDA #&40
+RTS
+ 
+.LB37E
+LDA (&2A),Y
+JMP LAF19
+ 
+.LB383
+DEY:LDA (&2A),Y:STA &34
+DEY:LDA (&2A),Y:STA &33
+DEY:LDA (&2A),Y:STA &32
+DEY:LDA (&2A),Y:STA &2E
+DEY:LDA (&2A),Y:STA &30
+STY &35:STY &2F
+ORA &2E:ORA &32:ORA &33
+ORA &34:BEQ LB3AE
+LDA &2E:ORA #&80
+.LB3AE
+STA &31
+LDA #&FF:RTS
+ 
+.LB3B3
+CPY #&80:BEQ LB3D6
+LDY #&03:LDA (&2A),Y:STA &36
+BEQ LB3D5
+LDY #&01:LDA (&2A),Y:STA &38
+DEY:LDA (&2A),Y:STA &37
+LDY &36
+.LB3CC
+DEY
+LDA (&37),Y
+STA ws+&0600,Y
+TYA
+BNE LB3CC
+.LB3D5
+RTS
+ 
+.LB3D6
+LDA &2B
+BEQ LB3F1
+LDY #&00
+.LB3DC
+LDA (&2A),Y
+STA ws+&0600,Y
+INY
+BEQ LB3E9
+CMP #&0D
+BNE LB3DC
+DEY
+.LB3E9
+STY &36
+LDA #&00
+RTS
+
+\ =CHR$ numeric
+\ =============
+.LB3EE
+JSR L9292
+.LB3F1
+LDA &2A
+JMP LAFF1
+ 
+.LB3F6
+LDY #&00:STY &08:STY &09
+LDX &18:STX &38:STY &37
+LDX &0C
+CPX #&07+(ws/256)
+BEQ LB432
+LDX &0B
+.LB40A
+JSR L88CA
+CMP #&0D:BNE LB42A
+CPX &37
+LDA &0C:SBC &38:BCC LB432
+JSR L88CA
+ORA #&00:BMI LB432
+STA &09:JSR L88CA
+STA &08:JSR L88CA
+.LB42A
+CPX &37
+LDA &0C
+SBC &38
+BCS LB40A
+.LB432
+RTS
+ 
+\ ERROR HANDLER
+\ =============
+.LB433
+:
+\ Atom/System - Enter here from raw BRK, process it to get FAULT pointer
+\ ----------------------------------------------------------------------
+OPT FNif(mos$="atom")
+ PLA:CLD:CLI:PLA           :\ Drop flags, pop return low byte
+ SEC:SBC #&01:STA FAULT+0  :\ Point to error block
+ PLA:SBC #&00:STA FAULT+1
+ CMP #L8000 DIV 256:BCC LD428   :\ If outside BASIC, not a full error block
+ CMP #LC000 DIV 256-1:BCS LD428 :\ So generate default error
+OPT FNendif
+:
+\ FAULT set up, process error
+\ ---------------------------
+JSR LB3F6:STY &20
+LDA &16:STA &0B       :\ Point program to ERROR program
+LDA &17:STA &0C       :\ Note, ON ERROR has not been turned OFF
+JMP L8AB6             :\ Jump to execution loop
+
+OPT FNif(mos$="atom")
+ .LD428
+ BRK:EQUB &FF:EQUS "External Error":BRK
+OPT FNendif
+
+.LB443
+\ Default error program
+\ ---------------------
+\ REPORT IF ERL<>0 PRINT " at line ";ERL;<cr>
+\ PRINT END<cr>
+\
+EQUB tknREPORT:EQUB ASC":":EQUB tknIF:EQUB tknERL:EQUS "<>0"
+OPT FNif(target$<>"atom"):EQUB tknPRINT:EQUS """ at line "";":OPT FNendif
+OPT FNif(target$ ="atom"):EQUB tknPRINT:EQUS """ AT LINE "";":OPT FNendif
+EQUB tknERL:EQUB ASC";":EQUB &0D
+EQUB &00:EQUB &00:EQUB &00
+EQUB tknPRINT:EQUB ASC":"
+EQUB tknEND:EQUB &0D
+
+\ SOUND numeric, numeric, numeric, numeric
+\ ========================================
+.LB461
+JSR L87E4
+LDX #&03
+.LB466
+OPT FNif(mos$="bbc")
+ LDA &2A:PHA:LDA &2B:PHA
+OPT FNendif
+:
+OPT FNif(mos$="atom") :JSR L8A35:OPT FNendif
+TXA:PHA
+OPT FNif(mos$="bbc"):JSR L8A35:OPT FNendif
+JSR L928C
+PLA:TAX
+DEX:BNE LB466
+JSR L980B
+OPT FNif(mos$="bbc")
+ LDX #&05
+ .LB47E
+ PLA:STA &37,X
+ PLA:DEX
+ STA &37,X
+ DEX:BPL LB47E
+ LDA &2A:STA &3D
+ LDA &2B:STA &3E
+ LDA #&07:LDX #&37
+ .LB494
+ LDY #&00:JSR OSWORD
+OPT FNendif
+:
+JMP L8B0C
+ 
+\ ENVELOPE a,b,c,d,e,f,g,h,i,j,k,l,m,n
+\ ====================================
+.LB49C
+JSR L87E4
+LDX #&0D
+.LB4A1
+OPT FNif(mos$="bbc")
+ LDA &2A:PHA
+OPT FNendif
+TXA:PHA
+JSR L8A35
+JSR L928C
+PLA:TAX
+DEX:BNE LB4A1
+JSR L980B
+OPT FNif(mos$="bbc")
+ LDX #&0C
+ .LB4B6
+ PLA
+ STA &37,X
+ DEX
+ BPL LB4B6
+ LDA &2A
+ STA &44
+ LDX #&37
+ LDY #&00
+ LDA #&08
+ JSR OSWORD
+OPT FNendif
+:
+JMP L8B0C
+
+\ WIDTH numeric
+\ =============
+.LB4CC 
+JSR L87E4
+JSR L980B
+LDY &2A
+DEY
+STY &23
+JMP L8B0C
+ 
+.LB4DA
+JMP L8B7E
+ 
+.LB4DD
+JSR L9B03
+.LB4E0
+JSR LBE23
+.LB4E3
+LDA &39
+CMP #&05:BEQ LB50C
+LDA &27:BEQ LB4DA
+BPL LB4F2
+JSR LA3F2
+.LB4F2
+LDY #&00
+LDA &2A
+STA (&37),Y
+LDA &39
+BEQ LB50B
+LDA &2B
+INY
+STA (&37),Y
+LDA &2C
+INY
+STA (&37),Y
+LDA &2D
+INY
+STA (&37),Y
+.LB50B
+RTS
+ 
+.LB50C
+LDA &27
+BEQ LB4DA
+BMI LB515
+JSR LA2AF
+.LB515
+LDY #&00
+LDA &30:STA (&37),Y:INY
+LDA &2E:AND #&80:STA &2E
+LDA &31:AND #&7F
+ORA &2E:STA (&37),Y
+INY:LDA &32:STA (&37),Y
+INY:LDA &33:STA (&37),Y
+INY:LDA &34:STA (&37),Y
+RTS
+ 
+.LB530
+OPT FNif(target$="atom")
+ .AtomUp:BMI LB53A:CMP #&60:BCC AtomUp2:EOR #&20
+ .AtomUp2:JMP OSASCI
+OPT FNendif
+
+.LB53A
+STA &37
+CMP #&80:BCC LB571
+LDA #L806D AND 255:STA &38
+LDA #L806D DIV 256:STA &39
+STY &3A
+.LB54A
+LDY #&00
+.LB54C
+INY
+LDA (&38),Y:BPL LB54C
+CMP &37:BEQ LB562
+INY:TYA:SEC:ADC &38:STA &38
+BCC LB54A:INC &39:BCS LB54A
+
+.LB562
+LDY #&00
+.LB564
+LDA (&38),Y
+BMI LB56E
+JSR LB571
+INY
+BNE LB564
+.LB56E
+LDY &3A
+RTS
+ 
+.LB571
+CMP #&0D:BNE LB57D
+JSR OSWRCH
+JMP LBC45
+ 
+.LB57B
+LDA #&20
+.LB57D
+PHA
+LDA &23:CMP &1E:BCS LB587
+JSR LBC42
+.LB587
+PLA:INC &1E
+JMP (WRCHV)
+ 
+.LB58D
+AND &1F:BEQ LB59F
+TXA:BEQ LB59F
+BMI LB57B
+.LB596
+JSR LB57B
+JSR LB571
+DEX:BNE LB596
+.LB59F
+RTS
+ 
+.LB5A0
+INC &0A
+JSR L9AF7
+JSR L9805
+JSR L929F
+LDA &2A
+STA &1F
+JMP L8A99
+
+.LB5B2 
+JMP L8B7E
+ 
+\ LIST [numeric [, numeric]]
+\ ==========================
+.LB5B5
+INY:LDA (&0B),Y
+CMP #ASC"O":BEQ LB5A0
+LDA #&00
+STA &3B:STA &3C
+JSR LAF07
+JSR L97AE
+PHP
+JSR LBDAC
+LDA #&FF
+STA &2A
+LDA #&7F
+STA &2B
+PLP
+BCC LB5E8
+JSR L8A1E
+CMP #ASC","
+BEQ LB5F1
+JSR LBE02
+JSR LBDAC
+DEC &0A
+BPL LB5F4
+.LB5E8
+JSR L8A1E
+CMP #ASC","
+BEQ LB5F1
+DEC &0A
+.LB5F1
+JSR L97AE
+.LB5F4
+LDA &2A:STA &31
+LDA &2B:STA &32
+JSR L9810
+JSR LBE88
+JSR LBE02
+JSR L9942
+LDA &3D:STA &0B
+LDA &3E:STA &0C
+BCC LB628
+DEY:BCS LB61B
+
+.LB615
+JSR LBC42
+JSR L9826
+.LB61B
+LDA (&0B),Y:STA &2B:INY
+LDA (&0B),Y:STA &2A:INY
+INY:STY &0A
+.LB628
+LDA &2A:CLC:SBC &31
+LDA &2B:SBC &32
+BCC LB636
+JMP L8A99
+ 
+.LB636
+JSR L98F5
+LDX #&FF:STX &4D
+LDA #&01:JSR LB58D
+LDX &3B:LDA #&02:JSR LB58D
+LDX &3C:LDA #&04:JSR LB58D
+.LB650
+LDY &0A
+.LB652
+LDA (&0B),Y
+CMP #&0D:BEQ LB615
+CMP #&22:BNE LB66A
+LDA #&FF:EOR &4D:STA &4D
+LDA #&22
+.LB664
+JSR LB571
+INY:BNE LB652
+.LB66A
+BIT &4D:BPL LB664
+CMP #&8D:BNE LB681
+JSR L97BA
+STY &0A
+LDA #&00:STA &14
+JSR L98F1
+JMP LB650
+ 
+.LB681
+CMP #&E3:BNE LB687
+INC &3B
+.LB687
+CMP #&ED:BNE LB691
+LDX &3B:BEQ LB691
+DEC &3B
+.LB691
+CMP #&F5:BNE LB697
+INC &3C
+.LB697
+CMP #&FD:BNE LB6A1
+LDX &3C:BEQ LB6A1
+DEC &3C
+.LB6A1
+JSR LB53A
+INY:BNE LB652
+.LB6A7
+BRK:EQUB 32:EQUS "No "+CHR$tknFOR:BRK
+
+\ NEXT [variable] [...]
+\ =====================
+.LB6AE
+JSR L9595:BNE LB6BC
+LDX &26:BEQ LB6A7
+BCS LB6F0
+.LB6B9
+JMP L9839
+ 
+.LB6BC
+BCS LB6B9
+LDX &26:BEQ LB6A7
+.LB6C2
+LDA &2A:CMP ws+&04F1,X:BNE LB6D7
+LDA &2B:CMP ws+&04F2,X:BNE LB6D7
+LDA &2C:CMP ws+&04F3,X:BEQ LB6F0
+.LB6D7
+TXA:SEC:SBC #&0F:TAX:STX &26
+BNE LB6C2
+BRK:EQUB 33:EQUS "Can't Match "+CHR$tknFOR:BRK
+
+.LB6F0
+LDA ws+&04F1,X:STA &2A
+LDA ws+&04F2,X:STA &2B
+LDY ws+&04F3,X:CPY #&05
+BEQ LB77F
+LDY #&00
+LDA (&2A),Y:ADC ws+&04F4,X
+STA (&2A),Y:STA &37:INY
+LDA (&2A),Y:ADC ws+&04F5,X
+STA (&2A),Y:STA &38:INY
+LDA (&2A),Y:ADC ws+&04F6,X
+STA (&2A),Y:STA &39:INY
+LDA (&2A),Y:ADC ws+&04F7,X
+STA (&2A),Y:TAY
+LDA &37
+SEC:SBC ws+&04F9,X:STA &37
+LDA &38:SBC ws+&04FA,X:STA &38
+LDA &39:SBC ws+&04FB,X:STA &39
+TYA:SBC ws+&04FC,X
+ORA &37:ORA &38:ORA &39
+BEQ LB75A
+TYA
+EOR ws+&04F7,X:EOR ws+&04FC,X
+BPL LB758
+BCS LB75A
+BCC LB76A
+.LB758
+BCS LB76A
+.LB75A
+LDY ws+&04FE,X
+LDA ws+&04FF,X
+STY &0B:STA &0C
+JSR L9830
+JMP L8B14
+ 
+.LB76A
+LDA &26:SEC:SBC #&0F:STA &26
+LDY &1B:STY &0A
+JSR L8A1E
+CMP #ASC",":BNE LB7BA
+JMP LB6AE
+ 
+.LB77F
+JSR LB383
+LDA &26:CLC
+ADC #&F4:STA &4B
+LDA #&05+(ws/256):STA &4C
+JSR LA50E
+LDA &2A:STA &37
+LDA &2B:STA &38
+JSR LB515
+LDA &26:STA &27
+CLC:ADC #&F9:STA &4B
+LDA #&05+(ws/256):STA &4C
+JSR L9A37:BEQ LB75A
+LDA ws+&04F5,X
+BMI LB7B6
+BCS LB75A
+BCC LB76A
+.LB7B6
+BCC LB75A
+BCS LB76A
+.LB7BA
+JMP L8B07
+ 
+.LB7BD
+BRK:EQUB 34:EQUS CHR$tknFOR+" variable":BRK
+ 
+.LB7CA
+BRK:EQUB 35:EQUS "Too many "+CHR$tknFOR+"s":BRK
+
+.LB7D8
+BRK:EQUB 36:EQUS "No "+CHR$tknTO:BRK
+
+\ FOR numvar = numeric TO numeric [STEP numeric]
+\ ==============================================
+.LB7DF
+JSR L9548
+BEQ LB7BD
+BCS LB7BD
+JSR LBDAC
+JSR L97FA
+JSR LB4DD
+LDY &26
+CPY #&96
+BCS LB7CA
+LDA &37:STA ws+&0500,Y
+LDA &38:STA ws+&0501,Y
+LDA &39:STA ws+&0502,Y
+TAX:JSR L8A13
+CMP #tknTO:BNE LB7D8
+CPX #&05:BEQ LB86D
+JSR L928C
+LDY &26
+LDA &2A:STA ws+&0508,Y
+LDA &2B:STA ws+&0509,Y
+LDA &2C:STA ws+&050A,Y
+LDA &2D:STA ws+&050B,Y
+LDA #&01
+JSR LAF07
+JSR L8A13
+CMP #tknSTEP:BNE LB83A
+JSR L928C
+LDY &1B
+.LB83A
+STY &0A
+LDY &26
+LDA &2A:STA ws+&0503,Y
+LDA &2B:STA ws+&0504,Y
+LDA &2C:STA ws+&0505,Y
+LDA &2D:STA ws+&0506,Y
+.LB852
+JSR L9851
+LDY &26
+LDA &0B:STA ws+&050D,Y
+LDA &0C:STA ws+&050E,Y
+CLC:TYA:ADC #&0F:STA &26
+JMP L8B14
+ 
+.LB86A
+JMP L8B7E
+ 
+.LB86D
+JSR L9B03
+JSR L92AF
+LDA &26
+CLC
+ADC #&08
+STA &4B
+LDA #&05+(ws/256)
+STA &4C
+JSR LA37E
+JSR LA6A4
+JSR L8A13
+CMP #&88
+BNE LB893
+JSR L9B03
+JSR L92AF
+LDY &1B
+.LB893
+STY &0A
+LDA &26:CLC:ADC #&03:STA &4B
+LDA #&05+(ws/256):STA &4C
+JSR LA37E
+JMP LB852
+ 
+.LB8A6
+BRK:EQUB 37:EQUS "Too many "+CHR$tknGOSUB+"s":BRK
+
+\ GOSUB linenum
+\ =============
+.LB8B4
+JSR LB9B8
+.LB8B7
+JSR L9810
+LDY &25
+CPY #&1A:BCS LB8A6
+LDA &0B:STA ws+&05CC,Y
+LDA &0C:STA ws+&05E6,Y
+INC &25:BCC LB8F1
+
+.LB8CE
+BRK:EQUB 38:EQUS "No "+CHR$tknGOSUB:BRK
+
+\ RETURN
+\ ======
+.LB8D5
+JSR L9810                  :\ Check for end of statement
+LDX &25:BEQ LB8CE          :\ If GOSUB stack empty, error
+DEC &25                    :\ Decrement GOSUB stack
+LDY ws+&05CB,X             :\ Get stacked line pointer
+LDA ws+&05E5,X
+STY &0B:STA &0C            :\ Set line pointer
+JMP L8B0C                  :\ Jump back to execution loop
+ 
+\ GOTO linenum
+\ ============
+.LB8EB
+JSR LB9B8:JSR L9810        :\ Find destination line, check for end of statement
+.LB8F1
+LDA &20:BEQ LB8F8:JSR L98D6:\ If TRACE ON, print current line number
+.LB8F8
+LDY &3D:LDA &3E            :\ Get destination line address
+.LB8FC
+STY &0B:STA &0C            :\ Set line pointer
+JMP L8B14                  :\ Jump back to execution loop
+ 
+\ ON ERROR OFF
+\ ------------
+.LB903
+JSR L9810                  :\ Check end of statement
+LDA #LB443 AND 255:STA &16 :\ ON ERROR OFF
+LDA #LB443 DIV 256:STA &17
+JMP L8B0C                  :\ Jump to execution loop
+ 
+\ ON ERROR [OFF | program ]
+\ -------------------------
+.LB911
+JSR L8A1E
+CMP #tknOFF:BEQ LB903      :\ ON ERROR OFF
+LDY &0A:DEY
+JSR L9826
+LDA &0B:STA &16            :\ Point ON ERROR pointer to here
+LDA &0C:STA &17
+JMP L8AED                  :\ Skip past end of line
+ 
+.LB929
+BRK:EQUB 39:EQUS CHR$tknON+" syntax":BRK
+
+\ ON [ERROR] [numeric GOTO|GOSUB]
+\ ===============================
+\ Bug - ON num GOTO/GOSUB ... ELSE fails
+\
+.LB934
+JSR L8A1E                  :\ Skip spaces and get next character
+CMP #tknERROR:BEQ LB911    :\ Jump with ON ERROR
+DEC &0A
+JSR L9AF7
+JSR L92A1
+LDY &1B:INY:STY &0A
+CPX #tknGOTO:BEQ LB950
+CPX #tknGOSUB:BNE LB929
+.LB950
+TXA:PHA                    :\ Save GOTO/GOSUB token
+LDA &2B:ORA &2C            :\ Get IntA
+ORA &2D:BNE LB99C          :\ ON >255 - out of range, look for an ELSE
+LDX &2A:BEQ LB99C          :\ ON zero - out of range, look for an ELSE
+DEX:BEQ LB97B              :\ Dec. counter, if zero use first destination
+LDY &0A                    :\ Get line index
+.LB963
+LDA (&0B),Y:INY
+CMP #&0D:BEQ LB99C         :\ End of line - error
+CMP #ASC":":BEQ LB99C      :\ End of statement - error
+CMP #tknELSE:BEQ LB9B3     :\ ELSE - drop everything else to here
+                           :\ Bug - this leaves the GOTO/GOSUB token on the
+                           :\  stack and ignores it, jumping straight to GOSUB
+                           :\ Consequently, ON num GOTO 10 ELSE 20 does a GOSUB
+                           :\  if num>1
+                           :\ Should branch to LB979
+CMP #ASC",":BNE LB963      :\ No comma, keep looking
+DEX:BNE LB963              :\ Comma found, loop until count decremented to zero
+.LB979                    
+STY &0A                    :\ Store line index
+.LB97B
+JSR LB9B8                  :\ Read line number
+PLA                        :\ Get stacked token back
+CMP #tknGOSUB:BEQ LB989    :\ Jump to do GOSUB
+JSR L9830                  :\ Update line index and check Escape
+JMP LB8F1                  :\ Jump to do GOTO
+
+\ Update line pointer so RETURN comes back to next statement
+\ ----------------------------------------------------------
+.LB989
+LDY &0A                    :\ Get line pointer
+.LB98B
+LDA (&0B),Y:INY            :\ Get character from line
+CMP #&0D:BEQ LB996         :\ End of line, RETURN to here
+CMP #ASC":":BNE LB98B      :\ <colon>, return to here
+.LB996
+DEY:STY &0A                :\ Update line index to RETURN point
+JMP LB8B7                  :\ Jump to do the GOSUB
+ 
+\ ON num out of range - check for an ELSE clause
+\ ----------------------------------------------
+.LB99C
+LDY &0A                    :\ Get line index
+OPT FNif(VALversion$>=1.10)
+ PLA                       :\ Drop GOTO/GOSUB token
+OPT FNendif
+.LB99E
+LDA (&0B),Y:INY            :\ Get character from line
+CMP #tknELSE:BEQ LB9B3     :\ Found ELSE, jump to use it
+                           :\ Bug - this jumps to GOSUB regardless of the entry
+                           :\  token. It should branch to LB979 earlier.
+CMP #&0D:BNE LB99E         :\ Loop until end of line
+                           :\ No ELSE found, give error
+BRK:EQUB 40:EQUS CHR$tknON+" range":BRK
+
+.LB9B3
+STY &0A:JMP L98B4          :\ Store line index and jump to GOSUB
+ 
+.LB9B8
+JSR L97AE:BCS LB9CD        :\ Embedded line number found
+JSR L9AF7:JSR L92A1        :\ Evaluate expression, ensure integer
+LDA &1B:STA &0A            :\ Line number low byte
+LDA &2B:AND #&7F:STA &2B   :\ Line number high byte
+                           :\ Note - this makes GOTO &8000+10 the same as GOTO 10
+.LB9CD
+JSR L9942:BCS LB9D3:RTS    :\ Look for line, error if not found
+ 
+.LB9D3
+BRK:EQUB 41:EQUS "No such line":BRK
+
+.LB9E2
+JMP L8B7E
+ 
+.LB9E5
+JMP L9839
+ 
+.LB9E8
+STY &0A
+JMP L8B09
+ 
+\ INPUT #channel, ...
+\ -------------------
+.LB9ED
+DEC &0A
+.LB9EF
+JSR LBFAE
+LDA &1B:STA &0A
+STY &4D
+.LB9F8
+JSR L8A1E
+CMP #ASC",":BNE LB9E8
+LDA &4D:PHA
+JSR L9548
+BEQ LB9E5
+LDA &1B:STA &0A
+PLA:STA &4D
+PHP:JSR LBDAC
+LDY &4D
+JSR OSBGET
+STA &27
+PLP
+BCC LBA37
+LDA &27
+BNE LB9E2
+JSR OSBGET
+STA &36
+TAX:BEQ LBA31
+.LBA28
+JSR OSBGET
+STA ws+&05FF,X
+DEX:BNE LBA28
+.LBA31
+JSR L8BD0
+JMP LB9F8
+ 
+.LBA37
+LDA &27
+BEQ LB9E2
+BMI LBA49
+LDX #&03
+.LBA3F
+JSR OSBGET
+STA &2A,X
+DEX:BPL LBA3F
+BMI LBA57
+.LBA49
+LDX #&04
+.LBA4B
+JSR OSBGET
+STA ws+&046C,X
+DEX:BPL LBA4B
+JSR LA3A3
+.LBA57
+JSR LB4E0
+JMP LB9F8
+ 
+.LBA5D
+PLA:PLA
+JMP L8B09
+
+\ INPUT [LINE] [print formatters][variable] [...]
+\ ===============================================
+.LBA62 
+JSR L8A1E
+CMP #ASC"#":BEQ LB9ED  :\ INPUT #channel
+CMP #tknLINE:BEQ LBA70
+DEC &0A:CLC
+.LBA70
+ROR &4D:LSR &4D
+LDA #&FF:STA &4E
+.LBA78
+JSR L8E24
+BCS LBA87
+.LBA7D
+JSR L8E24
+BCC LBA7D
+LDX #&FF
+STX &4E
+CLC
+.LBA87
+PHP
+ASL &4D
+PLP
+ROR &4D
+CMP #ASC",":BEQ LBA78
+DEC &0A
+LDA &4D:PHA
+LDA &4E:PHA
+JSR L9548
+BEQ LBA5D
+PLA:STA &4E
+PLA:STA &4D
+LDA &1B
+STA &0A
+PHP
+BIT &4D
+BVS LBAB3
+LDA &4E
+CMP #&FF
+BNE LBACA
+.LBAB3
+BIT &4D
+BPL LBABC
+LDA #&3F
+JSR LB571
+.LBABC
+JSR LBC17
+STY &36
+ASL &4D
+CLC
+ROR &4D
+BIT &4D
+BVS LBAE7
+.LBACA
+STA &1B
+LDA #&00:STA &19
+LDA #&06+(ws/256):STA &1A
+JSR LADDC
+.LBAD7
+JSR L8A13
+CMP #ASC",":BEQ LBAE4
+CMP #&0D:BNE LBAD7
+LDY #&FE
+.LBAE4
+INY
+STY &4E
+.LBAE7
+PLP
+BCS LBAF6
+JSR LBDAC
+JSR LAC5A
+JSR LB4E0
+JMP LBA78
+ 
+.LBAF6
+LDA #&00:STA &27
+JSR L8BD3
+JMP LBA78
+ 
+\ RESTORE [linenum]
+\ =================
+.LBB00
+LDY #&00:STY &3D     :\ Set DATA pointer to PAGE
+LDY &18:STY &3E
+JSR L8A1E
+DEC &0A
+CMP #ASC":":BEQ LBB21
+CMP #&0D:BEQ LBB21
+CMP #tknELSE:BEQ LBB21
+JSR LB9B8
+LDY #&01
+JSR LBE6D
+.LBB21
+JSR L9810
+LDA &3D:STA &1C
+LDA &3E:STA &1D
+JMP L8B0C
+ 
+.LBB2F
+JSR L8A1E
+CMP #ASC",":BEQ LBB39
+JMP L8B07
+
+\ READ variable [...]
+\ ===================
+.LBB39
+JSR L9548
+BEQ LBB2F
+BCS LBB4C
+JSR LBB6A
+JSR LBDAC
+JSR LB4DD
+JMP LBB5A
+ 
+.LBB4C
+JSR LBB6A
+JSR LBDAC
+JSR LADDC
+STA &27
+JSR L8BD0
+.LBB5A
+CLC
+LDA &1B:ADC &19:STA &1C
+LDA &1A:ADC #&00:STA &1D
+JMP LBB2F
+ 
+.LBB6A
+LDA &1B:STA &0A
+LDA &1C:STA &19
+LDA &1D:STA &1A
+LDY #&00:STY &1B
+JSR L8A13
+CMP #ASC",":BEQ LBBC4
+CMP #tknDATA:BEQ LBBC4
+CMP #&0D:BEQ LBB94
+.LBB89
+JSR L8A13
+CMP #ASC",":BEQ LBBC4
+CMP #&0D:BNE LBB89
+.LBB94
+LDY &1B:LDA (&19),Y
+BMI LBBB6
+INY:INY
+LDA (&19),Y
+TAX
+.LBB9F
+INY:LDA (&19),Y
+CMP #&20:BEQ LBB9F
+CMP #tknDATA:BEQ LBBC1
+TXA:CLC:ADC &19:STA &19
+BCC LBB94:INC &1A
+BCS LBB94
+.LBBB6
+BRK:EQUB 42:EQUS "Out of "+CHR$tknDATA:BRK
+.LBBC1
+INY:STY &1B
+.LBBC4
+RTS
+ 
+.LBBC5
+BRK:EQUB 43:EQUS "No "+CHR$tknREPEAT:BRK
+
+\ UNTIL numeric
+\ =============
+.LBBCC
+JSR L9AF7
+JSR L9805
+JSR L929F
+LDX &24:BEQ LBBC5
+LDA &2A:ORA &2B:ORA &2C
+ORA &2D:BEQ LBBE8
+DEC &24:JMP L8B0C
+ 
+.LBBE8
+LDY ws+&05A3,X
+LDA ws+&05B7,X
+JMP LB8FC
+ 
+.LBBF1
+BRK:EQUB 44:EQUS "Too many "+CHR$tknREPEAT+"s":BRK
+
+\ REPEAT
+\ ======
+.LBBFF
+LDX &24:CPX #&14:BCS LBBF1
+JSR L9826
+LDA &0B:STA ws+&05A4,X
+LDA &0C:STA ws+&05B8,X
+INC &24:JMP L8B14
+ 
+.LBC17
+LDY #&00
+LDA #&06+(ws/256)
+BNE LBC24
+
+\ Print character, read input line
+\ --------------------------------
+.LBC1D
+JSR LB571                  :\ Print character
+LDY #&00:LDA #&07+(ws/256) :\ &AAYY=input buffer at &0700
+
+.LBC24
+STY &37:STA &38            :\ &37/8=>input buffer
+
+\ Atom - Manually implement RDLINE (OSWORD 0)
+\ ------------------------------------------
+OPT FNif(mos$="atom")
+ .LDBE4
+ JSR OSRDCH          :\ Wait for character
+ CMP #&1B:BEQ LDC21  :\ Escape
+ CMP #&7F:BNE LDBFA  :\ Not Delete
+ CPY #&00:BEQ LDBE4  :\ Nothing to delete
+ JSR OSWRCH          :\ VDU 127
+ DEY:JMP LDBE4       :\ Dec. counter, loop back
+ 
+ .LDBFA
+ CMP #&15:BNE LDC0B  :\ Not Ctrl-U
+ TYA:BEQ LDBE4
+ LDA #&7F
+ .LDC03
+ JSR OSWRCH:DEY
+ BNE LDC03:BEQ LDBE4
+ 
+ .LDC0B
+ STA (&37),Y         :\ Store character
+ CMP #&0D:BEQ LDC24  :\ Return - finish
+ CPY #&EE:BCS LDC1E  :\ Maximum length
+ CMP #&20:BCS LDC1A  :\ Control character
+ DEY
+ .LDC1A
+ INY:JSR OSWRCH      :\ Inc. counter, print character
+ .LDC1E
+ JMP LDBE4           :\ Loop for more
+ .LDC21
+OPT FNendif
+:
+\ BBC - Call MOS to read a line
+\ -----------------------------
+OPT FNif(mos$="bbc")
+ LDA #&EE:STA &39
+ LDA #&20:STA &3A
+ LDA #&FF:STA &3B
+ LDY #&00:LDX #&37
+ LDA #&00:JSR OSWORD
+ BCC LBC45
+OPT FNendif
+ 
+JMP L9848           :\ Escape
+.LBC42:.LDC24
+JSR OSNEWL
+.LBC45
+LDA #&00:STA &1E    :\ Set COUNT to zero
+RTS
+ 
+.LBC4A
+JSR L9942:BCS LBC9D
+LDA &3D:SBC #&02:STA &37
+STA &3D:STA &12
+LDA &3E:SBC #&00:STA &38
+STA &13:STA &3E
+LDY #&03:LDA (&37),Y
+CLC:ADC &37:STA &37
+BCC LBC70:INC &38
+.LBC70
+LDY #&00
+.LBC72
+LDA (&37),Y:STA (&12),Y
+CMP #&0D:BEQ LBC83
+.LBC7A
+INY:BNE LBC72
+INC &38:INC &13
+BNE LBC72
+.LBC83
+INY
+BNE LBC8A
+INC &38:INC &13
+.LBC8A
+LDA (&37),Y:STA (&12),Y
+BMI LBC99
+JSR LBC9E
+JSR LBC9E
+JMP LBC7A
+ 
+.LBC99
+JSR LBEAB
+CLC
+.LBC9D
+RTS
+ 
+.LBC9E
+INY:BNE LBCA5
+INC &13:INC &38
+.LBCA5
+LDA (&37),Y:STA (&12),Y
+RTS
+ 
+.LBCAA
+STY &3B
+JSR LBC4A
+LDY #&07+(ws/256)
+STY &3C
+LDY #&00:LDA #&0D
+CMP (&3B),Y:BEQ LBD28
+.LBCBB
+INY:CMP (&3B),Y
+BNE LBCBB
+INY:INY:INY
+STY &3F:INC &3F
+LDA &12:STA &39
+LDA &13:STA &3A
+JSR LBEAB
+STA &37
+LDA &13:STA &38
+DEY
+LDA &06:CMP &12
+LDA &07:SBC &13
+BCS LBCEE
+JSR LBE88
+OPT FNif(VALversion$<1.10)
+ JMP LADCF
+ .LBCE9
+ LDY #&01:JMP L8A40
+OPT FNelse
+ JSR LDD1F
+ BRK:EQUB 0:EQUS CHR$tknLINE+" space":BRK
+OPT FNendif
+:
+ 
+.LBCEE
+LDA (&39),Y:STA (&37),Y
+TYA:BNE LBCF9
+DEC &3A:DEC &38
+.LBCF9
+DEY:TYA:ADC &39
+LDX &3A:BCC LBD02
+INX
+.LBD02
+CMP &3D:TXA
+SBC &3E:BCS LBCEE
+SEC
+LDY #&01
+LDA &2B:STA (&3D),Y:INY
+LDA &2A:STA (&3D),Y:INY
+LDA &3F:STA (&3D),Y
+JSR LBE6E
+LDY #&FF
+.LBD1F
+INY
+LDA (&3B),Y:STA (&3D),Y
+CMP #&0D:BNE LBD1F
+.LBD28
+RTS
+ 
+\ RUN
+\ ===
+.LBD29
+JSR L9810
+.LBD2C
+JSR LBD38
+LDA &18:STA &0C           :\ Point PtrA to PAGE
+STX &0B
+JMP L8AAE
+
+\ Clear BASIC heap, stack and DATA pointer
+\ ========================================
+.LBD38:.LDD1F
+LDA &12:STA &00:STA &02       :\ LOMEM=TOP, heapend=TOP
+LDA &13:STA &01:STA &03
+JSR LBD52                     :\ Clear DATA and stack
+.LBD47
+LDX #&80:LDA #&00
+.LBD4B
+STA ws+&047F,X:DEX:BNE LBD4B  :\ Clear dynamic variables list
+RTS
+ 
+\ Clear DATA pointer and BASIC stack
+\ ==================================
+.LBD52
+LDA &18:STA &1D                 :\ DATA pointer hi=PAGE hi
+LDA &06:STA &04:LDA &07:STA &05 :\ STACK=HIMEM
+LDA #&00:STA &24:STA &26:STA &25:\ Clear REPEAT, FOR, GOSUB stacks
+STA &1C:RTS                     :\ DATA pointer=PAGE
+ 
+.LBD69
+LDA &04
+SEC
+SBC #&05
+JSR LBE46
+LDY #&00
+LDA &30:STA (&04),Y
+INY
+LDA &2E:AND #&80:STA &2E
+LDA &31:AND #&7F
+ORA &2E:STA (&04),Y
+INY:LDA &32:STA (&04),Y
+INY:LDA &33:STA (&04),Y
+INY:LDA &34:STA (&04),Y
+RTS
+ 
+.LBD96
+LDA &04:CLC
+STA &4B:ADC #&05:STA &04
+LDA &05
+STA &4C:ADC #&00:STA &05
+RTS
+ 
+.LBDA8
+BEQ LBDCA
+BMI LBD69
+.LBDAC
+LDA &04
+SEC
+SBC #&04
+JSR LBE46
+LDY #&03
+LDA &2D:STA (&04),Y:DEY
+LDA &2C:STA (&04),Y:DEY
+LDA &2B:STA (&04),Y:DEY
+LDA &2A:STA (&04),Y
+RTS
+ 
+\ Stack the current string
+\ ========================
+.LBDCA
+CLC:LDA &04:SBC &36        :\ stackbot=stackbot-length-1
+JSR LBE46                  :\ Check enough space
+LDY &36:BEQ LBDDE          :\ Zero length, just stack length
+.LBDD6
+LDA ws+&05FF,Y:STA (&04),Y :\ Copy string to stack
+DEY:BNE LBDD6              :\ Loop for all characters
+.LBDDE
+LDA &36:STA (&04),Y        :\ Copy string length
+RTS
+ 
+\ Unstack a string
+\ ================
+.LBDE3
+LDY #&00:LDA (&04),Y       :\ Get stacked string length
+STA &36:BEQ LBDF4:TAY      :\ If zero length, just unstack length
+.LBDEC
+LDA (&04),Y:STA ws+&05FF,Y :\ Copy string to string buffer
+DEY:BNE LBDEC              :\ Loop for all characters
+.LBDF4:.LDDDB
+LDY #&00:LDA (&04),Y       :\ Get string length again
+SEC
+.LBDF9
+ADC &04:STA &04            :\ Update stack pointer
+BCC LBE22:INC &05
+RTS
+ 
+\ Unstack an integer to IntA
+\ --------------------------
+.LBE02
+LDY #&03
+LDA (&04),Y:STA &2D:DEY    :\ Copy to IntA
+LDA (&04),Y:STA &2C:DEY
+LDA (&04),Y:STA &2B:DEY
+LDA (&04),Y:STA &2A
+.LBE17
+CLC:LDA &04     
+ADC #&04:STA &04           :\ Drop 4 bytes from stack
+BCC LBE22:INC &05
+.LBE22
+RTS
+
+\ Unstack an integer to zero page
+\ -------------------------------
+.LBE23
+LDX #&37
+.LBE25
+LDY #&03
+LDA (&04),Y:STA &03,X:DEY
+LDA (&04),Y:STA &02,X:DEY
+LDA (&04),Y:STA &01,X:DEY
+LDA (&04),Y:STA &00,X:CLC
+LDA &04:ADC #&04:STA &04   :\ Drop 4 bytes from stack
+BCC LBE22:INC &05
+RTS
+ 
+.LBE46
+STA &04:BCS LBE4C:DEC &05
+.LBE4C
+LDY &05:CPY &03
+BCC LBE59
+BNE LBE58
+CMP &02:BCC LBE59
+.LBE58
+RTS
+ 
+.LBE59
+JMP L8C4B
+ 
+.LBE5C
+LDA &2A:STA &00,X
+LDA &2B:STA &01,X
+LDA &2C:STA &02,X
+LDA &2D:STA &03,X
+RTS
+ 
+.LBE6D
+CLC
+.LBE6E
+TYA
+ADC &3D:STA &3D
+BCC LBE77:INC &3E
+.LBE77
+LDY #&01
+RTS
+ 
+\ Load a file
+\ ----------- 
+.LBE7A
+JSR LBEDE
+LDA #&FF
+OPT FNif(mos$="atom")
+ STA &3B:LDX #&37
+ SEC:JSR OSLOAD
+OPT FNendif
+
+OPT FNif(mos$="bbc")
+ LDY #&00:STY &3D
+ LDX #&37:JSR OSFILE
+OPT FNendif
+
+\ Scan program to check consistancy and find TOP
+\ ----------------------------------------------
+.LBE88
+LDA &18:STA &13
+LDY #&00:STY &12:INY      :\ Point TOP to PAGE
+.LBE91
+DEY:LDA (&12),Y           :\ Get byte preceding line
+CMP #&0D:BNE LBEB7        :\ Not <cr>, jump to 'Bad program'
+INY                       :\ Step to line number/terminator
+LDA (&12),Y:BMI LBEA9     :\ b7 set, end of program
+LDY #&03                  :\ Point to line length
+LDA (&12),Y:BEQ LBEB7     :\ Zero length, jump to 'Bad program'
+CLC:JSR LBEAC             :\ Update TOP to point to next line
+BNE LBE91                 :\ Loop to check next line
+
+\ End of program found, set TOP
+\ -----------------------------
+.LBEA9
+INY:CLC
+.LBEAB
+TYA
+.LBEAC
+ADC &12:STA &12           :\ TOP=TOP+A
+BCC LBEB4:INC &13
+.LBEB4
+LDY #&01:RTS              :\ Return Y=1, NE
+
+\ Report 'Bad program' and jump to immediate mode
+\ -----------------------------------------------
+.LBEB7
+JSR LBFCB                 :\ Print inline text
+EQUB 13:EQUS "Bad program":EQUB 13
+NOP
+JMP L8A99
+
+\ Point &37/8 to <cr>-terminated string in string buffer
+\ ------------------------------------------------------
+.LBECB
+LDA #&00:STA &37          :\ &37/8=>string buffer
+LDA #&06+(ws/256):STA &38
+.LBED3
+LDY &36:LDA #&0D          :\ Get string length
+STA ws+&0600,Y            :\ Put terminating <cr> at end
+RTS
+ 
+.LBEDB
+JMP L8B7E
+ 
+.LBEDE
+JSR L9AF7:BNE LBEDB
+JSR LBECB
+JSR L9805
+DEY:STY &39                 :\ &39/A=>PAGE
+LDA &18:STA &3A
+OPT FNif(mos$="bbc")
+ .LBEF0
+ LDA #&82:JSR OSBYTE :\ Get memory base high word
+ STX &3B:STY &3C
+OPT FNendif
+RTS
+
+\  SAVE string$
+\ =============
+.LBEFA
+JSR LBEDE                   :\ &37/38=>filename
+OPT FNif(mos$="atom")
+ LDA &18:STA &3E             :\ &3D/3E=PAGE
+OPT FNendif
+
+OPT FNif(mos$="bbc")
+ STX &3F:STY &40
+ STX &43:STY &44
+ STX &47:STY &48
+ LDA &18:STA &42             :\ &41/42=PAGE
+OPT FNendif
+:
+JSR LBE88
+OPT FNif(mos$="atom")
+ LDA &12:STA &3F
+ LDA &13:STA &40             :\ &3F/40=TOP
+OPT FNendif
+:
+OPT FNif(mos$="bbc")
+ LDA &12:STA &45
+ LDA &13:STA &46             :\ &45/46=TOP
+OPT FNendif
+:
+OPT FNif(mos$="atom")
+ LDA #L8000 AND 255:STA &3B
+ LDA #L8000 DIV 256:STA &3C  :\ &3B/3C=&A000 - Restart address of BASIC
+OPT FNendif
+:
+OPT FNif(mos$="bbc")
+ LDA #L801F AND 255:STA &3D
+ LDA #L801F DIV 256:STA &3E  :\ &3D/3E=&801F - Restart address of BASIC
+ LDA #&00:STA &41:TAY
+OPT FNendif
+:
+OPT FNif(mos$="atom")
+ LDA #&00:STA &3D            :\ &3D/3E=PAGE
+OPT FNendif
+:
+LDX #&37                    :\ Control block at &0037
+:
+OPT FNif(mos$="atom")
+ SEC:JSR OSSAVE
+OPT FNendif
+:
+OPT FNif(mos$="bbc")
+ JSR OSFILE
+OPT FNendif
+:
+JMP L8B0C
+ 
+\ LOAD string$
+\ ============
+.LBF2D
+JSR LBE7A:JMP L8A96
+ 
+\ CHAIN string$
+\ =============
+.LBF33
+JSR LBE7A:JMP LBD2C
+
+\ PTR#numeric=numeric
+\ ===================
+.LBF39 
+JSR LBFAE:PHA             :\ Evaluate #handle
+JSR L97E2:JSR L929F       :\ Step past '=', evaluate integer
+PLA:TAY:LDX #&2A          :\ Get handle, point to IntA
+OPT FNif(mos$="atom"):JSR OSSTAR         :OPT FNendif
+OPT FNif(mos$="bbc") :LDA #&01:JSR OSARGS:OPT FNendif
+JMP L8B0C                 :\ Jump back to execution loop
+ 
+\ =EXT#numeric - Read file pointer
+\ ================================
+.LBF4F
+SEC                       :\ Flag to do =EXT
+
+\ =PTR#numeric - Read file pointer
+\ ================================
+.LBF50
+LDA #&00:ROL A            :\ A=0 or 1 for =PTR or =EXT
+OPT FNif(mos$="bbc"):ROL A:OPT FNendif
+PHA                       :\ Atom - A=0/1, BBC - A=0/2
+JSR LBFBA:LDX #&2A:PLA    :\ Evaluate #handle, point to IntA
+OPT FNif(mos$="atom"):JSR OSRDAR:OPT FNendif
+OPT FNif(mos$="bbc") :JSR OSARGS:OPT FNendif
+LDA #&40:RTS              :\ Return integer
+ 
+\ BPUT#numeric, numeric
+\ =====================
+.LBF61
+JSR LBFAE:PHA             :\ Evaluate #handle
+JSR L8A35
+JSR L9802:JSR L929F
+PLA:TAY:LDA &2A
+JSR OSBPUT:JMP L8B0C      :\ Call OSBPUT, jump to execution loop
+
+\ =BGET#numeric
+\ =============
+.LBF78
+JSR LBFBA                 :\ Evaluate #handle
+JSR OSBGET:JMP LAF07      :\ Jump to return 8-bit integer
+ 
+\ OPENOUT f$ - Call OSFIND to open file for input
+\ ===============================================
+.LBF81
+OPT FNif(mos$="atom"):CLC:BCC LDF53     :OPT FNendif
+OPT FNif(mos$="bbc") :LDA #&80:BNE LBF87:OPT FNendif
+
+\ OPENIN f$ - Call OSFIND to open file for update
+\ ===============================================
+\ Note, actually does an OPENUP
+\
+.LBF85
+OPT FNif(mos$="atom"):SEC       :OPT FNendif
+OPT FNif(mos$="bbc") :LDA #&C0  :OPT FNendif
+.LBF87:.LDF53
+OPT FNif(mos$="atom"):PHP       :OPT FNendif
+OPT FNif(mos$="bbc") :PHA       :OPT FNendif
+:
+JSR LAE1B:BNE LBF9B       :\ Evaluate, if not string, jump to error
+:
+OPT FNif(mos$="atom"):JSR LBECB :OPT FNendif
+OPT FNif(mos$="bbc") :JSR LBED3 :OPT FNendif
+OPT FNif(mos$="atom")
+ LDX #&37:PLP
+OPT FNendif
+OPT FNif(mos$="bbc")
+ LDX #&00:LDY #&06:PLA
+OPT FNendif
+:
+JSR OSFIND                :\ Pass to OSFIND
+.LBF98
+JMP LAF07                 :\ Jump to return integer from A
+ 
+.LBF9B
+JMP L8B7E
+ 
+\ CLOSE#numeric
+\ =============
+.LBF9E
+JSR LBFAE:JSR L980B       :\ Evaluate #handle, check end of statement
+LDY &2A                   :\ Get handle from IntA
+OPT FNif(mos$="atom"):JSR OSSHUT         :OPT FNendif
+OPT FNif(mos$="bbc") :LDA #&00:JSR OSFIND:OPT FNendif
+JMP L8B0C
+ 
+\ Copy PtrA to PtrB, then get handle
+\ ==================================
+.LBFAE
+LDA &0A:STA &1B           :\ Set PtrB to program pointer in PtrA
+LDA &0B:STA &19
+LDA &0C:STA &1A
+
+\ Check for '#', evaluate channel
+\ ===============================
+.LBFBA
+JSR L8A13                 :\ Skip spaces
+CMP #ASC"#":BNE LBFC8     :\ If not '#', jump to give error
+JSR L9292                 :\ Evaluate as integer
+LDY &2A:TYA:RTS           :\ Get low byte and return
+ 
+.LBFC8
+JMP L9839
+ 
+\ Print inline text
+\ =================
+.LBFCB
+PLA:STA &37:PLA:STA &38   :\ Pop return address to pointer
+LDY #&00
+.LBFD3
+INC &37:BNE LBFD9:INC &38 :\ Update pointer
+.LBFD9
+LDA (&37),Y:BMI LBFE3     :\ Get character, exit if b7=1
+OPT FNif(target$<>"atom"):JSR OSASCI:OPT FNendif:\ Print character
+OPT FNif(target$ ="atom"):JSR AtomUp:OPT FNendif:\ Force Atom to upper case
+JMP LBFD3                 :\ Loop back
+.LBFE3
+JMP (&0037)               :\ Jump back to program
+ 
+\ REPORT
+\ ======
+.LBFE6
+JSR L9810                 :\ Check end of statement
+LDA #&06:JSR OSWRCH       :\ Send VDU 6 to enable VDU
+JSR LBC42                 :\ Print newline, clear COUNT
+LDY #&01
+.LBFF3
+LDA (FAULT),Y:BEQ LBFFD   :\ Get byte, exit if &00 terminator
+JSR LB530:INY:BNE LBFF3   :\ Print character or token, loop for next
+.LBFFD
+JMP L8B0C                 :\ Jump to main execution loop
+ 
+\ END OF CODE
+\ =========== 
+OPT FNif(mos$="atom")
+ \ This is probably the source code at LBA74-LBA7D
+ EQUB 13
+ EQUB &07:EQUB &20:EQUS " LDAIM $FF":EQUB 13
+ EQUB &07:EQUB &30:EQUS " STA COEFP +01":EQUB 13
+ EQUB &07:EQUB &40:EQUS "INPLP JSR PRT"
+OPT FNendif
+OPT FNif(target$="system")
+ EQUS "STN":EQUB 13
+ EQUB &07:EQUB &50:EQUS " BCS"
+OPT FNendif
+.LC000
+]
+IF VALversion$<1.10:XBCE9=LBCE9 ELSE XBCE9=L8A4A
+NEXT
+A$="SAVE "+outfile$+" "+STR$~mcode%+"+"+STR$~(O%-mcode%)+" "+STR$~exec%+" "+STR$~load%
+PRINT A$;:OSCLI A$:PRINT
+END
+DEFFNmnemL(A$):=(ASCMID$(A$,2,1)AND31)*32+(ASCMID$(A$,3,1)AND31)
+DEFFNmnemH(A$):=(ASCMID$(A$,1,1)AND31)*4+(ASCMID$(A$,2,1)AND31)DIV8
+DEFFNif(A%):IFA%:z%=-1:=opt% ELSE z%=P%:=opt%
+DEFFNendif:IFz%=-1:=opt% ELSE z%=P%-z%:P%=P%-z%:O%=O%-z%:=opt%
+DEFFNelse:IFz%=-1:z%=P%:=opt% ELSE z%=P%-z%:P%=P%-z%:O%=O%-z%:z%=-1:=opt%

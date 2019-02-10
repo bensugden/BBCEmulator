@@ -14,6 +14,7 @@ void RegisterInstructionHandlers( OpcodeTable& opcodeTable );
 
 CPU::CPU( )
 {
+	m_pClock = nullptr;
 	nBreakpoints = 0;
 	m_bExternalBreakpoint = false;
 	RegisterInstructionHandlers( m_opcodeTable );
@@ -30,14 +31,13 @@ void CPU::Reset()
 	nTotalCycles = 0;
 	reg.S = 0xFF;
 	reg.A = reg.X = reg.Y = 0;
-	reg.PC = c_Reset_Lo;
 	reg.P = 0;
 	SetFlag( flag_I, 1 );
 	SetFlag( flag_unused, 1 );
 	SetFlag( flag_B, 1 ); // temp
+	m_pendingInterrupt = INTERRUPT_NONE;
 
-	mem.ReadLoByte( c_Reset_Lo, reg.PC );
-	mem.ReadHiByte( c_Reset_Hi, reg.PC );
+	reg.PC = mem.ReadAddress( c_Reset_Vector );
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -47,9 +47,48 @@ CPU::~CPU()
 }
 
 //-------------------------------------------------------------------------------------------------
+void fn_IRQ();
+void fn_NMI();
 
 bool CPU::ProcessSingleInstruction()
 {
+	//
+	// Interrupt?
+	//
+	if ( m_pendingInterrupt != INTERRUPT_NONE )
+	{
+		switch ( m_pendingInterrupt )
+		{
+			case INTERRUPT_IRQ :
+			{
+				if ( GetFlag( flag_I ) == 0 )
+				{
+				//	cpu.ThrowBreakpoint(std::string("INTERRUPT_IRQ"));
+					m_pendingInterrupt = INTERRUPT_NONE;
+					fn_IRQ();
+				}
+				break;
+			}
+			case INTERRUPT_NMI :
+			{
+				//cpu.ThrowBreakpoint(std::string("INTERRUPT_NMI"));
+				m_pendingInterrupt = INTERRUPT_NONE;
+				fn_NMI();
+
+				break;
+			}
+			case INTERRUPT_RESET :
+			{
+				//cpu.ThrowBreakpoint(std::string("INTERRUPT_RESET"));
+				m_pendingInterrupt = INTERRUPT_NONE;
+				Reset();
+				break;
+			}
+			default :
+				break;
+		}
+	}
+
 	//
 	// fetch
 	//
@@ -65,6 +104,10 @@ bool CPU::ProcessSingleInstruction()
 	//
 	// dispatch
 	//
+	if ( command.m_functionHandler == nullptr )
+	{
+	int i=0;i++;
+	}
 	command.m_functionHandler( );
 
 	//
@@ -141,7 +184,6 @@ int CPU::GetBytesAtPC( int pc, u8* bytes )
 }
 
 //-------------------------------------------------------------------------------------------------
-
 void CPU::Disassemble( const CPU::Registers& reg, const u8* bytes, string& dissassemble, const CommandInfo** ppOutCommand )
 {
 	dissassemble = toHex( (u16)reg.PC, false ) + " ";
@@ -150,7 +192,6 @@ void CPU::Disassemble( const CPU::Registers& reg, const u8* bytes, string& dissa
 
 	const CommandInfo& command = m_opcodeTable.GetCommandForOpcode( opcode );
 	EAddressingMode addrmode = command.m_addressingMode;
-
 	dissassemble += toHex( (u8)opcode, false ) + " ";
 
 	int nSize = GetMemSizePerEA( addrmode );

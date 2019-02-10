@@ -2,6 +2,10 @@
 
 //-------------------------------------------------------------------------------------------------
 
+#include "SystemClock.h"
+
+//-------------------------------------------------------------------------------------------------
+
 enum EFlag
 {
 	flag_C = 1 << 0 ,		// carry flag (1 on unsigned overflow)
@@ -12,6 +16,16 @@ enum EFlag
 	flag_unused = 1 << 5 ,	// unused (always 1)
 	flag_V = 1 << 6 ,		// overflow flag (1 on signed overflow)
 	flag_N = 1 << 7  ,		// negative flag (1 when result is negative)
+};
+
+//-------------------------------------------------------------------------------------------------
+
+enum EInterrupt
+{
+	INTERRUPT_NONE,
+	INTERRUPT_NMI,
+	INTERRUPT_RESET,
+	INTERRUPT_IRQ
 };
 
 #include "6502_OpcodeTable.h"
@@ -57,8 +71,20 @@ struct CPU
 			return 0;
 		}
 		//-------------------------------------------------------------------------------------------------
-
 	};
+
+	//-------------------------------------------------------------------------------------------------
+	//
+	// 6502 Interrupt Vectors
+	//
+	//-------------------------------------------------------------------------------------------------
+
+	static const int c_NMI_Vector	= 0xFFFA;
+	static const int c_Reset_Vector = 0xFFFC;
+	static const int c_IRQ_Vector	= 0xFFFE;
+
+	//-------------------------------------------------------------------------------------------------
+
 	Registers reg;
 	int nTotalCycles;
 	int nBreakpoints;
@@ -81,13 +107,6 @@ struct CPU
 	int GetCycleCount() 
 	{
 		return nTotalCycles;
-	}
-
-	//-------------------------------------------------------------------------------------------------
-	
-	void ThrowInterrupt()
-	{
-		assert( false ); // todo
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -134,7 +153,10 @@ struct CPU
 
 	inline void Tick( )
 	{
-		nTotalCycles ++;
+		if ( m_pClock )
+		{
+			m_pClock->Tick();
+		}
 	}
 	
 	//-------------------------------------------------------------------------------------------------
@@ -174,22 +196,25 @@ struct CPU
 	
 	//-------------------------------------------------------------------------------------------------
 
+	void SetClock( ISystemClock* pClock )
+	{
+		m_pClock = pClock;
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
 	inline void ThrowBreakpoint( std::string& reason )
 	{
 		m_bExternalBreakpoint = true;
 		m_breakpointReason = reason;
 	}
-
+	
 	//-------------------------------------------------------------------------------------------------
-	//
-	// 6502 Interrupt Vectors
-	//
-	static const int c_NMI_Lo		= 0xFFFA;
-	static const int c_NMI_Hi		= 0xFFFB;
-	static const int c_Reset_Lo		= 0xFFFC;
-	static const int c_Reset_Hi		= 0xFFFD;
-	static const int c_IRQ_Lo		= 0xFFFE;
-	static const int c_IRQ_Hi		= 0xFFFF;
+	
+	inline void ThrowInterrupt( EInterrupt interrupt )
+	{
+		m_pendingInterrupt = interrupt;
+	}
 
 	//-------------------------------------------------------------------------------------------------
 
@@ -226,6 +251,9 @@ private:
 	OpcodeTable					m_opcodeTable;
 	bool						m_bExternalBreakpoint;
 	std::string					m_breakpointReason;
+	EInterrupt					m_pendingInterrupt;
+	class ISystemClock*			m_pClock;
+
 	//-------------------------------------------------------------------------------------------------
 public:
 

@@ -6,13 +6,14 @@
 extern CPU cpu;
 
 //-------------------------------------------------------------------------------------------------
-class BBC_Emulator
+class BBC_Emulator : public ISystemClock
 {
 public:
 	BBC_Emulator();
 	~BBC_Emulator( );
 
-	
+	virtual void Tick();
+
 	//-------------------------------------------------------------------------------------------------
 	//
 	// Common Interface
@@ -22,7 +23,7 @@ public:
 	void	Reset();
 	void	RefreshDisplay();
 	bool	RunFrame( std::string* pDisassemblyString, bool bDebug );
-	bool	ProcessInstructions( int nCount, std::string* pDisassemblyHistory, bool bDebug, bool bForceDebugPC = false );
+	bool	ProcessInstructions( int nCount, std::string* pDisassemblyHistory, bool bDebug, bool bForceDebugPC = false, bool bAlwaysSpewToOutputWindow = false );
 	void	SetBreakpoint( u16 address );
 
 	//-------------------------------------------------------------------------------------------------
@@ -67,6 +68,13 @@ public:
 			return m_instructions[ nOffset ];
 		}
 
+		void GetLastInstruction( std::string& disassemble ) const
+		{
+			int cCount = GetCount();
+			const State& state = GetStateAtTime( 0 );
+			cpu.Disassemble( state.reg_state, state.pc_state, disassemble, nullptr );
+		}
+
 		void GetHistory( std::string& DisassemblyHistory ) const
 		{
 			DisassemblyHistory.clear();
@@ -96,6 +104,11 @@ public:
 
 	//-------------------------------------------------------------------------------------------------
 
+	void SetKeyDown( u8 key )	{ m_keyboard.SetKeyDown( key ); }
+	void SetKeyUp( u8 key )		{ m_keyboard.SetKeyUp( key ); }
+
+	//-------------------------------------------------------------------------------------------------
+
 private:
 	void						DebugDecodeNextInstruction();
 
@@ -104,7 +117,8 @@ private:
 	Ports_VIA_6522				m_portsVIA;
 	SAA5050						m_teletext;
 	CRTC_6845					m_crtc;
-
+	BBC_Keyboard				m_keyboard;
+	int							m_nClockCounter = 0;
 	CPUStateHistory				m_history;
 	time_t						m_lastTime;
 	bool						m_bStarted = false;

@@ -460,12 +460,122 @@ inline u8 op_TYA(u8 val)
 
 //=================================================================================================
 //
-//  Instructions accessing the stack
+// Interrupts
+//
+//=================================================================================================
+//
+//      NMI and IRQ both take 7 cycles. Their timing diagram is much like
+//      BRK's (see below). IRQ will be executed only when the I flag is
+//      clear. IRQ and BRK both set the I flag, whereas the NMI does not
+//      affect its state.
+// 
+//      The processor will usually wait for the current instruction to
+//      complete before executing the interrupt sequence. To process the
+//      interrupt before the next instruction, the interrupt must occur
+//      before the last cycle of the current instruction.
+// 
+//      There is one exception to this rule: the BRK instruction. If a
+//      hardware interrupt (NMI or IRQ) occurs before the fourth (flags
+//      saving) cycle of BRK, the BRK instruction will be skipped, and
+//      the processor will jump to the hardware interrupt vector. This
+//      sequence will always take 7 cycles.
+// 
+//      You do not completely lose the BRK interrupt, the B flag will be
+//      set in the pushed status register if a BRK instruction gets
+//      interrupted. When BRK and IRQ occur at the same time, this does
+//      not cause any problems, as your program will consider it as a
+//      BRK, and the IRQ would occur again after the processor returned
+//      from your BRK routine, unless you cleared the interrupt source in
+//      your BRK handler. But the simultaneous occurrence of NMI and BRK
+//      is far more fatal. If you do not check the B flag in the NMI
+//      routine and subtract two from the return address when needed, the
+//      BRK instruction will be skipped.
+// 
+//      If the NMI and IRQ interrupts overlap each other (one interrupt
+//      occurs before fetching the interrupt vector for the other
+//      interrupt), the processor will most probably jump to the NMI
+//      vector in every case, and then jump to the IRQ vector after
+//      processing the first instruction of the NMI handler. This has not
+//      been measured yet, but the IRQ is very similar to BRK, and many
+//      sources state that the NMI has higher priority than IRQ. However,
+//      it might be that the processor takes the interrupt that comes
+//      later, i.e. you could lose an NMI interrupt if an IRQ occurred in
+//      four cycles after it.
+// 
+//      After finishing the interrupt sequence, the processor will start
+//      to execute the first instruction of the interrupt routine. This
+//      proves that the processor uses a sort of pipelining: it finishes
+//      the current instruction (or interrupt sequence) while reading the
+//      opcode of the next instruction.
+// 
+//      RESET does not push program counter on stack, and it lasts
+//      probably 6 cycles after deactivating the signal. Like NMI, RESET
+//      preserves all registers except PC.
 //
 //=================================================================================================
 
+void fn_NMI( )
+{
+	DiscardNextPC(); 
+	cpu.IncPC();
+	cpu.Tick();
+
+	PushPCH( ); 
+	cpu.DecS(); 
+	cpu.Tick();
+
+	PushPCL(); 
+	cpu.DecS(); 
+	cpu.Tick();
+
+	PushP( ); 
+	cpu.DecS(); 
+	cpu.Tick();
+
+	cpu.SetPCL( mem.Read( cpu.c_IRQ_Vector ) );  
+	cpu.Tick();
+
+	cpu.SetPCH( mem.Read( cpu.c_IRQ_Vector + 1 ) ); 
+	cpu.LastTick();
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void fn_IRQ( )
+{
+	DiscardNextPC(); 
+	cpu.IncPC();
+	cpu.Tick();
+
+	PushPCH( ); 
+	cpu.DecS(); 
+	cpu.Tick();
+
+	PushPCL(); 
+	cpu.DecS(); 
+	cpu.Tick();
+
+	PushP( ); 
+	cpu.DecS(); 
+	cpu.Tick();
+
+	cpu.SetPCL( mem.Read( cpu.c_IRQ_Vector ) );  
+	cpu.Tick();
+
+	cpu.SetPCH( mem.Read( cpu.c_IRQ_Vector + 1 ) ); 
+	cpu.LastTick();
+	SetFlags( flag_I ); 
+}
+
+//=================================================================================================
+//
+//  Instructions accessing the stack
+//
+//=================================================================================================
 namespace StackInstructions
 {
+	//-------------------------------------------------------------------------------------------------
+
 	void fn_BRK( )
 	{
 		/*
@@ -496,13 +606,12 @@ namespace StackInstructions
 		cpu.DecS(); 
 		cpu.Tick();
 
-		cpu.SetPCL( mem.Read( cpu.c_IRQ_Lo ) );  
+		cpu.SetPCL( mem.Read( cpu.c_IRQ_Vector ) );  
 		cpu.Tick();
 
-		cpu.SetPCH( mem.Read( cpu.c_IRQ_Hi ) ); 
+		cpu.SetPCH( mem.Read( cpu.c_IRQ_Vector + 1 ) ); 
 		cpu.LastTick();
 	}
-
 	//-------------------------------------------------------------------------------------------------
 
 	void fn_RTI( )
@@ -536,7 +645,6 @@ namespace StackInstructions
 	}
 
 	//-------------------------------------------------------------------------------------------------
-
 	void fn_RTS( )
 	{    
 		/*

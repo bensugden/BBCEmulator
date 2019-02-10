@@ -1,18 +1,26 @@
 #pragma once
-#include "myAssert.h"
 
 //-------------------------------------------------------------------------------------------------
 //
-// System Clock
-//
-// Handles calling of auxiliary systems on other buses
+// BBC Keyboard
 //
 //-------------------------------------------------------------------------------------------------
 
-class ISystemClock
+class BBC_Keyboard : public IKeyboard
 {
 public:
-	virtual void Tick() = 0;
+	BBC_Keyboard();
+
+	void SetKeyDown( u8 vkey );
+	void SetKeyUp( u8 vkey );
+	virtual bool IsKeyDown_ScanCode( u8 scancode );
+
+private:
+	u8 m_getCurrentScanCode;
+	u8 m_vkeyToScanCodeMap[ 256 ];
+	u8 m_scancodeToKeyCodeMap[ 256 ];
+	u8 m_keys[ 256 ];
 };
 
 //-------------------------------------------------------------------------------------------------
+

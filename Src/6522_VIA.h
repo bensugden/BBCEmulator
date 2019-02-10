@@ -18,6 +18,8 @@ public:
 protected:
 	VIA_6522(  u16 viaMemoryMappedStartAddressForORA_B  );
 
+	//-------------------------------------------------------------------------------------------------
+
 	enum ReadWriteChannel
 	{
 		RW_ORB_IRB	= 0,				// Output / Input register B		
@@ -38,38 +40,52 @@ protected:
 		RW_ORA_IRA_NO_HANDSHAKE,		// ORA / IRA no handshake
 	};
 
-	enum InternalRegister
+	//-------------------------------------------------------------------------------------------------
+
+	struct Registers
 	{
-		ORB	= 0,						// Output Input register B					
-		ORA	,							// Output Input register A					
-		DDRB,							// Data direction register B				
-		DDRA,							// Data direction register A				
-		T1_COUNTER_L,					// T1 low order Counter
-		T1_COUNTER_H,					// T1 high order counter					
-		T1_LATCH_L,						// T1 low order latch				
-		T1_LATCH_H,						// T1 high order latch					
-		T2_COUNTER_L,					// T2 low order Counter	
-		T2_COUNTER_H,					// T2 high order counter					
-		T2_LATCH_L,						// T2 latch low
-		SHIFT,							// Shift register							
-		ACR	,							// Auxiliary control register				
-		PCR	,							// Peripheral control register			
-		IFR	,							// Interrupt flag register				
-		IER	,							// Interrupt enable register				
-		ORA_IRA_NO_HANDSHAKE,			// ORA / IRA no handshake
-		PA,								// Peripheral Port A
-		PB,								// Peripheral Port B
-		CA1,							// Control line A1
-		CA2,							// Control line A2
-		CB1,							// Control line B1
-		CB2,							// Control line B2
-		IRA,							// Input register A
-		IRB,							// Input register B
-		CA2_TIMER,						// 1 cycle counter for CA2 in mode 5
-		CB2_TIMER,						// 1 cycle counter for CB2 in mode 5
-		T2_INTERRUPT_ENABLED,			// T2 timer should interrupt when timer is at 0
-		_COUNT
+		u8 B;							// Output Input register B					
+		u8 A;							// Output Input register A					
+		u8 DDRB;						// Data direction register B				
+		u8 DDRA;						// Data direction register A				
+		u8 T1_COUNTER_L;				// T1 low order Counter
+		u8 T1_COUNTER_H;				// T1 high order counter					
+		u8 T1_LATCH_L;					// T1 low order latch				
+		u8 T1_LATCH_H;					// T1 high order latch					
+		u8 T2_COUNTER_L;				// T2 low order Counter	
+		u8 T2_COUNTER_H;				// T2 high order counter					
+		u8 T2_LATCH_L;					// T2 latch low
+		u8 SHIFT;						// Shift register							
+		u8 ACR;							// Auxiliary control register				
+		u8 PCR;							// Peripheral control register			
+		u8 IFR;							// Interrupt flag register				
+		u8 IER;							// Interrupt enable register				
+		u8 ORA_IRA_NO_HANDSHAKE;		// ORA / IRA no handshake
+		u8 PA;							// Peripheral Port A
+		u8 PB;							// Peripheral Port B
+		u8 CA1;							// Control line A1
+		u8 CA2;							// Control line A2
+		u8 CB1;							// Control line B1
+		u8 CB2;							// Control line B2
+		u8 CA2_TIMER;					// 1 cycle counter for CA2 in mode 5
+		u8 CB2_TIMER;					// 1 cycle counter for CB2 in mode 5
+		u8 T2_INTERRUPT_ENABLED;		// T2 timer should interrupt when timer is at 0
 	};
+
+	//-------------------------------------------------------------------------------------------------
+	//
+	// Interrupt Flag Register / Interrupt Enable Register
+	//
+	// 0 - ca2 active edge
+	// 1 - ca1 active edge
+	// 2 - complete 8 shifts
+	// 3 - cb2 active edge
+	// 4 - cb1 active edge
+	// 5 - time out of t2
+	// 6 - time out of t1
+	// 7 - any interrupt
+	//	
+	//-------------------------------------------------------------------------------------------------
 
 	enum InterruptFlags
 	{
@@ -83,13 +99,7 @@ protected:
 		INTERRUPT_SET			= 1 << 7,
 	};
 
-	enum T1Mode
-	{
-		SINGLE_TIME_OUT_NO_PB7				= 0,
-		FREE_RUNNING_NO_PB7					= 1,
-		SINGLE_TIME_OUT_PB7_PULSE_ON_LOAD	= 2,
-		FREE_RUNNING_PB7_SQUARE_WAVE		= 3,
-	};
+	//-------------------------------------------------------------------------------------------------
 
 	u8			WriteIFR( u16 address, u8 value );
 	u8			WriteIER( u16 address, u8 value );
@@ -104,7 +114,10 @@ protected:
 	u8			ReadT1( u16 address, u8 value );
 	u8			ReadT2( u16 address, u8 value );
 
-	u8			GetControlLineMode( InternalRegister reg ) const;
+	u8			GetControlLineModeCA1( ) const;
+	u8			GetControlLineModeCA2( ) const;
+	u8			GetControlLineModeCB1( ) const;
+	u8			GetControlLineModeCB2( ) const;
 	u8			GetShiftMode( ) const;
 
 	void		SetCA1( u8 value );
@@ -112,14 +125,15 @@ protected:
 	void		SetCB1( u8 value );
 	void		SetCB2( u8 value );
 
+	Registers	reg;
+
 private:
-	void		SetCAB1( u8 value, InternalRegister reg, InterruptFlags interrupt );
-	void		SetCAB2( u8 value, InternalRegister reg, InterruptFlags interrupt );
+	void		SetCAB1( u8 value, bool B, InterruptFlags interrupt );
+	void		SetCAB2( u8 value, bool B, InterruptFlags interrupt );
 	void		UpdateControlChannel_DuringReadOrWriteOfPort( ReadWriteChannel in );
+	void		ThrowInterrupt( InterruptFlags interrupt );
 
 	u16			m_baseAddress;
-	u8			m_register[ InternalRegister::_COUNT ];
-	T1Mode		m_t1Mode;
 };
 
 //-------------------------------------------------------------------------------------------------

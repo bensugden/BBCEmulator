@@ -1,0 +1,6 @@
+| Assemble 6502 BBC BASIC 1.10 for Atom
+|
+RmEnsure B6502 0.00 RmLoad <Obey$Dir>.^.ARM.6502_BASIC
+Dir <Obey$Dir>
+B6502 -quit <Obey$Dir>.Basic1/src ATBASIC1 atom 1.10
+hexdiff ATBASIC1 net::Software.BBCBasic.Atom.ATBASIC1 _diff 4000

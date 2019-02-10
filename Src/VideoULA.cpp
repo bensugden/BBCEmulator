@@ -66,7 +66,6 @@ u8 VideoULA::WRITE_Serial_ULA_Control_register( u16 address, u8 value )
 
 u8 VideoULA::WRITE_Video_ULA_Control_register( u16 address, u8 ctrl_register )
 {
-	assert( ctrl_register == mem.Read( SHEILA::WRITE_Video_ULA_Control_register ) );
 	assert( address == SHEILA::WRITE_Video_ULA_Control_register );
 
 	//

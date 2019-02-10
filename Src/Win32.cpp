@@ -31,6 +31,7 @@ bool g_bRun = false;
 bool g_bDisplayOutput = true;
 bool g_bBreakOnWriteActive = false;
 bool g_bBreakOnReadActive = false;
+bool g_bDisassemblyConstantSpew = false;
 
 u16 g_nMemoryAddressToDebug = 0;
 
@@ -125,47 +126,26 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		{
 			if ( g_bRun )
 			{
+				bool bBreak;
 				if ( g_bDisplayOutput )
 				{
-					if ( g_emulator->ProcessInstructions( 2000000 / 50, &g_disassembly, g_bDisplayOutput ) )
-					{
-						UpdateBreakpointReason( true );
-						g_bRun = false;
-					}
-					else
-					{
-						UpdateBreakpointReason( false );
-					}
-					SleepEx( 1, false );
-					bLastRun = true;
+					bBreak = g_emulator->ProcessInstructions( 2000000 / 50, &g_disassembly, false, false, g_bDisassemblyConstantSpew ) ;
 				}
 				else
 				{
-					if ( g_emulator->RunFrame( &g_disassembly, false ) )
-					{
-						UpdateBreakpointReason( true );
-						g_bRun = false;
-					}
-					else
-					{
-						UpdateBreakpointReason( false );
-					}
-					SleepEx( 1, false );
-					bLastRun = true;
+					bBreak = g_emulator->RunFrame( &g_disassembly, false );
 				}
+
+				UpdateBreakpointReason( bBreak );
+				g_bRun = !bBreak;
+				SleepEx( 1, false );
+				bLastRun = true;
 			}
 			else
 			if ( g_nStep > 0 )
 			{
-				if ( g_emulator->ProcessInstructions( g_nStep, &g_disassembly, g_bDisplayOutput ))
-				{
-					UpdateBreakpointReason( true );
-					g_nStep =0;
-				}
-				else
-				{
-					UpdateBreakpointReason( false );
-				}
+				bool bBreak = g_emulator->ProcessInstructions( g_nStep, &g_disassembly, true, false, g_bDisassemblyConstantSpew );
+				UpdateBreakpointReason( bBreak );
 				if ( g_bDisplayOutput )
 					UpdateStatusWindows();
 				g_nStep = 0;
@@ -290,42 +270,54 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
-    case WM_COMMAND:
-        {
-            int wmId = LOWORD(wParam);
-            // Parse the menu selections:
-            switch (wmId)
-            {
-            case IDM_ABOUT:
-                DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
-                break;
-			case IDM_SHOW_DEBUGGER:
-				g_bDebuggerActive = !g_bDebuggerActive;
-				ShowWindow( g_debuggerHWND, g_bDebuggerActive );
-				CheckMenuItem( GetMenu(hWnd), IDM_SHOW_DEBUGGER, g_bDebuggerActive ? MF_CHECKED : MF_UNCHECKED );
-                break;
-            case IDM_EXIT:
-                DestroyWindow(hWnd);
-                break;
-            default:
-                return DefWindowProc(hWnd, message, wParam, lParam);
-            }
-        }
-        break;
-    case WM_PAINT:
-        {
-			if ( g_emulator !=nullptr )
+		case WM_COMMAND:
 			{
-				g_emulator->RefreshDisplay();
+				int wmId = LOWORD(wParam);
+				// Parse the menu selections:
+				switch (wmId)
+				{
+				case IDM_ABOUT:
+					DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
+					break;
+				case IDM_SHOW_DEBUGGER:
+					g_bDebuggerActive = !g_bDebuggerActive;
+					ShowWindow( g_debuggerHWND, g_bDebuggerActive );
+					CheckMenuItem( GetMenu(hWnd), IDM_SHOW_DEBUGGER, g_bDebuggerActive ? MF_CHECKED : MF_UNCHECKED );
+					break;
+				case IDM_EXIT:
+					DestroyWindow(hWnd);
+					break;
+				default:
+					return DefWindowProc(hWnd, message, wParam, lParam);
+				}
 			}
-			GFXSystem::Render();
-        }
-        break;
-    case WM_DESTROY:
-        PostQuitMessage(0);
-        break;
-    default:
-        return DefWindowProc(hWnd, message, wParam, lParam);
+			break;
+		case WM_PAINT:
+			{
+				if ( g_emulator !=nullptr )
+				{
+					g_emulator->RefreshDisplay();
+				}
+				GFXSystem::Render();
+			}
+			break;
+		case WM_KEYDOWN:
+		{
+			u8 key = wParam;
+			g_emulator->SetKeyDown( key );
+			break;
+		}
+		case WM_KEYUP:
+		{
+			u8 key = wParam;
+			g_emulator->SetKeyUp( key );
+			break;
+		}
+		case WM_DESTROY:
+			PostQuitMessage(0);
+			break;
+		default:
+			return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
 }
@@ -482,12 +474,14 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 					}
 					case IDC_PAUSE:
 					{
-						g_bRun = false;
+						//g_bRun = false;
+						extern bool g_bExternalDebuggerBreakpoint ;
+						g_bExternalDebuggerBreakpoint = true;
 						break;
 					}
-					case IDC_DISPLAY_OUTPUT:
+					case IDC_OUTPUT_DISASSEMBLY:
 					{
-						g_bDisplayOutput = !g_bDisplayOutput;
+						g_bDisassemblyConstantSpew = !g_bDisassemblyConstantSpew;
 						break;
 					}
 					case IDC_BREAK_ON_READ:
@@ -517,10 +511,12 @@ INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 						{
 							string breakpoints ;
 							g_breakpoints.push_back( address );
-							cpu.SetBreakpoint( address );
+							cpu.ClearBreakpoints();
 							for ( size_t i = 0; i < g_breakpoints.size(); i++ )
 							{
-								breakpoints.append( Utils::toHex( u16(address), true ) );
+								cpu.SetBreakpoint( g_breakpoints[i] );
+
+								breakpoints.append( Utils::toHex( u16( g_breakpoints[i] ), true ) );
 								breakpoints.append("\n");
 							}
 							SetDlgItemTextA( hDlg, IDC_BREAKPOINTS, breakpoints.c_str() );

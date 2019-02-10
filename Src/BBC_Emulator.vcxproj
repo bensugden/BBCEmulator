@@ -163,6 +163,7 @@
     <ClInclude Include="6522_VIA_System.h" />
     <ClInclude Include="6522_VIA_Ports.h" />
     <ClInclude Include="6845_CRTC.h" />
+    <ClInclude Include="BBC_Keyboard.h" />
     <ClInclude Include="BBC_Emulator.h" />
     <ClInclude Include="6502_CPU.h" />
     <ClInclude Include="DirectX.h" />
@@ -190,6 +191,7 @@
     <ClCompile Include="6522_VIA_System.cpp" />
     <ClCompile Include="6522_VIA_Ports.cpp" />
     <ClCompile Include="6845_CRTC.cpp" />
+    <ClCompile Include="BBC_Keyboard.cpp" />
     <ClCompile Include="BBC_Emulator.cpp" />
     <ClCompile Include="DirectX.cpp" />
     <ClCompile Include="File.cpp" />
@@ -202,7 +204,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="SystemClock.cpp" />
     <ClCompile Include="VideoULA.cpp" />
     <ClCompile Include="Win32.cpp" />
   </ItemGroup>

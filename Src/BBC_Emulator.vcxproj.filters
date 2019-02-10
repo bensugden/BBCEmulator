@@ -90,6 +90,9 @@
     <ClInclude Include="6522_VIA_System.h">
       <Filter>Emulator\Headers</Filter>
     </ClInclude>
+    <ClInclude Include="BBC_Keyboard.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -140,10 +143,10 @@
     <ClCompile Include="6522_VIA_Ports.cpp">
       <Filter>Emulator\Source</Filter>
     </ClCompile>
-    <ClCompile Include="SystemClock.cpp">
+    <ClCompile Include="6522_VIA_System.cpp">
       <Filter>Emulator\Source</Filter>
     </ClCompile>
-    <ClCompile Include="6522_VIA_System.cpp">
+    <ClCompile Include="BBC_Keyboard.cpp">
       <Filter>Emulator\Source</Filter>
     </ClCompile>
   </ItemGroup>

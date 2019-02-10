@@ -51,10 +51,6 @@ struct MemoryMap
 		{ 
 			nID = ++m_nNumMemMappedAddresses;
 		}
-		else
-		{
-			assert( false );
-		}
 
 		m_pMemoryMappedCallback[ nID ] = listenerFunction; // 0 will indicate no listener registered for this memory location
 		m_pMemoryMapID[ address - m_startAddress ] = nID;
