@@ -63,7 +63,7 @@ bool CPU::ProcessSingleInstruction()
 			{
 				if ( GetFlag( flag_I ) == 0 )
 				{
-				//	cpu.ThrowBreakpoint(std::string("INTERRUPT_IRQ"));
+					//	cpu.ThrowBreakpoint(std::string("INTERRUPT_IRQ"));
 					m_pendingInterrupt = INTERRUPT_NONE;
 					fn_IRQ();
 				}
@@ -88,6 +88,7 @@ bool CPU::ProcessSingleInstruction()
 				break;
 		}
 	}
+	
 
 	//
 	// fetch
@@ -104,10 +105,7 @@ bool CPU::ProcessSingleInstruction()
 	//
 	// dispatch
 	//
-	if ( command.m_functionHandler == nullptr )
-	{
-	int i=0;i++;
-	}
+	assert( command.m_functionHandler != nullptr ); // illegal opcode.
 	command.m_functionHandler( );
 
 	//

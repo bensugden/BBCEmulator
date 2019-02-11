@@ -42,11 +42,18 @@ static inline void DiscardNextPC( )
 }
 
 //-------------------------------------------------------------------------------------------------
-static inline void PushP( )
+static inline void PushP_BRK( )
 {
 	//  $0100,S  W  push P on stack, decrement S
-	mem.Write( cpu.StackAddress( ), cpu.reg.P );
+	mem.Write( cpu.StackAddress( ), cpu.reg.P | flag_B | flag_unused );
 }
+//-------------------------------------------------------------------------------------------------
+static inline void PushP_noBRK( )
+{
+	//  $0100,S  W  push P on stack, decrement S
+	mem.Write( cpu.StackAddress( ), (cpu.reg.P & (~flag_B)) | flag_unused );
+}
+
 //-------------------------------------------------------------------------------------------------
 static inline void PushA()
 {
@@ -72,6 +79,8 @@ static inline void PullP( )
 {
     //  $0100,S  R  pull P from stack, increment S
 	cpu.reg.P = mem.Read( cpu.StackAddress( ) );
+	//assert( cpu.reg.GetFlag( flag_B ) == 0 );
+	cpu.reg.SetFlag( flag_B, 0 );
 	// NOTE: masking out BRK and unused flags to pass tests :(
 	//cpu.reg.P = ( cpu.reg.P & 0x30 ) | ( mem.Read( cpu.StackAddress( ) ) & 0xcf );
 }
@@ -516,9 +525,9 @@ inline u8 op_TYA(u8 val)
 
 void fn_NMI( )
 {
-	DiscardNextPC(); 
-	cpu.IncPC();
-	cpu.Tick();
+	//DiscardNextPC(); 
+	//cpu.IncPC();
+	//cpu.Tick();
 
 	PushPCH( ); 
 	cpu.DecS(); 
@@ -528,7 +537,7 @@ void fn_NMI( )
 	cpu.DecS(); 
 	cpu.Tick();
 
-	PushP( ); 
+	PushP_noBRK( ); 
 	cpu.DecS(); 
 	cpu.Tick();
 
@@ -543,9 +552,9 @@ void fn_NMI( )
 
 void fn_IRQ( )
 {
-	DiscardNextPC(); 
-	cpu.IncPC();
-	cpu.Tick();
+	//DiscardNextPC(); 
+	//cpu.IncPC();
+	//cpu.Tick();
 
 	PushPCH( ); 
 	cpu.DecS(); 
@@ -555,7 +564,7 @@ void fn_IRQ( )
 	cpu.DecS(); 
 	cpu.Tick();
 
-	PushP( ); 
+	PushP_noBRK( ); 
 	cpu.DecS(); 
 	cpu.Tick();
 
@@ -575,7 +584,6 @@ void fn_IRQ( )
 namespace StackInstructions
 {
 	//-------------------------------------------------------------------------------------------------
-
 	void fn_BRK( )
 	{
 		/*
@@ -602,7 +610,7 @@ namespace StackInstructions
 		cpu.DecS(); 
 		cpu.Tick();
 
-		PushP( ); 
+		PushP_BRK( ); 
 		cpu.DecS(); 
 		cpu.Tick();
 
@@ -702,7 +710,7 @@ namespace StackInstructions
 		DiscardNextPC(); 
 		cpu.Tick();
 		
-		PushP(); 
+		PushP_BRK( ); 
 		cpu.DecS(); 
 		cpu.LastTick();
 	}

@@ -47,7 +47,7 @@ void BBC_Emulator::Tick()
 	if ( m_nClockCounter & 0x2 )
 	{
 		m_systemVIA.Tick();
-		m_portsVIA.Tick();
+	//	m_portsVIA.Tick();
 	}
 }
 
@@ -135,6 +135,9 @@ bool g_bExternalDebuggerBreakpoint = false;
 bool BBC_Emulator::ProcessInstructions( int nCount, std::string* pDisassemblyString, bool bDebug, bool bForceDebugPC, bool bAlwaysSpewToOutputWindow )
 {
 	bool bBreakpoint = false;
+
+	//test
+	SetKeyDown( 'A' );
 
 	if ( /*bDebug &&*/ ( m_history.IsEmpty()|| bForceDebugPC ) )
 	{

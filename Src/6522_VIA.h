@@ -44,8 +44,10 @@ protected:
 
 	struct Registers
 	{
-		u8 B;							// Output Input register B					
-		u8 A;							// Output Input register A					
+		u8 ORB;							// Output register B					
+		u8 ORA;							// Output register A					
+		u8 IRB;							// Input register B					
+		u8 IRA;							// Input register A					
 		u8 DDRB;						// Data direction register B				
 		u8 DDRA;						// Data direction register A				
 		u8 T1_COUNTER_L;				// T1 low order Counter
@@ -61,8 +63,6 @@ protected:
 		u8 IFR;							// Interrupt flag register				
 		u8 IER;							// Interrupt enable register				
 		u8 ORA_IRA_NO_HANDSHAKE;		// ORA / IRA no handshake
-		u8 PA;							// Peripheral Port A
-		u8 PB;							// Peripheral Port B
 		u8 CA1;							// Control line A1
 		u8 CA2;							// Control line A2
 		u8 CB1;							// Control line B1
@@ -101,39 +101,45 @@ protected:
 
 	//-------------------------------------------------------------------------------------------------
 
-	u8			WriteIFR( u16 address, u8 value );
-	u8			WriteIER( u16 address, u8 value );
-	u8			WriteOR( u16 address, u8 value );
-	u8			WriteACR( u16 address, u8 value );
-	u8			WriteT1( u16 address, u8 value );
-	u8			WriteT2( u16 address, u8 value );
-	u8			WritePCR( u16 address, u8 value );
-	u8			WriteShift( u16 address, u8 value );
-	u8			WriteDDR( u16 address, u8 value );
-	u8			ReadIR( u16 address, u8 value );
-	u8			ReadT1( u16 address, u8 value );
-	u8			ReadT2( u16 address, u8 value );
+	u8				WriteIFR( u16 address, u8 value );
+	u8				WriteIER( u16 address, u8 value );
+	u8				WriteOR( u16 address, u8 value );
+	u8				WriteACR( u16 address, u8 value );
+	u8				WriteT1( u16 address, u8 value );
+	u8				WriteT2( u16 address, u8 value );
+	u8				WritePCR( u16 address, u8 value );
+	u8				WriteShift( u16 address, u8 value );
+	u8				WriteDDR( u16 address, u8 value );
+	u8				ReadIR( u16 address, u8 value );
+	u8				ReadT1( u16 address, u8 value );
+	u8				ReadT2( u16 address, u8 value );
+	u8				ReadIFR( u16 address, u8 value );
 
-	u8			GetControlLineModeCA1( ) const;
-	u8			GetControlLineModeCA2( ) const;
-	u8			GetControlLineModeCB1( ) const;
-	u8			GetControlLineModeCB2( ) const;
-	u8			GetShiftMode( ) const;
+	u8				GetControlLineModeCA1( ) const;
+	u8				GetControlLineModeCA2( ) const;
+	u8				GetControlLineModeCB1( ) const;
+	u8				GetControlLineModeCB2( ) const;
+	u8				GetShiftMode( ) const;
 
-	void		SetCA1( u8 value );
-	void		SetCA2( u8 value );
-	void		SetCB1( u8 value );
-	void		SetCB2( u8 value );
+	void			SetCA1( u8 value );
+	void			SetCA2( u8 value );
+	void			SetCB1( u8 value );
+	void			SetCB2( u8 value );
 
-	Registers	reg;
+	virtual void	WritePortA( u8 value ) = 0; 
+	virtual void	WritePortB( u8 value ) = 0; 
+
+	virtual u8		ReadPortA( ) = 0;
+	virtual u8		ReadPortB( ) = 0;
+
+	Registers		reg;
 
 private:
-	void		SetCAB1( u8 value, bool B, InterruptFlags interrupt );
-	void		SetCAB2( u8 value, bool B, InterruptFlags interrupt );
-	void		UpdateControlChannel_DuringReadOrWriteOfPort( ReadWriteChannel in );
-	void		ThrowInterrupt( InterruptFlags interrupt );
+	void			UpdateIFR();
+	void			UpdateControlChannel_DuringReadOrWriteOfPort( ReadWriteChannel in );
+	void			ThrowInterrupt( InterruptFlags interrupt );
 
-	u16			m_baseAddress;
+	u16				m_baseAddress;
 };
 
 //-------------------------------------------------------------------------------------------------

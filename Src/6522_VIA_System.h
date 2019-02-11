@@ -21,9 +21,11 @@ class System_VIA_6522 : public VIA_6522
 public:
 	System_VIA_6522( IKeyboard& keyboard );
 
-	u8				WriteORA( u16 address, u8 value );
-	u8				WriteORB( u16 address, u8 value );
-	u8				ReadIRA( u16 address, u8 value );
+	virtual void	WritePortA( u8 value ); 
+	virtual void	WritePortB( u8 value ); 
+
+	virtual u8		ReadPortA( );
+	virtual u8		ReadPortB( ) { return 0xff; };
 private:
 	void			UpdateSlowDataBus();
 	void			WriteToIC32( u8 value );

@@ -29,19 +29,34 @@ u8 VIA_6522::WriteIFR( u16 address, u8 value )
 	//
 	reg.IFR &= ~value;
 
+	UpdateIFR();
+
+	return reg.IFR;
+}
+
+//-------------------------------------------------------------------------------------------------
+
+u8 VIA_6522::ReadIFR( u16 address, u8 value )
+{
+	return reg.IFR;
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void VIA_6522::UpdateIFR()
+{
 	//
 	// Set top bit if any bits are set & throw interrupt, otherwise clear
 	//
-	if ( reg.IFR& ( ~INTERRUPT_SET ) ) // 0x7f
+	if ( ( reg.IFR & ( ~INTERRUPT_SET ) ) & ( reg.IER & 0x7f )) // 0x7f
 	{
 		reg.IFR |= INTERRUPT_SET; // ( bit 7 or 0x80 )
 		cpu.ThrowInterrupt( INTERRUPT_IRQ );
 	}
 	else
 	{
-		reg.IFR = 0; // no interrupts flagged at this stage
+		reg.IFR &= ~INTERRUPT_SET ; // no interrupts flagged at this stage
 	}
-	return reg.IFR;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -68,12 +83,11 @@ u8 VIA_6522::WriteIER( u16 address, u8 value )
 
 		//
 		// Clear corresponding bits in IFR. 
-		// Calling via mem interface so the memory mapped address in RAM also gets updated
 		//
-		mem.Write( m_baseAddress + RW_IFR, value );
 	}
 
 	reg.IER |= INTERRUPT_SET; // always set to 1 for reading ( bit 7 or 0x80 )
+	UpdateIFR();
 
 	return reg.IER;
 }
@@ -217,13 +231,7 @@ u8 VIA_6522::WriteOR( u16 address, u8 value )
 	//
 	// Only copy those bits set in DDR from ORA / ORB to PA / PB
 	//
-	if ( in == RW_ORA_IRA || in == RW_ORA_IRA_NO_HANDSHAKE )
-	{
-		reg.A = value;
-		reg.PA &= ~reg.DDRA;
-		reg.PA |= value & reg.DDRA;
-	}
-	else //	if ( in == RW_ORB_IRB )
+	if ( in == RW_ORB_IRB )
 	{
 		//
 		// Note from page 7 of Datasheet:
@@ -237,9 +245,13 @@ u8 VIA_6522::WriteOR( u16 address, u8 value )
 		{
 			mask = reg.DDRB & 0x7f;
 		}
-		reg.B = value;
-		reg.PB &= ~mask;
-		reg.PB |= value & mask;
+		WritePortB( ( value & mask ) | ( ~reg.DDRB ) );
+		reg.ORB = value;
+	}
+	else //	if ( in == RW_ORA_IRA || in == RW_ORA_IRA_NO_HANDSHAKE ) )
+	{
+		WritePortA( ( value & reg.DDRA ) | ( ~reg.DDRA ) );
+		reg.ORA = value;
 	}
 	return value;
 }
@@ -251,22 +263,42 @@ u8 VIA_6522::ReadIR( u16 address, u8 value )
 {
 	ReadWriteChannel in = ( ReadWriteChannel )( address - m_baseAddress );
 
-	UpdateControlChannel_DuringReadOrWriteOfPort( in );
-
-	if ( in == RW_ORA_IRA )
+	if ( in != RW_ORA_IRA_NO_HANDSHAKE )
 	{
-		//
-		// check if latching - if yes, use IRA else use PA
-		//
-		return ( reg.PCR & 1 ) ? reg.A : reg.PA; // IRA gets set when CA1 made active transition 
+		UpdateControlChannel_DuringReadOrWriteOfPort( in );
 	}
-	else
+
+	if ( in == RW_ORB_IRB )
 	{
 		//
 		// check if latching - if yes, use IRB else use PB
 		//
-		u8 input = ( reg.PCR & 2 ) ? reg.B : reg.PB; // IRB gets set when CB1 made active transition 
-		return ( reg.DDRB& reg.B ) | ( ( ~reg.DDRB ) & input );
+		value = ( reg.ORB & reg.DDRB ); 
+		if ( reg.ACR & 2 )
+		{
+			value |= ( reg.IRB & ( ~reg.DDRB ) );  // IRB gets set when CB1 made active transition  - read LATCH
+		}
+		else
+		{
+			value |= ( ReadPortB() & ( ~reg.DDRB ) ); // Read current value from port B
+		}
+		return value;
+	}
+	else
+	{
+		//
+		// check if latching - if yes, use IRA else use PA
+		//
+		value = ( reg.ORA & reg.DDRA ); 
+		if ( reg.ACR & 1 )
+		{
+			value |= ( reg.IRA & ( ~reg.DDRA ) ); // IRA gets set when CA1 made active transition - read LATCH
+		}
+		else
+		{
+			value |= ( ReadPortA() & ( ~reg.DDRA ) ); // Read current value from port A
+		}
+		return value;
 	}
 }
 //-------------------------------------------------------------------------------------------------
@@ -280,12 +312,12 @@ u8 VIA_6522::WriteDDR( u16 address, u8 value )
 	if ( in == RW_DDRA )
 	{
 		reg.DDRA = value;
-		WriteOR( m_baseAddress + RW_ORA_IRA, reg.A );
+		WritePortA( ( reg.ORA & reg.DDRA ) | ( ~reg.DDRA ) );
 	}
 	else // if ( in == RW_DDRB )
 	{
 		reg.DDRB = value;
-		WriteOR( m_baseAddress + RW_ORB_IRB, reg.B );
+		WritePortB( ( reg.ORB & reg.DDRB ) | ( ~reg.DDRB ) );
 	}
 	return value;
 }
@@ -388,7 +420,7 @@ void VIA_6522::UpdateControlChannel_DuringReadOrWriteOfPort( ReadWriteChannel in
 		}
 	}
 	//
-	// Clear Interrupt Flag CA1/CA2
+	// Clear Interrupt Flag CA1/CB1
 	//
 	mem.Write( m_baseAddress + RW_IFR, controlChannelInterrupt1 );
 }
@@ -460,7 +492,7 @@ void VIA_6522::SetCB1( u8 value )
 	//
 	// Handshake output mode - Reset CA2/CB2 pin to high with an active transition of the CA1/CB1 input pin.
 	//
-	if ( ( GetControlLineModeCA2( ) == 4 ) && ( value > 0 ) )
+	if ( ( GetControlLineModeCB2( ) == 4 ) && ( value > 0 ) )
 	{
 		reg.CB2 = 1;
 	}
@@ -651,6 +683,7 @@ VIA_6522::VIA_6522( u16 viaMemoryMappedStartAddressForORA_B )
 	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_T1LH_T1_high_order_latches, MemoryMapHandler( VIA_6522::ReadT1 ) );
 	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_T2CL_T2_low_order_latches, MemoryMapHandler( VIA_6522::ReadT2 ) );
 	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_T2CH_T2_high_order_counter, MemoryMapHandler( VIA_6522::ReadT2 ) );
+	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_IFR_Interrupt_flag_register, MemoryMapHandler( VIA_6522::ReadIFR ) );
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -736,7 +769,7 @@ void VIA_6522::Tick( )
 		}
 		else
 		{
-			if ( reg.PB & 0x40 )
+			if ( ReadPortB() & 0x40 )
 			{
 				if ( --timer == 0 )
 				{

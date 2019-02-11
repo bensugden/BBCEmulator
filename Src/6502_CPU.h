@@ -203,6 +203,14 @@ struct CPU
 
 	//-------------------------------------------------------------------------------------------------
 
+	inline void ThrowBreakpoint( const char* reason )
+	{
+		m_bExternalBreakpoint = true;
+		m_breakpointReason = std::string(reason);
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
 	inline void ThrowBreakpoint( std::string& reason )
 	{
 		m_bExternalBreakpoint = true;

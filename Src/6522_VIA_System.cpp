@@ -19,13 +19,6 @@ System_VIA_6522::System_VIA_6522( IKeyboard& keyboard )
 	: VIA_6522( SHEILA::WRITE_6522_VIA_A_ORB_IRB_Output_register_B  )
 	, m_keyboard( keyboard )
 {
-	//
-	// Override some handlers
-	//
-	mem.RegisterMemoryMap_Write( SHEILA::WRITE_6522_VIA_A_ORB_IRB_Output_register_B, MemoryMapHandler( System_VIA_6522::WriteORB ));
-	mem.RegisterMemoryMap_Write( SHEILA::WRITE_6522_VIA_A_ORA_IRA_Output_register_A, MemoryMapHandler( System_VIA_6522::WriteORA ));
-
-	mem.RegisterMemoryMap_Read( SHEILA::WRITE_6522_VIA_A_ORA_IRA_Output_register_A, MemoryMapHandler( System_VIA_6522::ReadIRA ));
 	m_nIC32 = 0;
 	m_nSDB = 0;
 }
@@ -138,34 +131,26 @@ void System_VIA_6522::UpdateSlowDataBus()
 
 //-------------------------------------------------------------------------------------------------
 
-u8 System_VIA_6522::ReadIRA( u16 address, u8 value )
+u8 System_VIA_6522::ReadPortA( )
 {
 	UpdateSlowDataBus();
-	reg.A = m_nSDB;
-	return __super::ReadIR( address, value );
-}
-
-//-------------------------------------------------------------------------------------------------
-
-u8 System_VIA_6522::WriteORA( u16 address, u8 value )
-{
-	m_nSDB = __super::WriteOR( address, value );
-	
-	UpdateSlowDataBus();
-
 	return m_nSDB;
 }
 
 //-------------------------------------------------------------------------------------------------
 
-u8 System_VIA_6522::WriteORB( u16 address, u8 value )
+void System_VIA_6522::WritePortA( u8 value )
 {
-	value = __super::WriteOR( address, value );
+	m_nSDB = value;
+	UpdateSlowDataBus();
+}
 
+//-------------------------------------------------------------------------------------------------
+
+void System_VIA_6522::WritePortB( u8 value )
+{
 	WriteToIC32( value );
 	UpdateSlowDataBus();
-
-	return value;
 }
 
 //-------------------------------------------------------------------------------------------------
