@@ -26,6 +26,7 @@ CPU			cpu;
 BBC_Emulator::BBC_Emulator()
 	: m_teletext( m_crtc )
 	, m_systemVIA( m_keyboard )
+	, m_keyboard( m_systemVIA )
 {
 	Reset();
 	cpu.SetClock( this );
@@ -137,9 +138,15 @@ bool BBC_Emulator::ProcessInstructions( int nCount, std::string* pDisassemblyStr
 	bool bBreakpoint = false;
 
 	//test
-	SetKeyDown( 'A' );
+// 	static int timer = 4000000;
+// 	timer -= nCount;
+// 	if ( timer < 0 )
+// 	{
+// 		SetKeyDown( 'A' );
+// 		timer = 4000000;
+// 	}
 
-	if ( /*bDebug &&*/ ( m_history.IsEmpty()|| bForceDebugPC ) )
+	if ( bDebug && ( m_history.IsEmpty()|| bForceDebugPC ) )
 	{
 		DebugDecodeNextInstruction();
 	}
@@ -149,7 +156,7 @@ bool BBC_Emulator::ProcessInstructions( int nCount, std::string* pDisassemblyStr
 		{
 			bBreakpoint = true;
 		}
-		//if ( bDebug || bBreakpoint  )
+		if ( bDebug || bBreakpoint  )
 		{
 			DebugDecodeNextInstruction();
 		}

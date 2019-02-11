@@ -26,10 +26,10 @@ public:
 
 	virtual u8		ReadPortA( );
 	virtual u8		ReadPortB( ) { return 0xff; };
+	void			ScanKeyboard();
 private:
 	void			UpdateSlowDataBus();
 	void			WriteToIC32( u8 value );
-	void			ScanKeyboard();
 
 	u8				m_nIC32;
 	IKeyboard&		m_keyboard;

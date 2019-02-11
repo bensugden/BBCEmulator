@@ -22,10 +22,10 @@ enum EFlag
 
 enum EInterrupt
 {
-	INTERRUPT_NONE,
-	INTERRUPT_NMI,
-	INTERRUPT_RESET,
-	INTERRUPT_IRQ
+	INTERRUPT_NONE	= 0,
+	INTERRUPT_NMI	= 1,
+	INTERRUPT_RESET = 2,
+	INTERRUPT_IRQ   = 4
 };
 
 #include "6502_OpcodeTable.h"
@@ -221,7 +221,14 @@ struct CPU
 	
 	inline void ThrowInterrupt( EInterrupt interrupt )
 	{
-		m_pendingInterrupt = interrupt;
+		m_pendingInterrupt |= interrupt;
+	}
+
+	//-------------------------------------------------------------------------------------------------
+	
+	inline void ClearInterrupt( EInterrupt interrupt )
+	{
+		m_pendingInterrupt &= ~interrupt;
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -259,7 +266,7 @@ private:
 	OpcodeTable					m_opcodeTable;
 	bool						m_bExternalBreakpoint;
 	std::string					m_breakpointReason;
-	EInterrupt					m_pendingInterrupt;
+	u8							m_pendingInterrupt;
 	class ISystemClock*			m_pClock;
 
 	//-------------------------------------------------------------------------------------------------

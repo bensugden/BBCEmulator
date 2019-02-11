@@ -102,7 +102,8 @@ static KeyCodeMapping g_keycodeMapping[] =
 
 //-------------------------------------------------------------------------------------------------
 
-BBC_Keyboard::BBC_Keyboard()
+BBC_Keyboard::BBC_Keyboard( System_VIA_6522& sysVia )
+	: m_sysVia( sysVia )
 {
 	memset( m_vkeyToScanCodeMap, -1, sizeof( m_vkeyToScanCodeMap ) );
 	memset( m_scancodeToKeyCodeMap, -1, sizeof( m_scancodeToKeyCodeMap ) );
@@ -114,7 +115,7 @@ BBC_Keyboard::BBC_Keyboard()
 
 		m_vkeyToScanCodeMap[ mapping.vkey		] = mapping.scanCode;
 		m_vkeyToScanCodeMap[ mapping.vkey_shift ] = mapping.scanCode;
-		m_scancodeToKeyCodeMap[ mapping.scanCode ] = i;
+		m_scancodeToKeyCodeMap[ mapping.scanCode ] = mapping.vkey;
 	}
 }
 
@@ -123,6 +124,7 @@ BBC_Keyboard::BBC_Keyboard()
 void BBC_Keyboard::SetKeyDown( u8 vkey )
 {
 	m_keys[ vkey ] = 1;
+	m_sysVia.ScanKeyboard();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -130,6 +132,7 @@ void BBC_Keyboard::SetKeyDown( u8 vkey )
 void BBC_Keyboard::SetKeyUp( u8 vkey )
 {
 	m_keys[ vkey ] = 0;
+	m_sysVia.ScanKeyboard();
 }
 
 //-------------------------------------------------------------------------------------------------

@@ -59,28 +59,25 @@ bool CPU::ProcessSingleInstruction()
 	{
 		switch ( m_pendingInterrupt )
 		{
+			case INTERRUPT_NMI :
+			{
+				//cpu.ThrowBreakpoint(std::string("INTERRUPT_NMI"));
+				fn_NMI();
+
+				break;
+			}
 			case INTERRUPT_IRQ :
 			{
 				if ( GetFlag( flag_I ) == 0 )
 				{
 					//	cpu.ThrowBreakpoint(std::string("INTERRUPT_IRQ"));
-					m_pendingInterrupt = INTERRUPT_NONE;
 					fn_IRQ();
 				}
-				break;
-			}
-			case INTERRUPT_NMI :
-			{
-				//cpu.ThrowBreakpoint(std::string("INTERRUPT_NMI"));
-				m_pendingInterrupt = INTERRUPT_NONE;
-				fn_NMI();
-
 				break;
 			}
 			case INTERRUPT_RESET :
 			{
 				//cpu.ThrowBreakpoint(std::string("INTERRUPT_RESET"));
-				m_pendingInterrupt = INTERRUPT_NONE;
 				Reset();
 				break;
 			}

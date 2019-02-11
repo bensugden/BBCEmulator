@@ -115,7 +115,9 @@ void System_VIA_6522::ScanKeyboard()
 void System_VIA_6522::UpdateSlowDataBus()
 {
 	ScanKeyboard();
-
+	if (!(m_nIC32 & 8) && !m_keyboard.IsKeyDown_ScanCode( m_nSDB & 0x7f )) 
+		m_nSDB &= 0x7f;
+	/*
 	if ( m_nIC32 & 0x8 )
 	{
 		if ( m_keyboard.IsKeyDown_ScanCode( m_nSDB & 0x7f ) )
@@ -127,6 +129,7 @@ void System_VIA_6522::UpdateSlowDataBus()
 			m_nSDB &= 0x7f;
 		}
 	}
+	*/
 }
 
 //-------------------------------------------------------------------------------------------------

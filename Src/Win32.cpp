@@ -156,6 +156,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				UpdateStatusWindows();
 				bLastRun = false;
 			}
+			if ( g_emulator !=nullptr )
+			{
+				g_emulator->RefreshDisplay();
+			}
+			GFXSystem::Render();
 		}
     }
 
@@ -294,11 +299,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		case WM_PAINT:
 			{
-				if ( g_emulator !=nullptr )
-				{
-					g_emulator->RefreshDisplay();
-				}
-				GFXSystem::Render();
+				
 			}
 			break;
 		case WM_KEYDOWN:

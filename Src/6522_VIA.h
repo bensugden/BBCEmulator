@@ -103,13 +103,17 @@ protected:
 
 	u8				WriteIFR( u16 address, u8 value );
 	u8				WriteIER( u16 address, u8 value );
-	u8				WriteOR( u16 address, u8 value );
+	u8				WriteORA( u16 address, u8 value );
+	u8				WriteORB( u16 address, u8 value );
 	u8				WriteACR( u16 address, u8 value );
 	u8				WriteT1( u16 address, u8 value );
 	u8				WriteT2( u16 address, u8 value );
 	u8				WritePCR( u16 address, u8 value );
 	u8				WriteShift( u16 address, u8 value );
 	u8				WriteDDR( u16 address, u8 value );
+
+	u8				ReadORA( u16 address, u8 value );
+	u8				ReadORB( u16 address, u8 value );
 	u8				ReadIR( u16 address, u8 value );
 	u8				ReadT1( u16 address, u8 value );
 	u8				ReadT2( u16 address, u8 value );
@@ -136,6 +140,8 @@ protected:
 
 private:
 	void			UpdateIFR();
+	void			Read_WriteA();
+	void			Read_WriteB();
 	void			UpdateControlChannel_DuringReadOrWriteOfPort( ReadWriteChannel in );
 	void			ThrowInterrupt( InterruptFlags interrupt );
 
