@@ -63,6 +63,7 @@ void BBC_Emulator::Reset()
 	mem.Clear( 0xfc00, 0xff00 );
 
 	cpu.Reset();
+	m_keyboard.ClearKeys();
 
 	//mem.LoadROM("test\\6502_functional_test.bin", 0x0000);
 	//cpu.reg.PC = 0x400;
@@ -177,6 +178,8 @@ bool BBC_Emulator::ProcessInstructions( int nCount, std::string* pDisassemblyStr
 		m_history.GetHistory(*pDisassemblyString);
 		OutputDebugStringA( pDisassemblyString->c_str() );
 	}
+	if ( m_keyboard.IsResetDown() )
+		Reset();
 	return bBreakpoint;
 }
 

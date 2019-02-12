@@ -80,9 +80,9 @@ void System_VIA_6522::ScanKeyboard()
 		//
 		// Autoscan enabled
 		//
-		for (int col = 0; col < 15; col++)
+		for (int col = 0; col < 10; col++)
 		{
-			for (int row = 0; row < 15; row++)
+			for (int row = 1; row < 8; row++)
 			{
 				if ( m_keyboard.IsKeyDown_ScanCode(  ( row << 4 ) | col ) )
 				{
@@ -98,7 +98,7 @@ void System_VIA_6522::ScanKeyboard()
 		// No autoscan?
 		//
         int col = m_nSDB & 0xF;
-		for (int row = 0; row < 15; row++)
+		for (int row = 1; row < 8; row++)
 		{
 			if ( m_keyboard.IsKeyDown_ScanCode(  ( row << 4 ) | col ) )
 			{

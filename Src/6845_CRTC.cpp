@@ -36,7 +36,7 @@ u8 CRTC_6845::WriteRegisterFile( u16 address, u8 value )
 	{
 		assert( value < 18 );
 		m_nCurrentRegister = value;
-		//if ( value == 12 )
+	//	if ( value == 12 )
 		//	cpu.ThrowBreakpoint(std::string("hit set screen"));
 	}
 	else

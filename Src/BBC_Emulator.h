@@ -105,8 +105,8 @@ public:
 
 	//-------------------------------------------------------------------------------------------------
 
-	void SetKeyDown( u8 key )	{ m_keyboard.SetKeyDown( key ); }
-	void SetKeyUp( u8 key )		{ m_keyboard.SetKeyUp( key ); }
+	void SetKeyDown( u8 key, bool bIsVKey )		{ m_keyboard.SetKeyDown( key, bIsVKey ); }
+	void SetKeyUp( u8 key, bool bIsVKey )		{ m_keyboard.SetKeyUp( key, bIsVKey ); }
 
 	//-------------------------------------------------------------------------------------------------
 

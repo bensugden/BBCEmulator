@@ -302,18 +302,43 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				
 			}
 			break;
-		case WM_KEYDOWN:
-		{
-			u8 key = wParam;
-			g_emulator->SetKeyDown( key );
-			break;
-		}
-		case WM_KEYUP:
-		{
-			u8 key = wParam;
-			g_emulator->SetKeyUp( key );
-			break;
-		}
+ 		case WM_KEYDOWN:
+ 		{
+ 			u8 key = wParam;
+			{
+	int c;
+	byte ks[256];
+	GetKeyboardState(ks);
+	char xx[3];
+	xx[0] = 0;
+	c = ToAscii(key, MapVirtualKey(key,0), ks, (LPWORD) &xx[0], 0);
+ 			if ( c == 1 )
+				g_emulator->SetKeyDown( xx[0], false );
+			else
+ 				g_emulator->SetKeyDown( key, true );
+
+			}
+ 			//g_emulator->SetKeyDown( key );
+ 			break;
+ 		}
+ 		case WM_KEYUP:
+ 		{
+ 			u8 key = wParam;
+
+				int c;
+	byte ks[256];
+	GetKeyboardState(ks);
+	char xx[3];
+	xx[0] = 0;
+	c = ToAscii(key, MapVirtualKey(key,0), ks, (LPWORD) &xx[0], 0);
+ 			if ( c == 1 )
+				g_emulator->SetKeyUp( xx[0], false );
+			else
+				g_emulator->SetKeyUp( key, true );
+ 			break;
+ 		}
+
+
 		case WM_DESTROY:
 			PostQuitMessage(0);
 			break;
