@@ -100,6 +100,22 @@ protected:
 	};
 
 	//-------------------------------------------------------------------------------------------------
+	//
+	// Port Interface ( To be implemented by specific VIA chips )
+	//
+	//-------------------------------------------------------------------------------------------------
+
+	virtual void	WritePortA( u8 value ) = 0; 
+	virtual void	WritePortB( u8 value ) = 0; 
+
+	virtual u8		ReadPortA( ) = 0;
+	virtual u8		ReadPortB( ) = 0;
+
+	//-------------------------------------------------------------------------------------------------
+	//
+	// Memory Map Handlers
+	//
+	//-------------------------------------------------------------------------------------------------
 
 	u8				WriteIFR( u16 address, u8 value );
 	u8				WriteIER( u16 address, u8 value );
@@ -119,6 +135,8 @@ protected:
 	u8				ReadT2( u16 address, u8 value );
 	u8				ReadIFR( u16 address, u8 value );
 
+	//-------------------------------------------------------------------------------------------------
+
 	u8				GetControlLineModeCA1( ) const;
 	u8				GetControlLineModeCA2( ) const;
 	u8				GetControlLineModeCB1( ) const;
@@ -129,12 +147,6 @@ protected:
 	void			SetCA2( u8 value );
 	void			SetCB1( u8 value );
 	void			SetCB2( u8 value );
-
-	virtual void	WritePortA( u8 value ) = 0; 
-	virtual void	WritePortB( u8 value ) = 0; 
-
-	virtual u8		ReadPortA( ) = 0;
-	virtual u8		ReadPortB( ) = 0;
 
 	Registers		reg;
 

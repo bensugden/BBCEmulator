@@ -116,6 +116,7 @@ private:
 	VideoULA					m_videoULA;
 	System_VIA_6522				m_systemVIA;
 //	Ports_VIA_6522				m_portsVIA;
+	LS161PagedRomController		m_pagedRomController;
 	SAA5050						m_teletext;
 	CRTC_6845					m_crtc;
 	BBC_Keyboard				m_keyboard;

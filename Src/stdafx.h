@@ -54,7 +54,9 @@ using std::placeholders::_4;
 #include "6522_VIA_System.h"
 #include "6522_VIA_Ports.h"
 #include "6845_CRTC.h"
+#include "8271_FDC.h"
 #include "SystemClock.h"
+#include "LS161_PagedRomController.h"
 
 #include "BBC_Keyboard.h"
 #include "BBC_Emulator.h"

@@ -14,6 +14,44 @@
 #include "stdafx.h"
 
 //-------------------------------------------------------------------------------------------------
+
+VIA_6522::VIA_6522( u16 viaMemoryMappedStartAddressForORA_B )
+	: m_baseAddress( viaMemoryMappedStartAddressForORA_B )
+{
+	memset( &reg, 0, sizeof( Registers ) );
+
+	u16 offset = m_baseAddress - SHEILA::WRITE_6522_VIA_A_ORB_IRB_Output_register_B;
+
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_ORB_IRB_Output_register_B, MemoryMapHandler( VIA_6522::WriteORB ) );
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_ORA_IRA_Output_register_A, MemoryMapHandler( VIA_6522::WriteORA ) );
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_DDRB_Data_direction_register_B, MemoryMapHandler( VIA_6522::WriteDDR ) );
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_DDRA_Data_direction_register_A, MemoryMapHandler( VIA_6522::WriteDDR ) );
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_T1CL_T1_low_order_latches, MemoryMapHandler( VIA_6522::WriteT1 ) );
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_T1CH_T1_high_order_counter, MemoryMapHandler( VIA_6522::WriteT1 ) );
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_T1LL_T1_low_order_latches, MemoryMapHandler( VIA_6522::WriteT1 ) );
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_T1LH_T1_high_order_latches, MemoryMapHandler( VIA_6522::WriteT1 ) );
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_T2CL_T2_low_order_latches, MemoryMapHandler( VIA_6522::WriteT2 ) );
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_T2CH_T2_high_order_counter, MemoryMapHandler( VIA_6522::WriteT2 ) );
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_SR_Shift_register, MemoryMapHandler( VIA_6522::WriteShift ) );
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_ACR_Auxiliary_control_register, MemoryMapHandler( VIA_6522::WriteACR ) );
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_PCR_Peripheral_control_register, MemoryMapHandler( VIA_6522::WritePCR ) );
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_IFR_Interrupt_flag_register, MemoryMapHandler( VIA_6522::WriteIFR ) );
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_IER_Interrupt_enable_register, MemoryMapHandler( VIA_6522::WriteIER ) );
+	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_ORA_IRA_NO_HANDSHAKE, MemoryMapHandler( VIA_6522::WriteORA ) );
+
+	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_ORB_IRB_Output_register_B, MemoryMapHandler( VIA_6522::ReadORB ) );
+	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_ORA_IRA_Output_register_A, MemoryMapHandler( VIA_6522::ReadORA ) );
+	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_T1CL_T1_low_order_latches, MemoryMapHandler( VIA_6522::ReadT1 ) );
+	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_T1CH_T1_high_order_counter, MemoryMapHandler( VIA_6522::ReadT1 ) );
+	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_T1LL_T1_low_order_latches, MemoryMapHandler( VIA_6522::ReadT1 ) );
+	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_T1LH_T1_high_order_latches, MemoryMapHandler( VIA_6522::ReadT1 ) );
+	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_T2CL_T2_low_order_latches, MemoryMapHandler( VIA_6522::ReadT2 ) );
+	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_T2CH_T2_high_order_counter, MemoryMapHandler( VIA_6522::ReadT2 ) );
+	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_IFR_Interrupt_flag_register, MemoryMapHandler( VIA_6522::ReadIFR ) );
+	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_ORA_IRA_NO_HANDSHAKE, MemoryMapHandler( VIA_6522::ReadORA ) );
+}
+
+//-------------------------------------------------------------------------------------------------
 //
 // Interrupt flag register	
 //
@@ -677,43 +715,6 @@ void VIA_6522::SetCB2( u8 value )
 		}
 	}
 	reg.CB2 = value;
-}
-//-------------------------------------------------------------------------------------------------
-
-VIA_6522::VIA_6522( u16 viaMemoryMappedStartAddressForORA_B )
-	: m_baseAddress( viaMemoryMappedStartAddressForORA_B )
-{
-	memset( &reg, 0, sizeof( Registers ) );
-
-	u16 offset = m_baseAddress - SHEILA::WRITE_6522_VIA_A_ORB_IRB_Output_register_B;
-
-	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_ORB_IRB_Output_register_B, MemoryMapHandler( VIA_6522::WriteORB ) );
-	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_ORA_IRA_Output_register_A, MemoryMapHandler( VIA_6522::WriteORA ) );
-	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_DDRB_Data_direction_register_B, MemoryMapHandler( VIA_6522::WriteDDR ) );
-	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_DDRA_Data_direction_register_A, MemoryMapHandler( VIA_6522::WriteDDR ) );
-	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_T1CL_T1_low_order_latches, MemoryMapHandler( VIA_6522::WriteT1 ) );
-	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_T1CH_T1_high_order_counter, MemoryMapHandler( VIA_6522::WriteT1 ) );
-	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_T1LL_T1_low_order_latches, MemoryMapHandler( VIA_6522::WriteT1 ) );
-	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_T1LH_T1_high_order_latches, MemoryMapHandler( VIA_6522::WriteT1 ) );
-	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_T2CL_T2_low_order_latches, MemoryMapHandler( VIA_6522::WriteT2 ) );
-	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_T2CH_T2_high_order_counter, MemoryMapHandler( VIA_6522::WriteT2 ) );
-	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_SR_Shift_register, MemoryMapHandler( VIA_6522::WriteShift ) );
-	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_ACR_Auxiliary_control_register, MemoryMapHandler( VIA_6522::WriteACR ) );
-	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_PCR_Peripheral_control_register, MemoryMapHandler( VIA_6522::WritePCR ) );
-	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_IFR_Interrupt_flag_register, MemoryMapHandler( VIA_6522::WriteIFR ) );
-	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_IER_Interrupt_enable_register, MemoryMapHandler( VIA_6522::WriteIER ) );
-	mem.RegisterMemoryMap_Write( offset + SHEILA::WRITE_6522_VIA_A_ORA_IRA_NO_HANDSHAKE, MemoryMapHandler( VIA_6522::WriteORA ) );
-
-	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_ORB_IRB_Output_register_B, MemoryMapHandler( VIA_6522::ReadORB ) );
-	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_ORA_IRA_Output_register_A, MemoryMapHandler( VIA_6522::ReadORA ) );
-	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_T1CL_T1_low_order_latches, MemoryMapHandler( VIA_6522::ReadT1 ) );
-	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_T1CH_T1_high_order_counter, MemoryMapHandler( VIA_6522::ReadT1 ) );
-	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_T1LL_T1_low_order_latches, MemoryMapHandler( VIA_6522::ReadT1 ) );
-	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_T1LH_T1_high_order_latches, MemoryMapHandler( VIA_6522::ReadT1 ) );
-	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_T2CL_T2_low_order_latches, MemoryMapHandler( VIA_6522::ReadT2 ) );
-	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_T2CH_T2_high_order_counter, MemoryMapHandler( VIA_6522::ReadT2 ) );
-	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_IFR_Interrupt_flag_register, MemoryMapHandler( VIA_6522::ReadIFR ) );
-	mem.RegisterMemoryMap_Read( offset + SHEILA::WRITE_6522_VIA_A_ORA_IRA_NO_HANDSHAKE, MemoryMapHandler( VIA_6522::ReadORA ) );
 }
 
 //-------------------------------------------------------------------------------------------------

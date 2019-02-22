@@ -163,12 +163,14 @@
     <ClInclude Include="6522_VIA_System.h" />
     <ClInclude Include="6522_VIA_Ports.h" />
     <ClInclude Include="6845_CRTC.h" />
+    <ClInclude Include="8271_FDC.h" />
     <ClInclude Include="BBC_Keyboard.h" />
     <ClInclude Include="BBC_Emulator.h" />
     <ClInclude Include="6502_CPU.h" />
     <ClInclude Include="DirectX.h" />
     <ClInclude Include="File.h" />
     <ClInclude Include="6502_Memory.h" />
+    <ClInclude Include="LS161_PagedRomController.h" />
     <ClInclude Include="MiscUtils.h" />
     <ClInclude Include="MyAssert.h" />
     <ClInclude Include="Resource.h" />
@@ -191,10 +193,12 @@
     <ClCompile Include="6522_VIA_System.cpp" />
     <ClCompile Include="6522_VIA_Ports.cpp" />
     <ClCompile Include="6845_CRTC.cpp" />
+    <ClCompile Include="8271_FDC.cpp" />
     <ClCompile Include="BBC_Keyboard.cpp" />
     <ClCompile Include="BBC_Emulator.cpp" />
     <ClCompile Include="DirectX.cpp" />
     <ClCompile Include="File.cpp" />
+    <ClCompile Include="LS161_PagedRomController.cpp" />
     <ClCompile Include="MiscUtils.cpp" />
     <ClCompile Include="SAA5050.cpp" />
     <ClCompile Include="SHEILA.cpp" />

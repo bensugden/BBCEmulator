@@ -93,6 +93,12 @@
     <ClInclude Include="BBC_Keyboard.h">
       <Filter>Emulator\Headers</Filter>
     </ClInclude>
+    <ClInclude Include="LS161_PagedRomController.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="8271_FDC.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -147,6 +153,12 @@
       <Filter>Emulator\Source</Filter>
     </ClCompile>
     <ClCompile Include="BBC_Keyboard.cpp">
+      <Filter>Emulator\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="LS161_PagedRomController.cpp">
+      <Filter>Emulator\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="8271_FDC.cpp">
       <Filter>Emulator\Source</Filter>
     </ClCompile>
   </ItemGroup>

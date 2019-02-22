@@ -91,25 +91,99 @@ struct MemoryMap
 
 struct MemoryState
 {
-	MemoryState( u16 nUserMemory = 32768, u32 nAllocation = 65536 )
+	MemoryState( u16 nUserMemory = 32768, u32 nAllocation = 65536, u16 pageSize = 16384, u16 maxPagedROMS = 16 )
 		: m_nEndUserMemory( nUserMemory )
 		, m_maxAllocatedMemory( nAllocation )
 		, m_bReadBreakpointSet( false )
 		, m_bWriteBreakpointSet( false )
 		, m_writeMemoryMap( nAllocation -  nUserMemory, nUserMemory )
 		, m_readMemoryMap( nAllocation -  nUserMemory, nUserMemory )
+		, m_nMaxPagedRoms( maxPagedROMS )
+		, m_nPageSize( pageSize )
 	{
-		m_pMemory = new u8[ nAllocation ];
-		memset( m_pMemory, 0, nAllocation );
+		//
+		// Pre-allocate 1 page of memory per page. Future ones can be allocated ad-hoc
+		//
+		u32 nNumPages = nAllocation / pageSize;
+		m_pPageAddresses = new u8**[ nNumPages ];
+		m_pActivePageAddress = new u8*[ nNumPages ];
+
+		for ( u32 page = 0; page < nNumPages; page++ )
+		{ 
+			m_pPageAddresses[ page ] = new u8*[ maxPagedROMS ];
+			
+			m_pPageAddresses[ page ][ 0 ] = new u8[ pageSize ];
+			m_pActivePageAddress[ page ] = m_pPageAddresses[ page ][ 0 ];
+
+			memset( m_pPageAddresses[ page ][ 0 ], 0, pageSize );
+
+			for ( u32 rom = 1; rom < maxPagedROMS; rom++ )
+			{
+				m_pPageAddresses[ page ][ rom ] = nullptr;
+			}
+		}
+
+		m_nPageSizeShift = 0;
+		while ( ( 1 << m_nPageSizeShift ) < pageSize )
+		{
+			m_nPageSizeShift ++;
+		}
 
 		// todo - set up default memory values for 6502
 	}
-
 	//-------------------------------------------------------------------------------------------------
 
 	~MemoryState()
 	{
-		delete [] m_pMemory;
+		u32 nNumPages = m_maxAllocatedMemory / m_nPageSize;
+		for ( u32 page = 0; page < nNumPages; page++ )
+		{ 
+			for ( u32 rom = 0; rom < m_nMaxPagedRoms; rom++ )
+			{
+				delete [] m_pPageAddresses[ page ][ rom ] ;
+			}
+			delete [] m_pPageAddresses[ page ];
+		}
+		delete [] m_pPageAddresses;
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
+	void EnsureMemoryAllocated( u16 address, u8 romID )
+	{
+		u16 page = address >> m_nPageSizeShift;
+		if ( m_pPageAddresses[ page ][ romID ] != nullptr )
+			return;
+		m_pPageAddresses[ page ][ romID ] = new u8[ m_nPageSize ];
+		memset( m_pPageAddresses[ page ][ romID ], 0, m_nPageSize );
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
+	void SelectRomForAddress( u16 address, u8 romID )
+	{
+		EnsureMemoryAllocated( address, romID );
+		u16 page = address >> m_nPageSizeShift;
+		m_pActivePageAddress[ page ] = m_pPageAddresses[ page ][ romID ];
+		assert( m_pActivePageAddress[ page ] );
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
+	inline u8* TranslateAddress( u16 address, u8 romID ) const
+	{
+		u16 inPageAddress = address & ( m_nPageSize - 1 );
+		u16 page = address >> m_nPageSizeShift;
+		return m_pPageAddresses[ page ][ romID ] + inPageAddress ;
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
+	inline u8& Memory( u16 address ) const
+	{
+		u16 inPageAddress = address & ( m_nPageSize - 1 );
+		u16 page = address >> m_nPageSizeShift;
+		return m_pActivePageAddress[ page ][ inPageAddress ];
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -156,14 +230,14 @@ struct MemoryState
 	inline u8 Read_Internal( int nAddress ) const
 	{
 		// No breakpoints - this is for internal (ie hw/debugger) memory access only 
-		return m_pMemory[ nAddress ];
+		return Memory( nAddress );
 	}
 	//-------------------------------------------------------------------------------------------------
 
 	inline u8 Read( int nAddress )
 	{
 		CheckReadBreakpoint( nAddress );
-		return m_readMemoryMap.CheckMemoryMapped( nAddress, m_pMemory[ nAddress ] );
+		return m_readMemoryMap.CheckMemoryMapped( nAddress, Memory( nAddress ) );
 
 	}
 	//-------------------------------------------------------------------------------------------------
@@ -176,8 +250,8 @@ struct MemoryState
 
 	inline void Write( u16 nAddress, u8 value )
 	{
-		m_pMemory[ nAddress ] = m_writeMemoryMap.CheckMemoryMapped( nAddress, value );
-		CheckWriteBreakpoint( nAddress, m_pMemory[ nAddress ] );
+		Memory( nAddress ) = m_writeMemoryMap.CheckMemoryMapped( nAddress, value );
+		CheckWriteBreakpoint( nAddress, Memory( nAddress ) );
 	}
 
 		//-------------------------------------------------------------------------------------------------
@@ -185,24 +259,24 @@ struct MemoryState
 	inline void Write_Internal( u16 nAddress, u8 value )
 	{
 		// Do not check mem maps etc. - this is for internal (ie hw/debugger) memory access only
-		m_pMemory[ nAddress ] = value;
-		CheckWriteBreakpoint( nAddress, m_pMemory[ nAddress ] );
+		Memory( nAddress ) = value;
+		CheckWriteBreakpoint( nAddress, Memory( nAddress ) );
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
 	inline void WriteHiByte( u16 nAddress, u16 value )
 	{
-		m_pMemory[ nAddress ] = m_writeMemoryMap.CheckMemoryMapped( nAddress, ( value >> 8) & 0xff );
-		CheckWriteBreakpoint( nAddress, m_pMemory[ nAddress ] );
+		Memory( nAddress ) = m_writeMemoryMap.CheckMemoryMapped( nAddress, ( value >> 8) & 0xff );
+		CheckWriteBreakpoint( nAddress, Memory( nAddress ) );
 	}
 
 	//-------------------------------------------------------------------------------------------------
 
 	inline void WriteLoByte( u16 nAddress, u16 value )
 	{
-		m_pMemory[ nAddress ] = m_writeMemoryMap.CheckMemoryMapped( nAddress, value & 0xff );
-		CheckWriteBreakpoint( nAddress, m_pMemory[ nAddress ] );
+		Memory( nAddress ) = m_writeMemoryMap.CheckMemoryMapped( nAddress, value & 0xff );
+		CheckWriteBreakpoint( nAddress, Memory( nAddress ) );
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -229,10 +303,12 @@ struct MemoryState
 
 	//-------------------------------------------------------------------------------------------------
 
-	void LoadROM( string filename, u16 nAddress )
+	void LoadROM( string filename, u16 nAddress, u8 romID = 0 )
 	{
+		EnsureMemoryAllocated( nAddress, romID );
 		CFile file( filename, "rb" );
-		file.Load( m_pMemory + nAddress, file.GetLength(), 1 );
+		assert( file.GetLength() <= m_nPageSize ); // not supported > page size loading
+		file.Load( TranslateAddress( nAddress, romID ), file.GetLength(), 1 );
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -281,7 +357,7 @@ struct MemoryState
 
 	//-------------------------------------------------------------------------------------------------
 
-	u8*			m_pMemory;
+	//u8*			m_pMemory;
 	u16			m_nEndUserMemory;		// everything up to this point is guaranteed to NOT be memory mapped
 	u32			m_maxAllocatedMemory;
 	MemoryMap	m_writeMemoryMap;
@@ -292,6 +368,11 @@ struct MemoryState
 	u16			m_nReadBreakpoint;
 	u16			m_nWriteBreakpoint;
 	u8			m_nWriteBreakpointValue;
+	u16			m_nMaxPagedRoms;
+	u8***		m_pPageAddresses;
+	u8**		m_pActivePageAddress;
+	u16			m_nPageSizeShift;
+	u16			m_nPageSize;
 };
 
 //-------------------------------------------------------------------------------------------------
