@@ -119,6 +119,7 @@ private:
 	LS161PagedRomController		m_pagedRomController;
 	SAA5050						m_teletext;
 	CRTC_6845					m_crtc;
+	FDC_8271					m_fdc;
 	BBC_Keyboard				m_keyboard;
 	int							m_nClockCounter = 0;
 	CPUStateHistory				m_history;

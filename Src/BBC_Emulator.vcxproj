@@ -168,6 +168,7 @@
     <ClInclude Include="BBC_Emulator.h" />
     <ClInclude Include="6502_CPU.h" />
     <ClInclude Include="DirectX.h" />
+    <ClInclude Include="IBM3740_FloppyDisk.h" />
     <ClInclude Include="File.h" />
     <ClInclude Include="6502_Memory.h" />
     <ClInclude Include="LS161_PagedRomController.h" />
@@ -197,6 +198,7 @@
     <ClCompile Include="BBC_Keyboard.cpp" />
     <ClCompile Include="BBC_Emulator.cpp" />
     <ClCompile Include="DirectX.cpp" />
+    <ClCompile Include="IBM3740_FloppyDisk.cpp" />
     <ClCompile Include="File.cpp" />
     <ClCompile Include="LS161_PagedRomController.cpp" />
     <ClCompile Include="MiscUtils.cpp" />

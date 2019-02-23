@@ -60,7 +60,7 @@ void BBC_Emulator::Reset()
 
 	mem.LoadROM( "roms\\Os12.rom", 0xC000 );
 	mem.LoadROM( "roms\\Basic2.rom", 0x8000, 15 );
-	//mem.LoadROM( "roms\\DFS-0.9.rom", 0x8000, 14 );
+	mem.LoadROM( "roms\\DFS-0.9.rom", 0x8000, 14 );
 	mem.Clear( 0xfc00, 0xff00 );
 
 	cpu.Reset();

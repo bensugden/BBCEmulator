@@ -99,6 +99,9 @@
     <ClInclude Include="8271_FDC.h">
       <Filter>Emulator\Headers</Filter>
     </ClInclude>
+    <ClInclude Include="IBM3740_FloppyDisk.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -159,6 +162,9 @@
       <Filter>Emulator\Source</Filter>
     </ClCompile>
     <ClCompile Include="8271_FDC.cpp">
+      <Filter>Emulator\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="IBM3740_FloppyDisk.cpp">
       <Filter>Emulator\Source</Filter>
     </ClCompile>
   </ItemGroup>

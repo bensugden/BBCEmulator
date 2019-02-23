@@ -10,6 +10,7 @@ class FDC_8271
 {
 public:
 	FDC_8271();
+	void InsertDisk( int nDrive, FloppyDisk* disk );
 
 private:
 	//-------------------------------------------------------------------------------------------------
@@ -40,12 +41,12 @@ private:
 
 	enum EStatusFlag
 	{
-		Status_Non_DMA_Data_Request		= 1<<2 ,
-		Status_Interrupt_Request		= 1<<3 ,
-		Status_Result_Register_Full		= 1<<4 ,
-		Status_Parameter_Register_Full	= 1<<5 ,
-		Status_Command_Register_Full	= 1<<6 ,
-		Status_Command_Busy				= 1<<7 ,
+		Status_Non_DMA_Data_Request		= 1<<2 , // 0x04
+		Status_Interrupt_Request		= 1<<3 , // 0x08
+		Status_Result_Register_Full		= 1<<4 , // 0x10
+		Status_Parameter_Register_Full	= 1<<5 , // 0x20
+		Status_Command_Register_Full	= 1<<6 , // 0x40
+		Status_Command_Busy				= 1<<7 , // 0x80
 	};
 
 	//-------------------------------------------------------------------------------------------------
@@ -81,18 +82,45 @@ private:
 	};
 
 	void Tick();
+	void ExecuteCommand();
 
 	//-------------------------------------------------------------------------------------------------
 	EPhase m_currentPhase;
 
+	ECommand m_uCurrentCommand;
 	u8 m_uCommandDrive;
-	u8 m_uCurrentCommand;
 	u8 m_uStatusRegister;
+	u8 m_uResultRegister;
 	u8 m_uParameterRegister;
 	u8 m_uParameters[8];
 	u8 m_uNumParameters;
 	u8 m_uNumParametersRequired;
+	u8 m_uCurrentSector[2];
+	u32 m_nNumBytesToTransfer;
+	FloppyDisk* m_disk[ 2 ];
+	u32 m_nReadWriteOffset;
+
+	//
+	// Initialization Params
+	//
+	int m_nStepRate			;
+	int m_nHeadSettlingTime ;
+	int m_nIndexCount		;
+	int m_nHeadLoadTime		;
+
+	//
+	// Special Registers
+	//
 	u8 m_uCurrentTrack[2];
+	u8 m_uScanSectorNumber;
+	u16 m_uScanCount;
+	u8 m_uModeRegister;
+	u8 m_uDriveControlOutputPort;
+	u8 m_uDriveControlInputPort;
+	u8 m_nSurface0BadTrack1;
+	u8 m_nSurface0BadTrack2;
+	u8 m_nSurface1BadTrack1;
+	u8 m_nSurface1BadTrack2;
 };
 
 //-------------------------------------------------------------------------------------------------
