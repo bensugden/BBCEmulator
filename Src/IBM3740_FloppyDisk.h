@@ -19,10 +19,12 @@ public:
 
 	u8					Read( int track, int sector, int offset, int side );
 	void				Write( u8 value, int track, int sector, int offset, int side );
+	void				FlushWrites();
 private:
-	int					m_nMaxModifyOffset;
+	int					m_nSize;
 	std::string			m_filename;
 	std::vector< u8 >	m_data;
+	bool				m_bNeedsFlush;
 	char				m_volumeTitle[12];
 };
 

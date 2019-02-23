@@ -15,22 +15,32 @@ FloppyDisk::FloppyDisk( const std::string& filename )
 	m_nNumTracks = 80;
 	m_nSectorSize = 256;
 	m_nNumSides = 1;
-	m_nMaxModifyOffset = -1;
 
-	u32 nSize = m_nNumSectorsPerTrack * m_nNumTracks * m_nSectorSize * m_nNumSides;
-	m_data.resize( nSize );
+	m_data.resize( m_nNumSectorsPerTrack * m_nNumTracks * m_nSectorSize * m_nNumSides );
 
+	m_bNeedsFlush = false;
 	CFile file( m_filename, "rb" );
-	u32 nDiskSize = min( nSize, file.GetLength() );
-	file.Read( m_data.data(), nDiskSize );
+	m_nSize = min( m_data.size(), file.GetLength() );
+	file.Read( m_data.data(), m_nSize );
 }
 
 //-------------------------------------------------------------------------------------------------
 
 FloppyDisk::~FloppyDisk()
 {
-	CFile file( m_filename, "wb" );
-	file.Write( m_data.data(), m_nMaxModifyOffset );
+	FlushWrites();
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void FloppyDisk::FlushWrites()
+{
+	if ( m_bNeedsFlush )
+	{
+		CFile file( m_filename, "wb" );
+		file.Write( m_data.data(), m_nSize );
+		m_bNeedsFlush = false;
+	}
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -47,10 +57,11 @@ void FloppyDisk::Write( u8 value, int track, int sector, int offset, int side )
 {
 	int nAddress = ( ( side * m_nNumTracks + track ) * m_nNumSectorsPerTrack + sector ) * m_nSectorSize + offset;
 	m_data[ nAddress ] = value;
-	if ( nAddress > m_nMaxModifyOffset )
+	if ( nAddress > m_nSize )
 	{
-		m_nMaxModifyOffset = nAddress;
+		m_nSize = nAddress;
 	}
+	m_bNeedsFlush = true;
 }
 
 //-------------------------------------------------------------------------------------------------

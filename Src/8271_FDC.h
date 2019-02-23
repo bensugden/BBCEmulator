@@ -11,6 +11,7 @@ class FDC_8271
 public:
 	FDC_8271();
 	void InsertDisk( int nDrive, FloppyDisk* disk );
+	void EjectDisk( int nDrive );
 
 private:
 	//-------------------------------------------------------------------------------------------------
@@ -81,46 +82,49 @@ private:
 		Command_Load_Bad_Tracks					= 0x101,
 	};
 
-	void Tick();
-	void ExecuteCommand();
+	//-------------------------------------------------------------------------------------------------
+
+	void		Tick();
+	void		ExecuteCommand();
+	u8			ReadSpecialRegister( u8 parameter ) const;
+	void		WriteSpecialRegister( u8 parameter, u8 value );
 
 	//-------------------------------------------------------------------------------------------------
-	EPhase m_currentPhase;
 
-	ECommand m_uCurrentCommand;
-	u8 m_uCommandDrive;
-	u8 m_uStatusRegister;
-	u8 m_uResultRegister;
-	u8 m_uParameterRegister;
-	u8 m_uParameters[8];
-	u8 m_uNumParameters;
-	u8 m_uNumParametersRequired;
-	u8 m_uCurrentSector[2];
-	u32 m_nNumBytesToTransfer;
+	EPhase		m_currentPhase;
+	
+	ECommand	m_uCurrentCommand;
+	u8			m_uCommandDrive;
+
+	u8			m_uStatusRegister;
+	u8			m_uResultRegister;
+	u8			m_uParameterRegister;
+	u8			m_uParameters[8];
+	u8			m_uNumParameters;
+	u8			m_uNumParametersRequired;
+	u8			m_uCurrentSector[2];
+	u32			m_nNumBytesToTransfer;
+	u32			m_nReadWriteOffset;
 	FloppyDisk* m_disk[ 2 ];
-	u32 m_nReadWriteOffset;
-
+	u8			m_nDriveStatus;
 	//
 	// Initialization Params
 	//
-	int m_nStepRate			;
-	int m_nHeadSettlingTime ;
-	int m_nIndexCount		;
-	int m_nHeadLoadTime		;
+	int			m_nStepRate			;
+	int			m_nHeadSettlingTime ;
+	int			m_nIndexCount		;
+	int			m_nHeadLoadTime		;
 
 	//
 	// Special Registers
 	//
-	u8 m_uCurrentTrack[2];
-	u8 m_uScanSectorNumber;
-	u16 m_uScanCount;
-	u8 m_uModeRegister;
-	u8 m_uDriveControlOutputPort;
-	u8 m_uDriveControlInputPort;
-	u8 m_nSurface0BadTrack1;
-	u8 m_nSurface0BadTrack2;
-	u8 m_nSurface1BadTrack1;
-	u8 m_nSurface1BadTrack2;
+	u8			m_uCurrentTrack[2];
+	u8			m_uScanSectorNumber;
+	u16			m_uScanCount;
+	u8			m_uModeRegister;
+	u8			m_uDriveControlOutputPort;
+	u8			m_uDriveControlInputPort;
+	u8			m_nBadTrack[2][2];
 };
 
 //-------------------------------------------------------------------------------------------------

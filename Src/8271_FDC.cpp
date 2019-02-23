@@ -24,8 +24,11 @@ FDC_8271::FDC_8271()
 	m_uResultRegister = 0;
 	m_uCurrentTrack[ 0 ] = 0;
 	m_uCurrentTrack[ 1 ] = 0;
+
 	m_disk[ 0 ] = nullptr;
 	m_disk[ 1 ] = nullptr;
+
+	m_nDriveStatus = 0;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -33,6 +36,22 @@ FDC_8271::FDC_8271()
 void FDC_8271::InsertDisk( int nDrive, FloppyDisk* disk)
 {
 	m_disk[ nDrive ] = disk;
+	m_nDriveStatus |= ( nDrive == 0 ) ? 0x04 
+									  : 0x40;
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void FDC_8271::EjectDisk( int nDrive )
+{
+	if ( m_disk[ nDrive ] != nullptr )
+	{
+		m_disk[ nDrive ]->FlushWrites();
+	}
+	m_nDriveStatus &= ( nDrive == 0 ) ? ~0x04 
+									  : ~0x40;
+
+	m_disk[ nDrive ] = nullptr;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -175,142 +194,6 @@ u8 FDC_8271::WriteCommandRegister( u16 address, u8 value )
 
 //-------------------------------------------------------------------------------------------------
 
-void FDC_8271::ExecuteCommand()
-{
-	m_currentPhase = Phase_Execution;
-
-	//
-	// Perform initialization of specific commands prior to reading result
-	//
-	m_nNumBytesToTransfer = 0;
-
-	switch ( m_uCurrentCommand )
-	{
-		case Command_Initialization:
-		{
-			m_nStepRate			= m_uParameters[ 1 ];
-			m_nHeadSettlingTime = m_uParameters[ 2 ] * m_nStepRate; 
-			m_nIndexCount		= m_uParameters[ 3 ] >> 4; 
-			m_nHeadLoadTime		= ( m_uParameters[ 3 ] & 0xf ) * m_nStepRate; 
-			break;
-		}
-		case Command_Read_Drive_Status:
-		case Command_Load_Bad_Tracks:
-		case Command_Read_Special_Reg:
-		case Command_Read_ID:
-		{
-			break;
-		}
-
-		case Command_Write_Special_Reg:
-		{
-			u8 value = m_uParameters[ 1 ];
-			switch( m_uParameters[ 0 ] )
-			{
-				case 0x06:
-					m_uScanSectorNumber = value;
-					break;
-				case 0x14:
-					m_uScanCount &= 0xff;
-					m_uScanCount |= value << 8;
-					break;
-				case 0x13:
-					m_uScanCount &= 0xff00;
-					m_uScanCount |= value;
-					break;
-				case 0x12:
-					m_uCurrentTrack[ 0 ] = value;
-					break;
-				case 0x1a:
-					m_uCurrentTrack[ 1 ] = value;
-					break;
-				case 0x17:
-					m_uModeRegister = value;
-					break;
-				case 0x23:
-					m_uDriveControlOutputPort = value;
-					break;
-				case 0x22:
-					m_uDriveControlInputPort = value;
-					break;
-				case 0x10:
-					m_nSurface0BadTrack1 = value;
-					break;
-				case 0x11:
-					m_nSurface0BadTrack2 = value;
-					break;
-				case 0x18:
-					m_nSurface1BadTrack1 = value;
-					break;
-				case 0x19:
-					m_nSurface1BadTrack2 = value;
-					break;
-				default:
-					break;
-			}
-		}
-		case Command_Var_Verify_Data_And_Deleted:
-		{
-			break;
-		}
-		case Command_Seek:
-		{
-			break;
-		}
-		case Command_128byte_Read_Data:
-		case Command_128byte_Read_Data_And_Deleted:
-		case Command_128byte_Verify_Data_And_Deleted:
-		{
-			m_uStatusRegister |= Status_Result_Register_Full;
-		}
-		case Command_128byte_Write_Data:
-		case Command_128byte_Write_Deleted:
-		{
-			m_nNumBytesToTransfer = 128;
-			m_uCurrentTrack[ m_uCommandDrive ] = m_uParameters[ 0 ];
-			m_uCurrentSector[ m_uCommandDrive ] = m_uParameters[ 1 ];
-
-			break;
-		}
-		case Command_Var_Read_Data:
-		case Command_Var_Read_Data_And_Deleted:
-		{
-			m_uStatusRegister |= Status_Result_Register_Full;
-		}
-		case Command_Var_Write_Data:
-		case Command_Var_Write_Deleted:
-		{
-			m_uCurrentTrack[ m_uCommandDrive ] = m_uParameters[ 0 ];
-			m_uCurrentSector[ m_uCommandDrive ] = m_uParameters[ 1 ];
-			u16 uRecordSize = 128 << ( m_uParameters[ 2 ] >> 5 );
-			m_nNumBytesToTransfer = uRecordSize * ( m_uParameters[ 2 ] & 0x1f );
-
-			break;
-		}
-		case Command_Format:
-		{
-			break;
-		}
-
-		case Command_Var_Scan_Data:
-		case Command_Var_Scan_Data_And_Deleted:
-		{
-			break;
-		}
-		default:
-		{
-			break;
-		}
-	}
-	m_uStatusRegister |= Status_Interrupt_Request;
-	m_uStatusRegister &= ~Status_Command_Busy;
-
-	cpu.ThrowInterrupt( INTERRUPT_NMI );
-	m_currentPhase = Phase_Result;
-}
-
-//-------------------------------------------------------------------------------------------------
-
 u8 FDC_8271::WriteParameterRegister( u16 address, u8 value )
 {
 	//-------------------------------------------------------------------------------------------------
@@ -347,16 +230,10 @@ u8 FDC_8271::WriteParameterRegister( u16 address, u8 value )
 				m_uCurrentCommand = Command_Initialization;
 				m_uNumParametersRequired = 4;
 			}
-			else if ( value == 0x10 )
+			else if (( value == 0x10 )||( value == 0x18 ))
 			{
 				m_uCurrentCommand = Command_Load_Bad_Tracks;
-				m_uCommandDrive = 0;
-				m_uNumParametersRequired = 2;
-			}
-			else if ( value == 0x18 )
-			{
-				m_uCurrentCommand = Command_Load_Bad_Tracks;
-				m_uCommandDrive = 1;
+				m_uCommandDrive = (value&8)>>3;
 				m_uNumParametersRequired = 2;
 			}
 			assert( m_uCurrentCommand != Command_Specify ); // invalid parameter
@@ -431,8 +308,143 @@ u8 FDC_8271::ReadResultRegister( u16 address, u8 value )
 	// A1 = 1
 	//
 	//-------------------------------------------------------------------------------------------------
+	m_uStatusRegister &= ~( Status_Result_Register_Full | Status_Interrupt_Request );
 
-	return m_uResultRegister; // return 0 always for now
+	return m_uResultRegister; 
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void FDC_8271::ExecuteCommand()
+{
+	m_currentPhase = Phase_Execution;
+
+	//
+	// Perform initialization of specific commands prior to reading result
+	//
+	m_nNumBytesToTransfer = 0;
+	m_uResultRegister = 0;
+	m_uStatusRegister &= ~( Status_Result_Register_Full | Status_Interrupt_Request );
+
+	switch ( m_uCurrentCommand )
+	{
+		case Command_Initialization:
+		{
+			m_nStepRate			= m_uParameters[ 1 ];
+			m_nHeadSettlingTime = m_uParameters[ 2 ] * m_nStepRate; 
+			m_nIndexCount		= m_uParameters[ 3 ] >> 4; 
+			m_nHeadLoadTime		= ( m_uParameters[ 3 ] & 0xf ) * m_nStepRate; 
+
+			m_nBadTrack[0][0] = 0xff;
+			m_nBadTrack[0][1] = 0xff;
+			m_nBadTrack[1][0] = 0xff;
+			m_nBadTrack[1][1] = 0xff;
+			m_uCurrentTrack[0] = 0xff;
+			m_uCurrentTrack[1] = 0xff;
+			break;
+		}
+		case Command_Load_Bad_Tracks:
+		{
+			m_nBadTrack[ m_uCommandDrive ][ 0 ] = m_uParameters[ 1 ];
+			m_nBadTrack[ m_uCommandDrive ][ 1 ] = m_uParameters[ 2 ];
+			m_uCurrentTrack[ m_uCommandDrive ] = m_uParameters[ 3 ];
+			break;
+		}
+		case Command_Read_ID:
+		{
+			m_uStatusRegister |= Status_Interrupt_Request;
+			break;
+		}
+		case Command_Read_Drive_Status:
+		{
+			m_uResultRegister = m_nDriveStatus;
+			m_uStatusRegister |= Status_Result_Register_Full;
+			break;
+		}
+		case Command_Read_Special_Reg:
+		{
+			m_uResultRegister = ReadSpecialRegister( m_uParameters[ 0 ] );
+			m_uStatusRegister |= Status_Result_Register_Full;
+			break;
+		}
+		case Command_Write_Special_Reg:
+		{
+			WriteSpecialRegister( m_uParameters[ 0 ], m_uParameters[ 1 ] );
+			break;
+		}
+		case Command_Seek:
+		{
+			m_uCurrentTrack[ m_uCommandDrive ] = m_uParameters[ 0 ];
+			m_uStatusRegister |= Status_Interrupt_Request;
+			m_uStatusRegister |= Status_Result_Register_Full;
+			break;
+		}
+		case Command_128byte_Read_Data:
+		case Command_128byte_Read_Data_And_Deleted:
+		case Command_128byte_Write_Data:
+		case Command_128byte_Write_Deleted:
+		case Command_128byte_Verify_Data_And_Deleted:
+		{
+			m_nNumBytesToTransfer = 128;
+			m_uCurrentTrack[ m_uCommandDrive ] = m_uParameters[ 0 ];
+			m_uCurrentSector[ m_uCommandDrive ] = m_uParameters[ 1 ];
+			m_uStatusRegister |= Status_Interrupt_Request;
+			m_uStatusRegister |= Status_Result_Register_Full;
+			if ( m_uModeRegister & 1 )
+				m_uStatusRegister |= Status_Non_DMA_Data_Request;
+			else
+				m_uStatusRegister &= ~Status_Non_DMA_Data_Request;
+
+			break;
+		}
+		case Command_Var_Read_Data:
+		case Command_Var_Read_Data_And_Deleted:
+		case Command_Var_Write_Data:
+		case Command_Var_Write_Deleted:
+		case Command_Var_Verify_Data_And_Deleted:
+		{
+			m_uCurrentTrack[ m_uCommandDrive ] = m_uParameters[ 0 ];
+			m_uCurrentSector[ m_uCommandDrive ] = m_uParameters[ 1 ];
+			
+			u16 uRecordSize = 128 << ( m_uParameters[ 2 ] >> 5 );
+			m_nNumBytesToTransfer = uRecordSize * ( m_uParameters[ 2 ] & 0x1f );
+
+			m_uStatusRegister |= Status_Interrupt_Request;
+			m_uStatusRegister |= Status_Result_Register_Full;
+			if ( m_uModeRegister & 1 )
+				m_uStatusRegister |= Status_Non_DMA_Data_Request;
+			else
+				m_uStatusRegister &= ~Status_Non_DMA_Data_Request;
+			break;
+		}
+		case Command_Format:
+		{
+			m_uStatusRegister |= Status_Interrupt_Request;
+			m_uStatusRegister |= Status_Result_Register_Full;
+			break;
+		}
+
+		case Command_Var_Scan_Data:
+		case Command_Var_Scan_Data_And_Deleted:
+		{
+			m_uStatusRegister |= Status_Interrupt_Request;
+			m_uStatusRegister |= Status_Result_Register_Full;
+			break;
+		}
+		default:
+		{
+			break;
+		}
+	}
+
+	m_uStatusRegister &= ~Status_Command_Busy;
+
+	if ( m_uStatusRegister & Status_Interrupt_Request )
+	{
+		cpu.ThrowInterrupt( INTERRUPT_NMI );
+	}
+
+	m_currentPhase = Phase_Result;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -450,6 +462,7 @@ u8 FDC_8271::WriteData( u16 address, u8 value )
 			value = m_disk[ m_uCommandDrive ]->Read( m_uCurrentTrack[ m_uCommandDrive ], m_uCurrentSector[ m_uCommandDrive ], m_nReadWriteOffset++, 0 );
 			if ( m_nReadWriteOffset == m_nNumBytesToTransfer )
 			{
+				m_disk[ m_uCommandDrive ]->FlushWrites();
 				m_currentPhase = Phase_None;
 			}
 		}
@@ -471,6 +484,87 @@ u8 FDC_8271::WriteData( u16 address, u8 value )
 	}
 	return value;
 }
+
+//-------------------------------------------------------------------------------------------------
+
+u8 FDC_8271::ReadSpecialRegister( u8 parameter ) const
+{
+	switch( parameter )
+	{
+		case 0x06:
+			return m_uScanSectorNumber;
+		case 0x14:
+			return m_uScanCount >> 8;
+		case 0x13:
+			return m_uScanCount & 0xff;
+		case 0x12:
+			return m_uCurrentTrack[ 0 ];
+		case 0x1a:
+			return m_uCurrentTrack[ 1 ];
+		case 0x17:
+			return m_uModeRegister;
+		case 0x23:
+			return m_uDriveControlOutputPort;
+		case 0x22:
+			return m_uDriveControlInputPort;
+		case 0x10:
+			return m_nBadTrack[ 0 ][ 0 ];
+		case 0x11:
+			return m_nBadTrack[ 0 ][ 1 ];
+		case 0x18:
+			return m_nBadTrack[ 1 ][ 0 ];
+		case 0x19:
+			return m_nBadTrack[ 1 ][ 1 ];
+		default:
+			return 0;
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void FDC_8271::WriteSpecialRegister( u8 parameter, u8 value )
+{
+	switch( parameter )
+	{
+		case 0x06:
+			m_uScanSectorNumber = value;
+			break;
+		case 0x14:
+			m_uScanCount &= 0xff;
+			m_uScanCount |= value << 8;
+			break;
+		case 0x13:
+			m_uScanCount &= 0xff00;
+			m_uScanCount |= value;
+			break;
+		case 0x12:
+			m_uCurrentTrack[ 0 ] = value;
+			break;
+		case 0x1a:
+			m_uCurrentTrack[ 1 ] = value;
+			break;
+		case 0x17:
+			m_uModeRegister = value;
+			break;
+		case 0x23:
+			m_uDriveControlOutputPort = value;
+			break;
+		case 0x22:
+			m_uDriveControlInputPort = value;
+			break;
+		case 0x10:
+			m_nBadTrack[ 0 ][ 0 ] = value;
+		case 0x11:
+			m_nBadTrack[ 0 ][ 1 ] = value;
+		case 0x18:
+			m_nBadTrack[ 1 ][ 0 ] = value;
+		case 0x19:
+			m_nBadTrack[ 1 ][ 1 ] = value;
+		default:
+			break;
+	}
+}
+
 //-------------------------------------------------------------------------------------------------
 
 u8 FDC_8271::ReadData( u16 address, u8 value )
@@ -479,35 +573,7 @@ u8 FDC_8271::ReadData( u16 address, u8 value )
 	{
 		case Command_Read_Special_Reg:
 		{
-			switch( m_uParameters[ 0 ] )
-			{
-				case 0x06:
-					return m_uScanSectorNumber;
-				case 0x14:
-					return m_uScanCount >> 8;
-				case 0x13:
-					return m_uScanCount & 0xff;
-				case 0x12:
-					return m_uCurrentTrack[ 0 ];
-				case 0x1a:
-					return m_uCurrentTrack[ 1 ];
-				case 0x17:
-					return m_uModeRegister;
-				case 0x23:
-					return m_uDriveControlOutputPort;
-				case 0x22:
-					return m_uDriveControlInputPort;
-				case 0x10:
-					return m_nSurface0BadTrack1;
-				case 0x11:
-					return m_nSurface0BadTrack2;
-				case 0x18:
-					return m_nSurface1BadTrack1;
-				case 0x19:
-					return m_nSurface1BadTrack2;
-				default:
-					return 0;
-			}
+			return ReadSpecialRegister( m_uParameters[ 0 ] );
 		}
 		case Command_128byte_Read_Data:
 		case Command_128byte_Read_Data_And_Deleted:
@@ -519,7 +585,6 @@ u8 FDC_8271::ReadData( u16 address, u8 value )
 			value = m_disk[ m_uCommandDrive ]->Read( m_uCurrentTrack[ m_uCommandDrive ], m_uCurrentSector[ m_uCommandDrive ], m_nReadWriteOffset++, 0 );
 			if ( m_nReadWriteOffset == m_nNumBytesToTransfer )
 			{
-				m_uStatusRegister &= ~Status_Result_Register_Full;
 				m_currentPhase = Phase_None;
 			}
 		}

@@ -53,10 +53,10 @@ SAA5050::SAA5050( const CRTC_6845& CRTC )
 						uNE= ( y == 9 || x == 5 ) ? 0 : s_teletextCharacters[ font ][ character * 60 + ( y + 1 ) * 6 + x + 1 ];
 					}
 					
-					m_scaledFonts[ uCharacterOffset + y * 24 + x * 2 +  0 ] = ( uCenter || ( ( uW == 1 ) && ( uS == 1 ) && ( uNW == 0 ) ) ) ? 0xffffffff : 0;
-					m_scaledFonts[ uCharacterOffset + y * 24 + x * 2 +  1 ] = ( uCenter || ( ( uE == 1 ) && ( uS == 1 ) && ( uNE == 0 ) ) ) ? 0xffffffff : 0;
-					m_scaledFonts[ uCharacterOffset + y * 24 + x * 2 + 12 ] = ( uCenter || ( ( uW == 1 ) && ( uN == 1 ) && ( uSW == 0 ) ) ) ? 0xffffffff : 0;
-					m_scaledFonts[ uCharacterOffset + y * 24 + x * 2 + 13 ] = ( uCenter || ( ( uE == 1 ) && ( uN == 1 ) && ( uSE == 0 ) ) ) ? 0xffffffff : 0;
+					m_scaledFonts[ uCharacterOffset + y * 24 + x * 2 +  0 ] = ( uCenter || ( ( uW == 1 ) && ( uS == 1 ) && ( uSW == 0 ) ) ) ? 0xffffffff : 0;
+					m_scaledFonts[ uCharacterOffset + y * 24 + x * 2 +  1 ] = ( uCenter || ( ( uE == 1 ) && ( uS == 1 ) && ( uSE == 0 ) ) ) ? 0xffffffff : 0;
+					m_scaledFonts[ uCharacterOffset + y * 24 + x * 2 + 12 ] = ( uCenter || ( ( uW == 1 ) && ( uN == 1 ) && ( uNW == 0 ) ) ) ? 0xffffffff : 0;
+					m_scaledFonts[ uCharacterOffset + y * 24 + x * 2 + 13 ] = ( uCenter || ( ( uE == 1 ) && ( uN == 1 ) && ( uNE == 0 ) ) ) ? 0xffffffff : 0;
 				}
 			}
 		}

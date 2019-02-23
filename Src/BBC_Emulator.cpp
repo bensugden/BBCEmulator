@@ -28,6 +28,9 @@ BBC_Emulator::BBC_Emulator()
 	, m_systemVIA( m_keyboard )
 	, m_keyboard( m_systemVIA )
 {
+	m_floppies[ 0 ] = nullptr;
+	m_floppies[ 1 ] = nullptr;
+
 	Reset();
 	cpu.SetClock( this );
 }
@@ -36,7 +39,8 @@ BBC_Emulator::BBC_Emulator()
 
 BBC_Emulator::~BBC_Emulator( )
 {
-
+	delete m_floppies[ 0 ];
+	delete m_floppies[ 1 ];
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -139,15 +143,6 @@ bool BBC_Emulator::ProcessInstructions( int nCount, std::string* pDisassemblyStr
 {
 	bool bBreakpoint = false;
 
-	//test
-// 	static int timer = 4000000;
-// 	timer -= nCount;
-// 	if ( timer < 0 )
-// 	{
-// 		SetKeyDown( 'A' );
-// 		timer = 4000000;
-// 	}
-
 	if ( bDebug && ( m_history.IsEmpty()|| bForceDebugPC ) )
 	{
 		DebugDecodeNextInstruction();
@@ -182,6 +177,32 @@ bool BBC_Emulator::ProcessInstructions( int nCount, std::string* pDisassemblyStr
 	if ( m_keyboard.IsResetDown() )
 		Reset();
 	return bBreakpoint;
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void BBC_Emulator::InsertDisk( int drive, const std::string& filename )
+{
+	FloppyDisk* pFloppy = new FloppyDisk( filename );
+	if ( m_floppies[ drive ] != nullptr )
+	{
+		m_fdc.EjectDisk( drive );
+		delete m_floppies[ drive ];
+	}
+	m_fdc.InsertDisk( drive, pFloppy );
+	m_floppies[ drive ] = pFloppy;
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void BBC_Emulator::EjectDisk( int drive )
+{
+	if ( m_floppies[ drive ] != nullptr )
+	{
+		m_fdc.EjectDisk( drive );
+		delete m_floppies[ drive ];
+	}
+	m_floppies[ drive ] = nullptr;
 }
 
 //-------------------------------------------------------------------------------------------------

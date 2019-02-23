@@ -27,6 +27,8 @@ public:
 	bool	ProcessInstructions( int nCount, std::string* pDisassemblyHistory, bool bDebug, bool bForceDebugPC = false, bool bAlwaysSpewToOutputWindow = false );
 	void	SetBreakpoint( u16 address );
 
+	void	InsertDisk( int drive, const std::string& filename );
+	void	EjectDisk( int drive );
 	//-------------------------------------------------------------------------------------------------
 
 	struct CPUStateHistory
@@ -124,6 +126,7 @@ private:
 	int							m_nClockCounter = 0;
 	CPUStateHistory				m_history;
 	time_t						m_lastTime;
+	FloppyDisk*					m_floppies[2];
 	bool						m_bStarted = false;
 	bool						m_bPaused = false;
 };

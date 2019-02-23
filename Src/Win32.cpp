@@ -215,7 +215,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
 	hInst = hInstance; // Store instance handle in our global variable
 		// Create window
-	RECT rc = { 0, 0, 640, 512 };
+	RECT rc = { 0, 0, 400 * 2, 300 * 2 };
 	AdjustWindowRect( &rc, WS_OVERLAPPEDWINDOW, FALSE );
 
 	HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
@@ -288,6 +288,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					g_bDebuggerActive = !g_bDebuggerActive;
 					ShowWindow( g_debuggerHWND, g_bDebuggerActive );
 					CheckMenuItem( GetMenu(hWnd), IDM_SHOW_DEBUGGER, g_bDebuggerActive ? MF_CHECKED : MF_UNCHECKED );
+					break;
+				case IDM_DRIVE0_INSERT:
+					g_emulator->InsertDisk( 0, "disks\\FortKnight0.ssd" );
+					break;
+				case IDM_DRIVE0_EJECT:
+					g_emulator->EjectDisk( 0 );
 					break;
 				case IDM_EXIT:
 					DestroyWindow(hWnd);
