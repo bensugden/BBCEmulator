@@ -24,7 +24,8 @@ CPU			cpu;
 //-------------------------------------------------------------------------------------------------
 
 BBC_Emulator::BBC_Emulator()
-	: m_teletext( m_crtc )
+	: m_videoULA( m_teletext, m_crtc )
+	, m_teletext( m_crtc )
 	, m_systemVIA( m_keyboard )
 	, m_keyboard( m_systemVIA )
 {
@@ -51,10 +52,10 @@ void BBC_Emulator::Tick()
 
 	if ( m_nClockCounter & 0x2 )
 	{
-		m_systemVIA.Tick();
+		m_systemVIA.Tick( 2 );
 	//	m_portsVIA.Tick();
+		m_fdc.Tick( 2 );
 	}
-	m_fdc.Tick();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -210,7 +211,7 @@ void BBC_Emulator::EjectDisk( int drive )
 
 void BBC_Emulator::RefreshDisplay()
 {
-	m_teletext.RenderScreen();
+	m_videoULA.RefreshDisplay();
 }
 
 //-------------------------------------------------------------------------------------------------

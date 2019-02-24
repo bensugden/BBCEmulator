@@ -5,9 +5,8 @@
 class VideoULA
 {
 public:
-	VideoULA( );
-	bool RenderScreen();
-
+	VideoULA( class SAA5050& teletextChip, class CRTC_6845& crtcChip );
+	void RefreshDisplay();
 private:
 	struct ULAState
 	{
@@ -24,7 +23,13 @@ private:
 	u8	WRITE_Serial_ULA_Control_register( u16 address, u8 value );
 	u8	WRITE_Video_ULA_Control_register( u16 address, u8 value );
 	u8	WRITE_Video_ULA_Palette_register( u16 address, u8 value );
-	
+
+	void RenderScreen();
+
+	u8 m_colorLookup[ 4 ][ 8 ][ 256 ];
+
+	SAA5050& m_teletext;
+	CRTC_6845& m_CRTC;
 	ULAState m_ulaState;
 };
 

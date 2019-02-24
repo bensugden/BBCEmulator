@@ -23,11 +23,12 @@ namespace GFXSystem
 	ID3D11PixelShader*			g_pPixelShader = NULL;
 	ID3D11InputLayout*			g_pVertexLayout = NULL;
 	ID3D11Buffer*				g_pVertexBuffer = NULL;
-	ID3D11SamplerState*			g_framebufferSamplerState;
+	ID3D11SamplerState*			g_framebufferSamplerState_Aniso;
+	ID3D11SamplerState*			g_framebufferSamplerState_Point;
 	std::vector<Texture*>		g_framebufferTextures;
-
-	static Texture* s_pLockedTexture = nullptr;
-	static Texture* s_pCurrentTexture = nullptr;
+	bool						g_bEnableAniso = true;
+	static Texture*				s_pLockedTexture = nullptr;
+	static Texture*				s_pCurrentTexture = nullptr;
 
 	//--------------------------------------------------------------------------------------
 	// Helper for compiling shaders with D3DX11
@@ -124,6 +125,13 @@ namespace GFXSystem
 		info.m_pixelStride = 4;
 		s_pCurrentTexture = s_pLockedTexture;
 		return info;
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
+	void SetAnisotropicFiltering( bool on )
+	{
+		g_bEnableAniso = on;
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -319,7 +327,11 @@ namespace GFXSystem
 		samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
 		// Create the texture sampler state.
-		HRESULT result = g_pd3dDevice->CreateSamplerState(&samplerDesc, &g_framebufferSamplerState);
+		HRESULT result = g_pd3dDevice->CreateSamplerState(&samplerDesc, &g_framebufferSamplerState_Aniso);
+
+		samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+
+		result = g_pd3dDevice->CreateSamplerState(&samplerDesc, &g_framebufferSamplerState_Point);
 
 		return S_OK;
 
@@ -336,7 +348,10 @@ namespace GFXSystem
 		// Render a triangle
 		g_pImmediateContext->VSSetShader( g_pVertexShader, NULL, 0 );
 		g_pImmediateContext->PSSetShader( g_pPixelShader, NULL, 0 );
-		g_pImmediateContext->PSSetSamplers(0, 1, &g_framebufferSamplerState);
+		if ( g_bEnableAniso )
+			g_pImmediateContext->PSSetSamplers(0, 1, &g_framebufferSamplerState_Aniso);
+		else
+			g_pImmediateContext->PSSetSamplers(0, 1, &g_framebufferSamplerState_Point);
 
 		// Set shader texture resource in the pixel shader.
 		if ( s_pCurrentTexture != nullptr )

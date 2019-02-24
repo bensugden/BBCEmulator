@@ -14,7 +14,7 @@
 class VIA_6522
 {
 public:
-	void Tick();
+	void Tick( int nCPUClocks );
 protected:
 	VIA_6522(  u16 viaMemoryMappedStartAddressForORA_B  );
 
@@ -50,12 +50,10 @@ protected:
 		u8 IRA;							// Input register A					
 		u8 DDRB;						// Data direction register B				
 		u8 DDRA;						// Data direction register A				
-		u8 T1_COUNTER_L;				// T1 low order Counter
-		u8 T1_COUNTER_H;				// T1 high order counter					
+		int	T1_COUNTER;					// T1 Counter * 2 ( measured in CPU clocks NOT 1Mhz Clocks )
 		u8 T1_LATCH_L;					// T1 low order latch				
 		u8 T1_LATCH_H;					// T1 high order latch					
-		u8 T2_COUNTER_L;				// T2 low order Counter	
-		u8 T2_COUNTER_H;				// T2 high order counter					
+		int	T2_COUNTER;					// T1 Counter * 2 ( measured in CPU clocks NOT 1Mhz Clocks )
 		u8 T2_LATCH_L;					// T2 latch low
 		u8 SHIFT;						// Shift register							
 		u8 ACR;							// Auxiliary control register				
@@ -70,6 +68,7 @@ protected:
 		u8 CA2_TIMER;					// 1 cycle counter for CA2 in mode 5
 		u8 CB2_TIMER;					// 1 cycle counter for CB2 in mode 5
 		u8 T2_INTERRUPT_ENABLED;		// T2 timer should interrupt when timer is at 0
+
 	};
 
 	//-------------------------------------------------------------------------------------------------

@@ -30,29 +30,27 @@
 
 //-------------------------------------------------------------------------------------------------
 
-u8 CRTC_6845::WriteRegisterFile( u16 address, u8 value )
+u8 CRTC_6845::WriteRegisterAddress( u16 address, u8 value )
 {
-	if ( address == SHEILA::WRITE_6845_CRTC_Address_register )
-	{
-		assert( value < 18 );
-		m_nCurrentRegister = value;
-	//	if ( value == 12 )
-		//	cpu.ThrowBreakpoint(std::string("hit set screen"));
-	}
-	else
-	//if ( address == SHEILA::WRITE_6845_CRTC_Register_file )
-	{
-		//
-		// Must have passed register before file
-		//
-		assert( m_nCurrentRegister != -1 );
+	assert( value < 18 );
+	m_nCurrentRegister = value;
+	return value;
+}
 
-		r[ m_nCurrentRegister ] = value;
-		//
-		// Don't write this again
-		//
-		m_nCurrentRegister = -1;
-	}
+//-------------------------------------------------------------------------------------------------
+
+u8 CRTC_6845::WriteRegisterFile( u16 address, u8 value )
+{	
+	//
+	// Must have passed register before file
+	//
+	assert( m_nCurrentRegister != -1 );
+
+	r[ m_nCurrentRegister ] = value;
+	//
+	// Don't write this again
+	//
+	m_nCurrentRegister = -1;
 	return value;
 }
 
@@ -61,7 +59,7 @@ CRTC_6845::CRTC_6845()
 {
 	m_nCurrentRegister = -1;
 	memset( r, 0, sizeof( r ) );
-	mem.RegisterMemoryMap_Write( SHEILA::WRITE_6845_CRTC_Address_register, MemoryMapHandler( CRTC_6845::WriteRegisterFile ) );
+	mem.RegisterMemoryMap_Write( SHEILA::WRITE_6845_CRTC_Address_register, MemoryMapHandler( CRTC_6845::WriteRegisterAddress ) );
 	mem.RegisterMemoryMap_Write( SHEILA::WRITE_6845_CRTC_Register_file,    MemoryMapHandler( CRTC_6845::WriteRegisterFile ) );
 }
 

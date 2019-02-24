@@ -290,7 +290,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					CheckMenuItem( GetMenu(hWnd), IDM_SHOW_DEBUGGER, g_bDebuggerActive ? MF_CHECKED : MF_UNCHECKED );
 					break;
 				case IDM_DRIVE0_INSERT:
-					g_emulator->InsertDisk( 0, "disks\\FortKnight0.ssd" );
+					//g_emulator->InsertDisk( 0, "disks\\test.ssd" );
+					g_emulator->InsertDisk( 0, "disks\\chuckieegg.ssd" );
 					break;
 				case IDM_DRIVE0_EJECT:
 					g_emulator->EjectDisk( 0 );
@@ -311,32 +312,28 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
  		case WM_KEYDOWN:
  		{
  			u8 key = wParam;
-			{
-	int c;
-	byte ks[256];
-	GetKeyboardState(ks);
-	char xx[3];
-	xx[0] = 0;
-	c = ToAscii(key, MapVirtualKey(key,0), ks, (LPWORD) &xx[0], 0);
+			int c;
+			byte ks[256];
+			GetKeyboardState(ks);
+			char xx[3];
+			xx[0] = 0;
+			c = ToAscii(key, MapVirtualKey(key,0), ks, (LPWORD) &xx[0], 0);
  			if ( c == 1 )
 				g_emulator->SetKeyDown( xx[0], false );
 			else
  				g_emulator->SetKeyDown( key, true );
 
-			}
- 			//g_emulator->SetKeyDown( key );
  			break;
  		}
  		case WM_KEYUP:
  		{
  			u8 key = wParam;
-
-				int c;
-	byte ks[256];
-	GetKeyboardState(ks);
-	char xx[3];
-	xx[0] = 0;
-	c = ToAscii(key, MapVirtualKey(key,0), ks, (LPWORD) &xx[0], 0);
+			int c;
+			byte ks[256];
+			GetKeyboardState(ks);
+			char xx[3];
+			xx[0] = 0;
+			c = ToAscii(key, MapVirtualKey(key,0), ks, (LPWORD) &xx[0], 0);
  			if ( c == 1 )
 				g_emulator->SetKeyUp( xx[0], false );
 			else

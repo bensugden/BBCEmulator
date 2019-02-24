@@ -59,11 +59,13 @@ void FDC_8271::EjectDisk( int nDrive )
 
 //-------------------------------------------------------------------------------------------------
 
-void FDC_8271::Tick()
+void FDC_8271::Tick( int nCPUClockTicks )
 {
 	if ( m_nNMITickDelay > 0 )
 	{
-		if ( --m_nNMITickDelay == 0 )
+		m_nNMITickDelay -= nCPUClockTicks;
+
+		if ( m_nNMITickDelay <= 0 )
 		{
  			m_uStatusRegister |= Status_Interrupt_Request;
 			cpu.ThrowInterrupt( INTERRUPT_NMI );

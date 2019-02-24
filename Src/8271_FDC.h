@@ -12,7 +12,7 @@ public:
 	FDC_8271();
 	void		InsertDisk( int nDrive, FloppyDisk* disk );
 	void		EjectDisk( int nDrive );
-	void		Tick();
+	void		Tick( int nCPUClockTicks );
 
 private:
 	//-------------------------------------------------------------------------------------------------

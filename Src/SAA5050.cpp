@@ -135,6 +135,7 @@ void SAA5050::RenderScreen()
 	}
 
 	GFXSystem::UnlockFrameBuffer();
+	GFXSystem::SetAnisotropicFiltering( true );
 }
 
 //-------------------------------------------------------------------------------------------------

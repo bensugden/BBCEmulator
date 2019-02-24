@@ -12,7 +12,7 @@ public:
 	//
 	enum Register
 	{
-		Horizontal_Total = 0,					// R0. Total length of line (displayed and non-displayed cycles (retrace) in CCLK cylces minus 1 )
+		Horizontal_Total = 0,					// R0. Total length of line (displayed and non-displayed cycles (retrace) in CCLK cycles minus 1 )
 		Horizontal_displayed_character_lines,	// R1. Number of characters displayed in a line
 		Horizontal_Sync_position,				// R2. The position of the horizontal sync pulse start in distance from line start
 		Horizontal_Sync_Width,					// R3. (Bits 0-3) The width of the horizontal sync pulse in CCLK cycles (0 means 16) .
@@ -41,6 +41,7 @@ public:
 		return r[ reg ];
 	}
 private:
+	u8 WriteRegisterAddress(  u16 address, u8 value  );
 	u8 WriteRegisterFile(  u16 address, u8 value  );
 	int m_nCurrentRegister;
 	u8 r[18];

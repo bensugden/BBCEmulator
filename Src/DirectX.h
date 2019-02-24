@@ -22,6 +22,7 @@ namespace GFXSystem
 	void			Shutdown();
 
 	void			Render();
+	void			SetAnisotropicFiltering( bool on );
 
 	FrameBufferInfo LockFrameBuffer( u32 width, u32 height );
 	void			UnlockFrameBuffer( );

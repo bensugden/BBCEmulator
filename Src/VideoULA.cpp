@@ -8,11 +8,35 @@
 
 //-------------------------------------------------------------------------------------------------
 
-VideoULA::VideoULA( )
+VideoULA::VideoULA( SAA5050& teletextChip, CRTC_6845& crtcChip )
+	: m_teletext( teletextChip )
+	, m_CRTC( crtcChip )
 {
 	mem.RegisterMemoryMap_Write( SHEILA::WRITE_Serial_ULA_Control_register, MemoryMapHandler( VideoULA::WRITE_Serial_ULA_Control_register ) );
 	mem.RegisterMemoryMap_Write( SHEILA::WRITE_Video_ULA_Control_register,  MemoryMapHandler( VideoULA::WRITE_Video_ULA_Control_register  ) );
 	mem.RegisterMemoryMap_Write( SHEILA::WRITE_Video_ULA_Palette_register,  MemoryMapHandler( VideoULA::WRITE_Video_ULA_Palette_register  ) );
+
+	for ( int n = 0; n < 4; n++ )
+	{
+		int nBitsPerPixel = 1 << n;
+		for ( int i = 0; i < 256; i++ )
+		{
+			int nBitSkip = 8 / nBitsPerPixel;
+
+			for ( int o = 0; o < nBitSkip; o++ )
+			{
+				int nStartBit = 7 - o;
+
+				int nAccum = 0;
+				for ( int x = 0; x < nBitsPerPixel; x++ )
+				{
+					nAccum = ( nAccum << 1 ) + (( i >> nStartBit ) & 1 );
+					nStartBit -= nBitSkip;
+				}
+				m_colorLookup[ n ][ o ][ i ] = nAccum;
+			}
+		}
+	}
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -43,16 +67,17 @@ static u32 s_physialColorPalette[ 16 ][ 2 ] =
 
 //-------------------------------------------------------------------------------------------------
 
-bool VideoULA::RenderScreen()
+void VideoULA::RefreshDisplay()
 {
 	if ( m_ulaState.bTeletextMode )
 	{
-		return false;	
+		m_teletext.RenderScreen();
+		return;
 	}
 	//
 	// Scan screen and render pixels, servicing stored interrups along the way
 	//
-	return true;
+	RenderScreen();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -121,7 +146,67 @@ u8 VideoULA::WRITE_Video_ULA_Palette_register( u16 address, u8 value )
 {
 	u8 temp= value;
 	return value;
+}
 
+//-------------------------------------------------------------------------------------------------
+
+void VideoULA::RenderScreen()
+{
+	u8 hi = m_CRTC.GetRegisterValue( CRTC_6845::Display_start_address_high );
+	u8 lo = m_CRTC.GetRegisterValue( CRTC_6845::Display_start_address_low );
+
+	u16 uStartAddress = MakeAddress( hi, lo ) * 8;
+	u16 nRomAddress = 0x8000;
+
+	u16 nScreenWidthInChars = m_CRTC.GetRegisterValue( CRTC_6845::Horizontal_displayed_character_lines );
+	u16 nScreenHeightInChars = m_CRTC.GetRegisterValue( CRTC_6845::Vertical_displayed_character_lines );
+
+	u16 bitsPerPixel = nScreenWidthInChars / m_ulaState.nCharactersPerLine;
+	u16 mask = (1<<bitsPerPixel) - 1;
+	u16 pixelsPerByte = 8 / bitsPerPixel;
+	u16 nPixelWidth = m_ulaState.nCharactersPerLine * 8;
+	u16 nPixelHeight = nScreenHeightInChars * 8;
+
+	u16 nScreenSizeInBytes = nPixelWidth * nPixelHeight * bitsPerPixel / 8;
+
+	GFXSystem::FrameBufferInfo fbInfo;
+
+	fbInfo = GFXSystem::LockFrameBuffer( nPixelWidth, nPixelHeight );
+	u16 nCurrentAddress = uStartAddress; 
+
+	int table = 0;
+	while ( ( 1 << table ) != bitsPerPixel )
+	{
+		table++;
+	}
+
+	for ( int y = 0 ; y < nPixelHeight; y += 8 )
+	{
+		for ( int x = 0 ; x < nPixelWidth; x+= pixelsPerByte )
+		{
+			for ( int dy = 0 ; dy < 8; dy++ )
+			{
+				u32* pFB0 = fbInfo.m_pData + x + ( y + dy ) * fbInfo.m_pitch;
+
+				u8 value = mem.Read_Internal( nCurrentAddress++ );
+
+				//
+				// Do wrap around for vertical scroll
+				//
+				if ( nCurrentAddress >= nRomAddress )
+				{
+					nCurrentAddress -= nScreenSizeInBytes;
+				}
+				for ( int pixel = 0 ; pixel < pixelsPerByte; pixel++ )
+				{
+					u8 physicalIndex = m_colorLookup[ table ][ pixel ][ value ];
+					*pFB0++ = s_physialColorPalette[ physicalIndex ][ 0 ];
+				}
+			}
+		}
+	}
+	GFXSystem::UnlockFrameBuffer();
+	GFXSystem::SetAnisotropicFiltering( false );
 }
 
 //-------------------------------------------------------------------------------------------------

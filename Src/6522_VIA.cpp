@@ -161,9 +161,10 @@ u8 VIA_6522::WriteT1( u16 address, u8 value )
 		//
 		if ( in == RW_T1C_H )
 		{
-			reg.T1_COUNTER_L = reg.T1_LATCH_L;
-			reg.T1_COUNTER_H = reg.T1_LATCH_H;
-
+			//
+			// Set clock in CPU cycles ( so x2 ) and add 1.5 ( or 3 CPU ) cycles for correct timing
+			//
+			reg.T1_COUNTER = ( reg.T1_LATCH_H << 9 ) + ( reg.T1_LATCH_L << 1 ) + 3;
 			//
 			// One shot mode. PB7 low on load
 			//
@@ -192,10 +193,10 @@ u8 VIA_6522::ReadT1( u16 address, u8 value )
 			//
 			mem.Write( m_baseAddress + RW_IFR, INTERRUPT_TIMER1 );
 
-			return reg.T1_COUNTER_L;
+			return ( reg.T1_COUNTER >> 1 ) & 0xff;
 		}
 		case RW_T1C_H:
-			return reg.T1_COUNTER_H;
+			return ( reg.T1_COUNTER >> 9 );
 		case RW_T1L_L:
 			return reg.T1_LATCH_L;
 		case RW_T1L_H:
@@ -216,8 +217,11 @@ u8 VIA_6522::WriteT2( u16 address, u8 value )
 	}
 	else if ( in == RW_T2C_H )
 	{
-		reg.T2_COUNTER_H = value;
-		reg.T2_COUNTER_L = reg.T2_LATCH_L;
+		//
+		// Set clock in CPU cycles ( so x2 ) and add 1.5 ( or 3 CPU ) cycles for correct timing
+		//
+		reg.T2_COUNTER = ( value << 9 ) + ( reg.T2_LATCH_L << 1 ) + 3;
+
 		reg.T2_INTERRUPT_ENABLED = 1;
 		//
 		// Clear T2 interrupt flag
@@ -239,11 +243,11 @@ u8 VIA_6522::ReadT2( u16 address, u8 value )
 		// Clear T2 interrupt flag
 		//
 		mem.Write( m_baseAddress + RW_IFR, INTERRUPT_TIMER2 );
-		return  reg.T2_COUNTER_L;
+		return ( reg.T2_COUNTER >> 1 ) & 0xff;
 	}
 	else // if ( in == RW_T2C_H )
 	{
-		return reg.T2_COUNTER_H;
+		return ( reg.T2_COUNTER >> 9 );
 	}
 }
 
@@ -265,20 +269,35 @@ u8 VIA_6522::WriteORB( u16 address, u8 value )
 	//
 	reg.IFR &= ~INTERRUPT_CB1;
 
-	if ((reg.PCR & 0xA0) != 0x20) /*Not independent interrupt for CB2*/
+	//
+	// Not independent interrupt for CB2 ?
+	//
+	u8 mode = GetControlLineModeCB2();
+
+	//if ((reg.PCR & 0xA0) != 0x20) /*Not independent interrupt for CB2*/
+	if ( ( mode != 1 ) && ( mode != 3 ) )
+	{
 		reg.IFR &= ~INTERRUPT_CB2;
+	}
 
 	UpdateIFR();
 
-	if ((reg.PCR & 0xE0) == 0x80) /*Handshake mode*/
+	//
+	// Handshake mode
+	//
+	if ( mode == 4 ) 
 	{
 		SetCB2(0);
 	}
-	if ((reg.PCR & 0xE0) == 0xA0) /*Pulse mode*/
+	//
+	// Pulse mode
+	//
+	if ( mode == 5 ) 
 	{
 		SetCB2(0);
 		SetCB2(1);
 	}
+
 	//
 	// Note from page 7 of Datasheet:
 	//
@@ -287,7 +306,7 @@ u8 VIA_6522::WriteORB( u16 address, u8 value )
 	// and ORB7 will have no effect on the pin.
 	//
 	u8 mask = reg.DDRB;
-	if ( ( reg.DDRB& reg.ACR ) & 0x80 )
+	if ( ( reg.DDRB & reg.ACR ) & 0x80 )
 	{
 		mask = reg.DDRB & 0x7f;
 	}
@@ -305,16 +324,29 @@ u8 VIA_6522::WriteORA( u16 address, u8 value )
 	{
 		reg.IFR &= ~INTERRUPT_CA1;
 
-		if ((reg.PCR & 0xA) != 0x2) /*Not independent interrupt for CA2*/
+		u8 mode = GetControlLineModeCA2();
+
+		//
+		// Not independent interrupt for CA2 ?
+		//
+		if ( ( mode != 1 ) && ( mode != 3 ) )
+		{
 			reg.IFR &= ~INTERRUPT_CA2;
+		}
 
 		UpdateIFR();
-
-		if ((reg.PCR & 0x0E) == 0x08) /*Handshake mode*/
+	
+		//
+		// Handshake mode
+		//
+		if ( mode == 4 ) 
 		{
 			SetCA2(0);
 		}
-		if ((reg.PCR & 0x0E) == 0x0A) /*Pulse mode*/
+		//
+		// Pulse mode
+		//
+		if ( mode == 5 ) 
 		{
 			SetCA2(0);
 			SetCA2(1);
@@ -334,7 +366,14 @@ u8 VIA_6522::ReadORB( u16 address, u8 value )
 	// check if latching - if yes, use IRB else use PB
 	//
 	reg.IFR &= ~INTERRUPT_CB1;
-	if ((reg.PCR & 0xA0) != 0x20) /*Not independent interrupt for CB2*/
+
+	//
+	// Not independent interrupt for CB2 ?
+	//
+	u8 mode = GetControlLineModeCB2();
+
+	//if ((reg.PCR & 0xA0) != 0x20) /*Not independent interrupt for CB2*/
+	if ( ( mode != 1 ) && ( mode != 3 ) )
 	{
 		reg.IFR &= ~INTERRUPT_CB2;
 	}
@@ -363,7 +402,13 @@ u8 VIA_6522::ReadORA( u16 address, u8 value )
 	if ( in == RW_ORA_IRA )
 	{
 		reg.IFR &= ~INTERRUPT_CA1;
-		if ((reg.PCR & 0xA) != 0x2) /*Not independent interrupt for CA2*/
+		
+		//
+		// Not independent interrupt for CA2 ?
+		//
+		u8 mode = GetControlLineModeCA2();
+
+		if ( ( mode != 1 ) && ( mode != 3 ) )
 		{
 			reg.IFR &= ~INTERRUPT_CA2;
 		}
@@ -732,7 +777,7 @@ void VIA_6522::ThrowInterrupt( InterruptFlags interrupt )
 
 //-------------------------------------------------------------------------------------------------
 
-void VIA_6522::Tick( )
+void VIA_6522::Tick( int nCPUClocks )
 {
 /*
 	if (v->t1c<-3)
@@ -767,40 +812,42 @@ void VIA_6522::Tick( )
 	//
 	if ( reg.IER & INTERRUPT_TIMER1 )
 	{
-		u16 timer = ( u16( reg.T1_COUNTER_H ) << 8 ) + reg.T1_COUNTER_L;
-
-		if ( --timer == 0 )
+		if ( reg.T1_COUNTER > 0 )
 		{
-			u8 mode = reg.ACR >> 6;
-			if ( mode == 2 )
-			{
-				//
-				// One shot mode "2". PB7 high on terminate.
-				//
-				reg.PCR |= 0x80; // set PB7
-			}
-			else if ( mode == 1 )
-			{
-				//
-				// Free running mode "1"
-				//
-				reg.T1_COUNTER_L = reg.T1_LATCH_L;
-				reg.T1_COUNTER_H = reg.T1_LATCH_H;
-			}
-			else if ( mode == 3 )
-			{
-				//
-				// Free running mode "3"
-				//
-				reg.T1_COUNTER_L = reg.T1_LATCH_L;
-				reg.T1_COUNTER_H = reg.T1_LATCH_H;
-				reg.PCR ^= 0x80; // toggle PB7
-			}
+			reg.T1_COUNTER -= nCPUClocks;
 
-			ThrowInterrupt( INTERRUPT_TIMER1 );
+			if ( reg.T1_COUNTER <= 0 )
+			{
+				u8 mode = reg.ACR >> 6;
+
+				if ( mode == 2 )
+				{
+					//
+					// One shot mode "2". PB7 high on terminate.
+					//
+					reg.PCR |= 0x80; // set PB7
+				}
+				else if ( mode == 1 )
+				{
+					//
+					// Free running mode "1"
+					// Set clock in CPU cycles ( so x2 ) and add 2 ( or 4 CPU ) cycles for correct timing
+					//
+					reg.T1_COUNTER = ( reg.T1_LATCH_H << 9 ) + ( reg.T1_LATCH_L << 1 ) + 4;
+				}
+				else if ( mode == 3 )
+				{
+					//
+					// Free running mode "3"
+					// Set clock in CPU cycles ( so x2 ) and add 2 ( or 4 CPU ) cycles for correct timing
+					//
+					reg.T1_COUNTER = ( reg.T1_LATCH_H << 9 ) + ( reg.T1_LATCH_L << 1 ) + 4;
+					reg.PCR ^= 0x80; // toggle PB7
+				}
+
+				ThrowInterrupt( INTERRUPT_TIMER1 );
+			}
 		}
-		reg.T1_COUNTER_H = timer >> 8;
-		reg.T1_COUNTER_L = timer & 0xff;
 	}
 
 	//
@@ -808,29 +855,15 @@ void VIA_6522::Tick( )
 	//
 	if ( reg.IER & INTERRUPT_TIMER2 )
 	{
-		u16 timer = ( u16( reg.T2_COUNTER_H ) << 8 ) + reg.T2_COUNTER_L;
-		u8 mode = reg.ACR & 0x20;
+		if ( reg.T2_COUNTER > 0 )
+		{
+			u8 mode = reg.ACR & 0x20;
 
-		if ( mode == 0 )
-		{
-			if ( --timer == 0 )
+			if ( mode == 0 )
 			{
-				if ( reg.T2_INTERRUPT_ENABLED )
-				{
-					//
-					// Set T2 interrupt flag
-					// Disable further interrupts until T2_H re-written
-					//
-					ThrowInterrupt( INTERRUPT_TIMER2 );
-					reg.T2_INTERRUPT_ENABLED = 0;
-				}
-			}
-		}
-		else
-		{
-			if ( ReadPortB() & 0x40 )
-			{
-				if ( --timer == 0 )
+				reg.T2_COUNTER -= nCPUClocks;
+
+				if ( reg.T2_COUNTER <= 0 )
 				{
 					if ( reg.T2_INTERRUPT_ENABLED )
 					{
@@ -843,25 +876,28 @@ void VIA_6522::Tick( )
 					}
 				}
 			}
-		}
-		reg.T2_COUNTER_H = timer >> 8;
-		reg.T2_COUNTER_L = timer & 0xff;
-	}
+			else
+			{
+				if ( ReadPortB() & 0x40 )
+				{
+					reg.T2_COUNTER -= nCPUClocks;
 
-	//
-	// Check for CA2 / CB2 mode 5 pulse
-	//
-	u8 CA2Mode = GetControlLineModeCA2( );
-	if ( ( CA2Mode == 5 ) && ( reg.CA2 == 0 ) && ( --reg.CA2_TIMER == 0 ) )
-	{
-		reg.CA2 = 1;
+					if (  reg.T2_COUNTER <= 0 )
+					{
+						if ( reg.T2_INTERRUPT_ENABLED )
+						{
+							//
+							// Set T2 interrupt flag
+							// Disable further interrupts until T2_H re-written
+							//
+							ThrowInterrupt( INTERRUPT_TIMER2 );
+							reg.T2_INTERRUPT_ENABLED = 0;
+						}
+					}
+				}
+			}
+		}
 	}
-	u8 CB2Mode = GetControlLineModeCB2( );
-	if ( ( CB2Mode == 5 ) && ( reg.CB2 == 0 ) && ( --reg.CB2_TIMER == 0 ) )
-	{
-		reg.CB2 = 1;
-	}
-	
 }
 
 //-------------------------------------------------------------------------------------------------
