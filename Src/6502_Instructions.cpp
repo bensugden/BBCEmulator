@@ -541,10 +541,10 @@ void fn_NMI( )
 	cpu.DecS(); 
 	cpu.Tick();
 
-	cpu.SetPCL( mem.Read( cpu.c_IRQ_Vector ) );  
+	cpu.SetPCL( mem.Read( cpu.c_NMI_Vector ) );  
 	cpu.Tick();
 
-	cpu.SetPCH( mem.Read( cpu.c_IRQ_Vector + 1 ) ); 
+	cpu.SetPCH( mem.Read( cpu.c_NMI_Vector + 1 ) ); 
 	cpu.LastTick();
 }
 

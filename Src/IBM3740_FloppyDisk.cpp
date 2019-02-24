@@ -48,6 +48,7 @@ void FloppyDisk::FlushWrites()
 u8 FloppyDisk::Read( int track, int sector, int offset, int side )
 {
 	int nAddress = ( ( side * m_nNumTracks + track ) * m_nNumSectorsPerTrack + sector ) * m_nSectorSize + offset;
+	assert( nAddress >=0 && nAddress < m_data.size() );
 	return m_data[ nAddress ];
 }
 
@@ -61,6 +62,8 @@ void FloppyDisk::Write( u8 value, int track, int sector, int offset, int side )
 	{
 		m_nSize = nAddress;
 	}
+	assert( nAddress >=0 && nAddress < m_data.size() );
+
 	m_bNeedsFlush = true;
 }
 

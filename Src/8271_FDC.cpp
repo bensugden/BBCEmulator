@@ -24,11 +24,14 @@ FDC_8271::FDC_8271()
 	m_uResultRegister = 0;
 	m_uCurrentTrack[ 0 ] = 0;
 	m_uCurrentTrack[ 1 ] = 0;
+	m_nReadWriteOffset = 0;
+	m_nNumBytesToTransfer = 0;
 
 	m_disk[ 0 ] = nullptr;
 	m_disk[ 1 ] = nullptr;
 
 	m_nDriveStatus = 0;
+	m_nNMITickDelay = 0;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -58,38 +61,12 @@ void FDC_8271::EjectDisk( int nDrive )
 
 void FDC_8271::Tick()
 {
-	switch ( m_currentPhase )
+	if ( m_nNMITickDelay > 0 )
 	{
-		case Phase_Command:
+		if ( --m_nNMITickDelay == 0 )
 		{
-			break;
-		}
-		case Phase_Execution:
-		{
-			bool bStandardResult = m_uCurrentCommand < 0x2C;
-			if ( !bStandardResult )
-			{
-				bool bImmediateResult = ( m_uCurrentCommand & 0xf ) >= 0xC;
-				if ( bImmediateResult )
-				{
-					// wait for result
-					if ( m_uStatusRegister & Status_Command_Busy )
-					{
-						break;
-					}
-				}
-			}
-			m_currentPhase = Phase_Result;
-
-			break;
-		}
-		case Phase_Result:
-		{
-			break;
-		}
-		default:
-		{
-			break;
+ 			m_uStatusRegister |= Status_Interrupt_Request;
+			cpu.ThrowInterrupt( INTERRUPT_NMI );
 		}
 	}
 }
@@ -341,6 +318,7 @@ void FDC_8271::ExecuteCommand()
 			m_nBadTrack[1][1] = 0xff;
 			m_uCurrentTrack[0] = 0xff;
 			m_uCurrentTrack[1] = 0xff;
+			m_uStatusRegister &= ~Status_Command_Busy;
 			break;
 		}
 		case Command_Load_Bad_Tracks:
@@ -348,28 +326,33 @@ void FDC_8271::ExecuteCommand()
 			m_nBadTrack[ m_uCommandDrive ][ 0 ] = m_uParameters[ 1 ];
 			m_nBadTrack[ m_uCommandDrive ][ 1 ] = m_uParameters[ 2 ];
 			m_uCurrentTrack[ m_uCommandDrive ] = m_uParameters[ 3 ];
+			m_uStatusRegister &= ~Status_Command_Busy;
 			break;
 		}
 		case Command_Read_ID:
 		{
 			m_uStatusRegister |= Status_Interrupt_Request;
+			m_uStatusRegister &= ~Status_Command_Busy;
 			break;
 		}
 		case Command_Read_Drive_Status:
 		{
 			m_uResultRegister = m_nDriveStatus;
 			m_uStatusRegister |= Status_Result_Register_Full;
+			m_uStatusRegister &= ~Status_Command_Busy;
 			break;
 		}
 		case Command_Read_Special_Reg:
 		{
 			m_uResultRegister = ReadSpecialRegister( m_uParameters[ 0 ] );
 			m_uStatusRegister |= Status_Result_Register_Full;
+			m_uStatusRegister &= ~Status_Command_Busy;
 			break;
 		}
 		case Command_Write_Special_Reg:
 		{
 			WriteSpecialRegister( m_uParameters[ 0 ], m_uParameters[ 1 ] );
+			m_uStatusRegister &= ~Status_Command_Busy;
 			break;
 		}
 		case Command_Seek:
@@ -377,6 +360,7 @@ void FDC_8271::ExecuteCommand()
 			m_uCurrentTrack[ m_uCommandDrive ] = m_uParameters[ 0 ];
 			m_uStatusRegister |= Status_Interrupt_Request;
 			m_uStatusRegister |= Status_Result_Register_Full;
+			m_uStatusRegister &= ~Status_Command_Busy;
 			break;
 		}
 		case Command_128byte_Read_Data:
@@ -388,12 +372,14 @@ void FDC_8271::ExecuteCommand()
 			m_nNumBytesToTransfer = 128;
 			m_uCurrentTrack[ m_uCommandDrive ] = m_uParameters[ 0 ];
 			m_uCurrentSector[ m_uCommandDrive ] = m_uParameters[ 1 ];
+			m_nReadWriteOffset = 0;
 			m_uStatusRegister |= Status_Interrupt_Request;
 			m_uStatusRegister |= Status_Result_Register_Full;
 			if ( m_uModeRegister & 1 )
 				m_uStatusRegister |= Status_Non_DMA_Data_Request;
 			else
 				m_uStatusRegister &= ~Status_Non_DMA_Data_Request;
+			m_nNMITickDelay = 200;
 
 			break;
 		}
@@ -408,19 +394,22 @@ void FDC_8271::ExecuteCommand()
 			
 			u16 uRecordSize = 128 << ( m_uParameters[ 2 ] >> 5 );
 			m_nNumBytesToTransfer = uRecordSize * ( m_uParameters[ 2 ] & 0x1f );
-
+			m_nReadWriteOffset = 0;
 			m_uStatusRegister |= Status_Interrupt_Request;
 			m_uStatusRegister |= Status_Result_Register_Full;
 			if ( m_uModeRegister & 1 )
 				m_uStatusRegister |= Status_Non_DMA_Data_Request;
 			else
 				m_uStatusRegister &= ~Status_Non_DMA_Data_Request;
+			m_nNMITickDelay = 200;
+
 			break;
 		}
 		case Command_Format:
 		{
 			m_uStatusRegister |= Status_Interrupt_Request;
 			m_uStatusRegister |= Status_Result_Register_Full;
+			m_uStatusRegister &= ~Status_Command_Busy;
 			break;
 		}
 
@@ -429,6 +418,7 @@ void FDC_8271::ExecuteCommand()
 		{
 			m_uStatusRegister |= Status_Interrupt_Request;
 			m_uStatusRegister |= Status_Result_Register_Full;
+			m_uStatusRegister &= ~Status_Command_Busy;
 			break;
 		}
 		default:
@@ -436,13 +426,11 @@ void FDC_8271::ExecuteCommand()
 			break;
 		}
 	}
-
-	m_uStatusRegister &= ~Status_Command_Busy;
-
-	if ( m_uStatusRegister & Status_Interrupt_Request )
-	{
-		cpu.ThrowInterrupt( INTERRUPT_NMI );
-	}
+	
+	//if ( m_uStatusRegister & Status_Interrupt_Request )
+	//{
+	//	cpu.ThrowInterrupt( INTERRUPT_NMI );
+	//}
 
 	m_currentPhase = Phase_Result;
 }
@@ -464,6 +452,11 @@ u8 FDC_8271::WriteData( u16 address, u8 value )
 			{
 				m_disk[ m_uCommandDrive ]->FlushWrites();
 				m_currentPhase = Phase_None;
+				m_uStatusRegister &= ~Status_Command_Busy;
+			}
+			else
+			{
+				m_nNMITickDelay = 200;
 			}
 		}
 
@@ -586,7 +579,14 @@ u8 FDC_8271::ReadData( u16 address, u8 value )
 			if ( m_nReadWriteOffset == m_nNumBytesToTransfer )
 			{
 				m_currentPhase = Phase_None;
+				m_uStatusRegister &= ~Status_Command_Busy;
 			}
+ 			else
+ 			{
+ 				//m_uStatusRegister |= Status_Interrupt_Request;
+				m_nNMITickDelay = 200;
+// 				cpu.ThrowInterrupt( INTERRUPT_NMI );
+ 			}
 		}
 		case Command_Read_Drive_Status:
 		case Command_Initialization:

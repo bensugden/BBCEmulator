@@ -10,8 +10,9 @@ class FDC_8271
 {
 public:
 	FDC_8271();
-	void InsertDisk( int nDrive, FloppyDisk* disk );
-	void EjectDisk( int nDrive );
+	void		InsertDisk( int nDrive, FloppyDisk* disk );
+	void		EjectDisk( int nDrive );
+	void		Tick();
 
 private:
 	//-------------------------------------------------------------------------------------------------
@@ -84,7 +85,6 @@ private:
 
 	//-------------------------------------------------------------------------------------------------
 
-	void		Tick();
 	void		ExecuteCommand();
 	u8			ReadSpecialRegister( u8 parameter ) const;
 	void		WriteSpecialRegister( u8 parameter, u8 value );
@@ -107,6 +107,8 @@ private:
 	u32			m_nReadWriteOffset;
 	FloppyDisk* m_disk[ 2 ];
 	u8			m_nDriveStatus;
+	int			m_nNMITickDelay;
+
 	//
 	// Initialization Params
 	//
