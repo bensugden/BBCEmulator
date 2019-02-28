@@ -78,9 +78,6 @@ private:
 
 		Command_Var_Scan_Data					= 0x00,
 		Command_Var_Scan_Data_And_Deleted		= 0x04,
-
-		Command_Initialization					= 0x100,
-		Command_Load_Bad_Tracks					= 0x101,
 	};
 
 	//-------------------------------------------------------------------------------------------------
@@ -103,12 +100,12 @@ private:
 	u8			m_uNumParameters;
 	u8			m_uNumParametersRequired;
 	u8			m_uCurrentSector[2];
-	u32			m_nNumBytesToTransfer;
-	u32			m_nReadWriteOffset;
+	u32			m_nSectorSize;
+	int			m_nNumSectorsToTransfer;
 	FloppyDisk* m_disk[ 2 ];
 	u8			m_nDriveStatus;
-	int			m_nNMITickDelay;
-
+	int			m_nTickDelay;
+	u8			m_nDataRegister;
 	//
 	// Initialization Params
 	//
@@ -127,6 +124,8 @@ private:
 	u8			m_uDriveControlOutputPort;
 	u8			m_uDriveControlInputPort;
 	u8			m_nBadTrack[2][2];
+	u8			m_buffer[65536];
+	u16			m_bufferReadOffset;
 };
 
 //-------------------------------------------------------------------------------------------------
