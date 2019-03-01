@@ -2,6 +2,7 @@
 
 #include "stdafx.h"
 #include "Win32.h"
+#include "windowsx.h"
 
 //--------------------------------------------------------------------------------------
 
@@ -313,7 +314,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
  		case WM_KEYDOWN:
  		{
- 			u8 key = wParam;
+ 			u8 key = (u8)wParam;
 			int c;
 			byte ks[256];
 			GetKeyboardState(ks);
@@ -329,7 +330,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
  		}
  		case WM_KEYUP:
  		{
- 			u8 key = wParam;
+ 			u8 key = (u8)wParam;
 			int c;
 			byte ks[256];
 			GetKeyboardState(ks);
@@ -465,12 +466,23 @@ void SetMemoryAddressToWatch( HWND hDlg )
 // Message handler for debugger box.
 INT_PTR CALLBACK Debugger(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    UNREFERENCED_PARAMETER(lParam);
     switch (message)
     {
     case WM_INITDIALOG:
         return (INT_PTR)TRUE;
+	case WM_MOUSEWHEEL:
+	{	
+		POINT p;
+		GetCursorPos(&p);
+		RECT rect;
+		GetWindowRect(g_debuggerMemory_HWND, &rect );
+		if ( rect.left < p.x && rect.right > p.x && rect.top < p.y && rect.bottom > p.y )
+		{
+			short zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+		}
 
+        return (INT_PTR)TRUE;
+	}
     case WM_COMMAND:
         if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
         {
