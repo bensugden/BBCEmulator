@@ -25,7 +25,7 @@ FDC_8271::FDC_8271()
 	m_uCurrentTrack[ 0 ] = 0;
 	m_uCurrentTrack[ 1 ] = 0;
 	m_bufferReadOffset = 0;
-
+	m_bufferReadOffsetTest = 0;
 	m_disk[ 0 ] = nullptr;
 	m_disk[ 1 ] = nullptr;
 
@@ -81,6 +81,9 @@ void FDC_8271::Tick( int nCPUClockTicks )
 				case Command_Var_Read_Data_And_Deleted:
 				case Command_Var_Verify_Data_And_Deleted:
 				{
+					m_uStatusRegister |= Status_Interrupt_Request;
+					cpu.ThrowInterrupt( INTERRUPT_NMI );
+
 					m_uResultRegister = 0;
 					if ( m_nNumSectorsToTransfer < 0 )
 					{
@@ -89,7 +92,11 @@ void FDC_8271::Tick( int nCPUClockTicks )
 						m_currentPhase = Phase_None;
 						break;
 					}
-
+					if ( m_bufferReadOffset > m_bufferReadOffsetTest )
+					{
+						m_nTickDelay = 160;
+						return;
+					}
 					m_nDataRegister = m_buffer[ m_bufferReadOffset++ ];
 					bool bLastByte = false;
 					if ( m_bufferReadOffset >= m_nSectorSize ) 
@@ -423,7 +430,7 @@ void FDC_8271::ExecuteCommand()
 		}
 		case Command_Read_Drive_Status:
 		{
-			m_uResultRegister = m_nDriveStatus;
+			m_uResultRegister = 0x80 | m_nDriveStatus ;
 			m_uStatusRegister |= Status_Result_Register_Full;
 			m_uStatusRegister &= ~Status_Command_Busy;
 			m_currentPhase = Phase_Result;
@@ -464,6 +471,7 @@ void FDC_8271::ExecuteCommand()
 			m_uCurrentSector[ m_uCommandDrive ] = m_uParameters[ 1 ];
 			m_currentPhase = Phase_Execution;
 			m_bufferReadOffset = 0;
+			m_bufferReadOffsetTest = 0;
 			m_nTickDelay = 200;
 			break;
 		}
@@ -481,6 +489,7 @@ void FDC_8271::ExecuteCommand()
 			
 			m_disk[ m_uCommandDrive ]->Read( m_buffer, m_uCurrentTrack[ m_uCommandDrive ], m_uCurrentSector[ m_uCommandDrive ], m_nSectorSize );
 			m_bufferReadOffset = 0;
+			m_bufferReadOffsetTest = 0;
 			m_uStatusRegister = Status_Command_Busy;
 
 			m_nTickDelay = 160;
@@ -654,7 +663,11 @@ u8 FDC_8271::ReadData( u16 address, u8 value )
 		case Command_Var_Read_Data_And_Deleted:
 		case Command_Var_Verify_Data_And_Deleted:
 		{
+			assert( m_bufferReadOffset != m_bufferReadOffsetTest );
 			value = m_nDataRegister;
+			m_bufferReadOffsetTest++;
+			if ( m_bufferReadOffsetTest >= m_nSectorSize ) 
+				m_bufferReadOffsetTest =0;
 			m_uStatusRegister &= ~( Status_Non_DMA_Data_Request | Status_Interrupt_Request );
 		}
 		case Command_Read_Drive_Status:

@@ -126,6 +126,7 @@ private:
 	u8			m_nBadTrack[2][2];
 	u8			m_buffer[65536];
 	u16			m_bufferReadOffset;
+	u16			m_bufferReadOffsetTest;
 };
 
 //-------------------------------------------------------------------------------------------------
