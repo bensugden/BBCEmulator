@@ -49,13 +49,18 @@ BBC_Emulator::~BBC_Emulator( )
 void BBC_Emulator::Tick()
 {
 	m_nClockCounter++;
+}
 
-	if ( m_nClockCounter & 0x2 )
-	{
-		m_systemVIA.Tick( 2 );
-	//	m_portsVIA.Tick();
-		m_fdc.Tick( 2 );
-	}
+//-------------------------------------------------------------------------------------------------
+
+void BBC_Emulator::PollChips()
+{
+	int nClocksElapsed = m_nClockCounter - m_nLastClockCounter ;
+	
+	m_systemVIA.Tick( nClocksElapsed );
+	m_fdc.Tick( nClocksElapsed );
+
+	m_nLastClockCounter = m_nClockCounter;
 }
 
 //-------------------------------------------------------------------------------------------------

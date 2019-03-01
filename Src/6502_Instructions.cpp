@@ -522,12 +522,14 @@ inline u8 op_TYA(u8 val)
 //      preserves all registers except PC.
 //
 //=================================================================================================
+	bool g_inNMI = false;
 
 void fn_NMI( )
 {
 	//DiscardNextPC(); 
 	//cpu.IncPC();
 	//cpu.Tick();
+			g_inNMI = true;
 
 	PushPCH( ); 
 	cpu.DecS(); 
@@ -650,6 +652,8 @@ namespace StackInstructions
 
 		PullPCH(); 
 		cpu.LastTick();
+
+		g_inNMI = false;
 	}
 
 	//-------------------------------------------------------------------------------------------------

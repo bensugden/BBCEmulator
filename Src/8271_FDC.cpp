@@ -472,7 +472,7 @@ void FDC_8271::ExecuteCommand()
 			m_currentPhase = Phase_Execution;
 			m_bufferReadOffset = 0;
 			m_bufferReadOffsetTest = 0;
-			m_nTickDelay = 200;
+			m_nTickDelay = 160;
 			break;
 		}
 		case Command_Var_Read_Data:
@@ -648,28 +648,26 @@ void FDC_8271::WriteSpecialRegister( u8 parameter, u8 value )
 
 u8 FDC_8271::ReadData( u16 address, u8 value )
 {
-    m_uStatusRegister &= ~( Status_Non_DMA_Data_Request | Status_Interrupt_Request );
-
 	switch ( m_uCurrentCommand )
 	{
 		case Command_Read_Special_Reg:
 		{
 			return ReadSpecialRegister( m_uParameters[ 0 ] );
 		}
-		case Command_128byte_Read_Data:
-		case Command_128byte_Read_Data_And_Deleted:
-		case Command_128byte_Verify_Data_And_Deleted:
 		case Command_Var_Read_Data:
-		case Command_Var_Read_Data_And_Deleted:
-		case Command_Var_Verify_Data_And_Deleted:
 		{
 			assert( m_bufferReadOffset != m_bufferReadOffsetTest );
-			value = m_nDataRegister;
 			m_bufferReadOffsetTest++;
 			if ( m_bufferReadOffsetTest >= m_nSectorSize ) 
 				m_bufferReadOffsetTest =0;
 			m_uStatusRegister &= ~( Status_Non_DMA_Data_Request | Status_Interrupt_Request );
+			return m_nDataRegister;
 		}
+		case Command_128byte_Read_Data:
+		case Command_128byte_Read_Data_And_Deleted:
+		case Command_128byte_Verify_Data_And_Deleted:
+		case Command_Var_Read_Data_And_Deleted:
+		case Command_Var_Verify_Data_And_Deleted:
 		case Command_Read_Drive_Status:
 		case Command_Specify:
 		case Command_Read_ID:
@@ -679,6 +677,7 @@ u8 FDC_8271::ReadData( u16 address, u8 value )
 		case Command_Var_Scan_Data_And_Deleted:
 		default:
 		{
+			
 			break;
 		}
 	}

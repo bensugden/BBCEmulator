@@ -163,7 +163,11 @@ struct CPU
 
 	inline void LastTick( )
 	{
-		// do nothing - pipelines with next opcode fetch instruction
+		if ( m_pClock )
+		{
+			m_pClock->PollChips();
+		}
+		// pipelines with next opcode fetch instruction
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -221,6 +225,9 @@ struct CPU
 	
 	inline void ThrowInterrupt( EInterrupt interrupt )
 	{
+	extern bool g_inNMI;
+
+		assert(( interrupt != INTERRUPT_NMI )||( !g_inNMI ))
 		m_pendingInterrupt |= interrupt;
 	}
 
