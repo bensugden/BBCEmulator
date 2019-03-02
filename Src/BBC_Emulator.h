@@ -14,7 +14,7 @@ public:
 
 	virtual void Tick();
 	virtual void PollChips();
-	virtual int GetClockCounter() { return m_nClockCounter; };
+	virtual u64 GetClockCounter() { return m_nClockCounter; };
 
 	//-------------------------------------------------------------------------------------------------
 	//
@@ -124,8 +124,8 @@ private:
 	CRTC_6845					m_crtc;
 	FDC_8271					m_fdc;
 	BBC_Keyboard				m_keyboard;
-	int							m_nClockCounter = 0;
-	int							m_nLastClockCounter = 0;
+	u64							m_nClockCounter = 0;
+	u64							m_nLastClockCounter = 0;
 	CPUStateHistory				m_history;
 	time_t						m_lastTime;
 	FloppyDisk*					m_floppies[2];

@@ -55,7 +55,7 @@ void BBC_Emulator::Tick()
 
 void BBC_Emulator::PollChips()
 {
-	int nClocksElapsed = m_nClockCounter - m_nLastClockCounter ;
+	int nClocksElapsed = (int)(m_nClockCounter - m_nLastClockCounter);
 	
 	m_systemVIA.Tick( nClocksElapsed );
 	m_fdc.Tick( nClocksElapsed );
@@ -68,6 +68,7 @@ void BBC_Emulator::PollChips()
 void BBC_Emulator::Reset()
 {
 	m_nClockCounter = 0;
+	m_nLastClockCounter = 0;
 
 	mem.LoadROM( "roms\\Os12.rom", 0xC000 );
 	mem.LoadROM( "roms\\Basic2.rom", 0x8000, 15 );

@@ -20,7 +20,7 @@ FDC_8271::FDC_8271()
 	mem.RegisterMemoryMap_Read ( SHEILA::READ_8271_FDC_Read_data			, MemoryMapHandler( FDC_8271::ReadData				 ) );
 
 	m_currentPhase = Phase_None;
-	m_uStatusRegister = 0;
+	m_nStatusRegister = 0;
 	m_uResultRegister = 0;
 	m_uCurrentTrack[ 0 ] = 0;
 	m_uCurrentTrack[ 1 ] = 0;
@@ -45,6 +45,21 @@ void FDC_8271::InsertDisk( int nDrive, FloppyDisk* disk)
 	{
 		disk->SetBadTrack( 0, m_nBadTrack[ nDrive ][ 0 ] );
 		disk->SetBadTrack( 1, m_nBadTrack[ nDrive ][ 1 ] );
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void FDC_8271::UpdateStatusRegister( u8 statusRegister )
+{
+	m_nStatusRegister = statusRegister;
+	if ( m_nStatusRegister & Status_Interrupt_Request )
+	{
+		cpu.SetNMI();
+	}
+	else
+	{
+		cpu.ClearNMI();
 	}
 }
 
@@ -81,22 +96,17 @@ void FDC_8271::Tick( int nCPUClockTicks )
 				case Command_Var_Read_Data_And_Deleted:
 				case Command_Var_Verify_Data_And_Deleted:
 				{
-					m_uStatusRegister |= Status_Interrupt_Request;
-					cpu.ThrowInterrupt( INTERRUPT_NMI );
+					UpdateStatusRegister( m_nStatusRegister | Status_Interrupt_Request );
 
 					m_uResultRegister = 0;
 					if ( m_nNumSectorsToTransfer < 0 )
 					{
-						m_uStatusRegister= Status_Result_Register_Full | Status_Interrupt_Request;
-						cpu.ThrowInterrupt( INTERRUPT_NMI );
+						UpdateStatusRegister( Status_Result_Register_Full | Status_Interrupt_Request );
+						
 						m_currentPhase = Phase_None;
 						break;
 					}
-					if ( m_bufferReadOffset > m_bufferReadOffsetTest )
-					{
-						m_nTickDelay = 160;
-						return;
-					}
+					assert( m_bufferReadOffset == m_bufferReadOffsetTest );
 					m_nDataRegister = m_buffer[ m_bufferReadOffset++ ];
 					bool bLastByte = false;
 					if ( m_bufferReadOffset >= m_nSectorSize ) 
@@ -110,8 +120,8 @@ void FDC_8271::Tick( int nCPUClockTicks )
 						else 
 						{
 							// Last sector done
-							m_uStatusRegister = Status_Command_Busy | Status_Interrupt_Request | Status_Non_DMA_Data_Request | Status_Result_Register_Full;
-							cpu.ThrowInterrupt( INTERRUPT_NMI );
+							UpdateStatusRegister( Status_Command_Busy | Status_Interrupt_Request | Status_Non_DMA_Data_Request | Status_Result_Register_Full );
+
 							bLastByte = true;
 							m_nNumSectorsToTransfer = -1;
 							m_nTickDelay = 160;
@@ -120,8 +130,8 @@ void FDC_8271::Tick( int nCPUClockTicks )
   
 					if (!bLastByte) 
 					{		
-						m_uStatusRegister= Status_Command_Busy | Status_Non_DMA_Data_Request | Status_Interrupt_Request; 
-						cpu.ThrowInterrupt( INTERRUPT_NMI );
+						UpdateStatusRegister( Status_Command_Busy | Status_Non_DMA_Data_Request | Status_Interrupt_Request ); 
+					
 						m_nTickDelay = 160;
 					}
 
@@ -129,9 +139,9 @@ void FDC_8271::Tick( int nCPUClockTicks )
 				}
 				case Command_Seek:
 				{
-					m_uStatusRegister = Status_Result_Register_Full | Status_Interrupt_Request;
+					UpdateStatusRegister( Status_Result_Register_Full | Status_Interrupt_Request );
+					
 					m_uResultRegister = 0;
-					cpu.ThrowInterrupt( INTERRUPT_NMI );	
 					m_currentPhase = Phase_None;
 					break;
 				}
@@ -167,7 +177,7 @@ u8 FDC_8271::WriteCommandRegister( u16 address, u8 value )
 	// A1 = 0
 	//
 	//-------------------------------------------------------------------------------------------------
-	if ( m_uStatusRegister & Status_Command_Busy )
+	if ( m_nStatusRegister & Status_Command_Busy )
 	{
 		assert( false ); // cannot issue command while one is busy
 		return value;
@@ -175,7 +185,7 @@ u8 FDC_8271::WriteCommandRegister( u16 address, u8 value )
 
 	if ( m_currentPhase == Phase_None || m_currentPhase == Phase_Result )
 	{
-		m_uStatusRegister &= ~Status_Result_Register_Full;
+		UpdateStatusRegister( m_nStatusRegister & (~Status_Result_Register_Full) );
 
 		m_uCommandDrive = value & 0x80 ? 1 : 0;
 		m_uCurrentCommand = (ECommand)(value & 0x3f);
@@ -239,8 +249,7 @@ u8 FDC_8271::WriteCommandRegister( u16 address, u8 value )
 
 		// initialize DMA channel ( fig 19 on datasheet ) ????
 
-		m_uStatusRegister |= Status_Command_Busy;
-		m_uStatusRegister &= ~Status_Parameter_Register_Full;
+		UpdateStatusRegister( ( m_nStatusRegister | Status_Command_Busy ) & (~Status_Parameter_Register_Full) );
 
 		//
 		// If no parameters needed, proceed to execute command immediately
@@ -268,10 +277,10 @@ u8 FDC_8271::WriteParameterRegister( u16 address, u8 value )
 	// A1 = 1
 	//
 	//-------------------------------------------------------------------------------------------------
-	if ( m_uStatusRegister & Status_Parameter_Register_Full )
+	if ( m_nStatusRegister & Status_Parameter_Register_Full )
 		return value;
 
-	if ( !( m_uStatusRegister & Status_Command_Busy ) )
+	if ( !( m_nStatusRegister & Status_Command_Busy ) )
 		return value;
 
 	if ( m_currentPhase != Phase_Command )
@@ -321,7 +330,7 @@ u8 FDC_8271::ReadStatusRegister( u16 address, u8 value )
 	// A1 = 0
 	//
 	//-------------------------------------------------------------------------------------------------
-	return m_uStatusRegister;
+	return m_nStatusRegister;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -343,8 +352,7 @@ u8 FDC_8271::ReadResultRegister( u16 address, u8 value )
 	// A1 = 1
 	//
 	//-------------------------------------------------------------------------------------------------
-	m_uStatusRegister &= ~( Status_Result_Register_Full | 
-							Status_Interrupt_Request );
+	UpdateStatusRegister( m_nStatusRegister & ( ~( Status_Result_Register_Full | Status_Interrupt_Request ) ) );
 
 	return m_uResultRegister; 
 }
@@ -359,7 +367,7 @@ void FDC_8271::ExecuteCommand()
 	// Perform initialization of specific commands prior to reading result
 	//
 	m_uResultRegister = 0;
-	m_uStatusRegister &= ~( Status_Result_Register_Full | Status_Interrupt_Request );
+	//UpdateStatusRegister( Status_Interrupt_Request  );
 	m_currentPhase = Phase_Result;
 
 	switch ( m_uCurrentCommand )
@@ -396,7 +404,7 @@ void FDC_8271::ExecuteCommand()
 
 				m_uCurrentTrack[0] = 0xff;
 				m_uCurrentTrack[1] = 0xff;
-				m_uStatusRegister &= ~Status_Command_Busy;
+				UpdateStatusRegister( m_nStatusRegister & ( ~Status_Command_Busy ) );
 				m_currentPhase = Phase_None;
 			}
 			else
@@ -409,7 +417,7 @@ void FDC_8271::ExecuteCommand()
 				m_nBadTrack[ m_uCommandDrive ][ 0 ] = m_uParameters[ 1 ];
 				m_nBadTrack[ m_uCommandDrive ][ 1 ] = m_uParameters[ 2 ];
 				m_uCurrentTrack[ m_uCommandDrive ] = m_uParameters[ 3 ];
-				m_uStatusRegister &= ~Status_Command_Busy;
+				UpdateStatusRegister( m_nStatusRegister & ( ~Status_Command_Busy ) );
 				m_currentPhase = Phase_None;
 
 				if ( m_disk[ m_uCommandDrive ] )
@@ -422,39 +430,35 @@ void FDC_8271::ExecuteCommand()
 		}
 		case Command_Read_ID:
 		{
-			m_uStatusRegister |= Status_Interrupt_Request;
-			m_uStatusRegister |= Status_Result_Register_Full;
-			m_uStatusRegister &= ~Status_Command_Busy;
+			UpdateStatusRegister( ( m_nStatusRegister | Status_Interrupt_Request | Status_Result_Register_Full ) & ( ~Status_Command_Busy ) );
 			m_currentPhase = Phase_Result;
 			break;
 		}
 		case Command_Read_Drive_Status:
 		{
 			m_uResultRegister = 0x80 | m_nDriveStatus ;
-			m_uStatusRegister |= Status_Result_Register_Full;
-			m_uStatusRegister &= ~Status_Command_Busy;
+			UpdateStatusRegister( ( m_nStatusRegister | Status_Result_Register_Full ) & ( ~Status_Command_Busy ) );
 			m_currentPhase = Phase_Result;
 			break;
 		}
 		case Command_Read_Special_Reg:
 		{
 			m_uResultRegister = ReadSpecialRegister( m_uParameters[ 0 ] );
-			m_uStatusRegister |= Status_Result_Register_Full;
-			m_uStatusRegister &= ~Status_Command_Busy;
+			UpdateStatusRegister( ( m_nStatusRegister | Status_Result_Register_Full ) & ( ~Status_Command_Busy ) );
 			m_currentPhase = Phase_Result;
 			break;
 		}
 		case Command_Write_Special_Reg:
 		{
 			WriteSpecialRegister( m_uParameters[ 0 ], m_uParameters[ 1 ] );
-			m_uStatusRegister &= ~Status_Command_Busy;
+			UpdateStatusRegister( m_nStatusRegister & ( ~Status_Command_Busy ) );
 			m_currentPhase = Phase_None;
 			break;
 		}
 		case Command_Seek:
 		{
 			m_uCurrentTrack[ m_uCommandDrive ] = m_uParameters[ 0 ];
-			m_uStatusRegister = Status_Command_Busy;
+			UpdateStatusRegister( Status_Command_Busy );
 			m_currentPhase = Phase_Execution;
 			m_nTickDelay = 100; // need variable time on scan
 			break;
@@ -490,7 +494,7 @@ void FDC_8271::ExecuteCommand()
 			m_disk[ m_uCommandDrive ]->Read( m_buffer, m_uCurrentTrack[ m_uCommandDrive ], m_uCurrentSector[ m_uCommandDrive ], m_nSectorSize );
 			m_bufferReadOffset = 0;
 			m_bufferReadOffsetTest = 0;
-			m_uStatusRegister = Status_Command_Busy;
+			UpdateStatusRegister( Status_Command_Busy );
 
 			m_nTickDelay = 160;
 
@@ -498,7 +502,7 @@ void FDC_8271::ExecuteCommand()
 		}
 		case Command_Format:
 		{
-			m_uStatusRegister &= ~Status_Command_Busy;
+			UpdateStatusRegister( m_nStatusRegister & ( ~Status_Command_Busy ) );
 			m_currentPhase = Phase_Execution;
 			m_nTickDelay = 200;
 			break;
@@ -507,7 +511,7 @@ void FDC_8271::ExecuteCommand()
 		case Command_Var_Scan_Data:
 		case Command_Var_Scan_Data_And_Deleted:
 		{
-			m_uStatusRegister &= ~Status_Command_Busy;
+			UpdateStatusRegister( m_nStatusRegister & ( ~Status_Command_Busy ) );
 			m_currentPhase = Phase_Execution;
 			m_nTickDelay = 200;
 			break;
@@ -517,12 +521,6 @@ void FDC_8271::ExecuteCommand()
 			break;
 		}
 	}
-
-	if ( m_uStatusRegister & Status_Interrupt_Request )
-	{
-		cpu.ThrowInterrupt( INTERRUPT_NMI );
-	}
-
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -660,7 +658,8 @@ u8 FDC_8271::ReadData( u16 address, u8 value )
 			m_bufferReadOffsetTest++;
 			if ( m_bufferReadOffsetTest >= m_nSectorSize ) 
 				m_bufferReadOffsetTest =0;
-			m_uStatusRegister &= ~( Status_Non_DMA_Data_Request | Status_Interrupt_Request );
+			UpdateStatusRegister( m_nStatusRegister & ( ~( Status_Non_DMA_Data_Request | Status_Interrupt_Request ) ) );
+
 			return m_nDataRegister;
 		}
 		case Command_128byte_Read_Data:

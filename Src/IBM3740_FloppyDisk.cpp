@@ -19,7 +19,7 @@ FloppyDisk::FloppyDisk( const std::string& filename )
 
 	m_bNeedsFlush = false;
 	CFile file( m_filename, "rb" );
-	m_nSize = min( m_data.size(), file.GetLength() );
+	m_nSize = min( (int)m_data.size(), file.GetLength() );
 	file.Read( m_data.data(), m_nSize );
 
 	m_badTrack[ 0 ] = 0xff;

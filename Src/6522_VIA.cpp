@@ -89,12 +89,12 @@ void VIA_6522::UpdateIFR()
 	if ( ( reg.IFR & ( ~INTERRUPT_SET ) ) & ( reg.IER & 0x7f )) // 0x7f
 	{
 		reg.IFR |= INTERRUPT_SET; // ( bit 7 or 0x80 )
-		cpu.ThrowInterrupt( INTERRUPT_IRQ );
+		cpu.ThrowIRQ();
 	}
 	else
 	{
 		reg.IFR &= ~INTERRUPT_SET ; // no interrupts flagged at this stage
-		cpu.ClearInterrupt( INTERRUPT_IRQ );
+		cpu.ClearIRQ();
 	}
 }
 
@@ -770,7 +770,7 @@ void VIA_6522::ThrowInterrupt( InterruptFlags interrupt )
 	if ( reg.IER & interrupt )
 	{
 		reg.IFR |= INTERRUPT_SET;
-		cpu.ThrowInterrupt( INTERRUPT_IRQ );
+		cpu.ThrowIRQ( );
 	}
 	mem.Write_Internal( m_baseAddress + RW_IFR, reg.IFR );
 }

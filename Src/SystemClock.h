@@ -14,7 +14,7 @@ class ISystemClock
 public:
 	virtual void Tick() = 0;
 	virtual void PollChips() = 0;
-	virtual int GetClockCounter() = 0;
+	virtual u64 GetClockCounter() = 0;
 };
 
 //-------------------------------------------------------------------------------------------------

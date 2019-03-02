@@ -5,6 +5,8 @@
 //-------------------------------------------------------------------------------------------------
 
 void RegisterInstructionHandlers( OpcodeTable& opcodeTable );
+void fn_IRQ();
+void fn_NMI();
 
 //=================================================================================================
 //
@@ -36,7 +38,7 @@ void CPU::Reset()
 	SetFlag( flag_unused, 1 );
 	SetFlag( flag_B, 1 ); // temp
 	m_pendingInterrupt = INTERRUPT_NONE;
-
+	m_nLastNMI = 0;
 	reg.PC = mem.ReadAddress( c_Reset_Vector );
 }
 
@@ -47,8 +49,7 @@ CPU::~CPU()
 }
 
 //-------------------------------------------------------------------------------------------------
-void fn_IRQ();
-void fn_NMI();
+
 bool CPU::ProcessSingleInstruction()
 {
 	//
@@ -56,11 +57,10 @@ bool CPU::ProcessSingleInstruction()
 	//
 	if ( m_pendingInterrupt != INTERRUPT_NONE )
 	{
-		if ( m_pendingInterrupt & INTERRUPT_NMI )
+		if (( m_pendingInterrupt & INTERRUPT_NMI )&&( !m_nLastNMI ))
 		{
 			//cpu.ThrowBreakpoint(std::string("INTERRUPT_NMI"));
 			fn_NMI();
-			ClearInterrupt( INTERRUPT_NMI );
 		}
 		else
 		if ( m_pendingInterrupt & INTERRUPT_IRQ )
@@ -78,6 +78,7 @@ bool CPU::ProcessSingleInstruction()
 			Reset();
 		}
 	}
+	m_nLastNMI = m_pendingInterrupt & INTERRUPT_NMI;
 
 	//
 	// fetch

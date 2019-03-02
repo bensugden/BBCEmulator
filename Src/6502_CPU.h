@@ -223,19 +223,33 @@ struct CPU
 	
 	//-------------------------------------------------------------------------------------------------
 	
-	inline void ThrowInterrupt( EInterrupt interrupt )
+	inline void ThrowIRQ()
 	{
-	extern bool g_inNMI;
-
-		assert(( interrupt != INTERRUPT_NMI )||( !g_inNMI ))
-		m_pendingInterrupt |= interrupt;
+		m_pendingInterrupt |= INTERRUPT_IRQ;
 	}
 
 	//-------------------------------------------------------------------------------------------------
 	
-	inline void ClearInterrupt( EInterrupt interrupt )
+	inline void ClearIRQ( )
 	{
-		m_pendingInterrupt &= ~interrupt;
+		m_pendingInterrupt &= ~INTERRUPT_IRQ;
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
+	inline void SetNMI( )
+	{
+		//extern bool g_inNMI;
+		//
+		//	assert(( interrupt != INTERRUPT_NMI )||( !g_inNMI ))
+		m_pendingInterrupt |= INTERRUPT_NMI;
+	}
+
+	//-------------------------------------------------------------------------------------------------
+
+	inline void ClearNMI( )
+	{
+		m_pendingInterrupt &= ~INTERRUPT_NMI;
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -274,6 +288,7 @@ private:
 	bool						m_bExternalBreakpoint;
 	std::string					m_breakpointReason;
 	u8							m_pendingInterrupt;
+	u8							m_nLastNMI;
 	class ISystemClock*			m_pClock;
 
 	//-------------------------------------------------------------------------------------------------

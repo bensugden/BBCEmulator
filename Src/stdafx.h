@@ -4,7 +4,8 @@
 //
 
 #pragma once
-
+ #pragma warning(disable: 4577)
+ #pragma warning(disable: 4530)
 #include "targetver.h"
 
 #define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers

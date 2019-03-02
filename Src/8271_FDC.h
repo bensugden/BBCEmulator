@@ -85,6 +85,7 @@ private:
 	void		ExecuteCommand();
 	u8			ReadSpecialRegister( u8 parameter ) const;
 	void		WriteSpecialRegister( u8 parameter, u8 value );
+	void		UpdateStatusRegister( u8 statusRegister );
 
 	//-------------------------------------------------------------------------------------------------
 
@@ -93,7 +94,7 @@ private:
 	ECommand	m_uCurrentCommand;
 	u8			m_uCommandDrive;
 
-	u8			m_uStatusRegister;
+	u8			m_nStatusRegister;
 	u8			m_uResultRegister;
 	u8			m_uParameterRegister;
 	u8			m_uParameters[8];
