@@ -37,6 +37,11 @@ VideoULA::VideoULA( SAA5050& teletextChip, CRTC_6845& crtcChip )
 			}
 		}
 	}
+
+	for ( int i = 0; i < 16; i++ )
+	{
+		m_logicalToPhyscialColor[ i ] = 7 ^ i;
+	}
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -48,20 +53,20 @@ static u32 s_physialColorPalette[ 16 ][ 2 ] =
 	// 2 Entries - primary flash / secondary flash
 	//
 	{ 0xFF000000, 0xFF000000 },	// black
-	{ 0xFFFF0000, 0xFFFF0000 }, // red
+	{ 0xFF0000FF, 0xFF0000FF }, // red
 	{ 0xFF00FF00, 0xFF00FF00 }, // green
-	{ 0xFFFFFF00, 0xFFFFFF00 }, // yellow
-	{ 0xFF0000FF, 0xFF0000FF }, // blue
+	{ 0xFF00FFFF, 0xFF00FFFF }, // yellow
+	{ 0xFFFF0000, 0xFFFF0000 }, // blue
 	{ 0xFFFF00FF, 0xFFFF00FF }, // magenta
-	{ 0xFF00FFFF, 0xFF00FFFF }, // cyan
+	{ 0xFFFFFF00, 0xFFFFFF00 }, // cyan
 	{ 0xFFFFFFFF, 0xFFFFFFFF }, // white
 	{ 0xFF000000, 0xFFFFFFFF }, // black, white
-	{ 0xFFFF0000, 0xFF00FFFF }, // red, cyan
+	{ 0xFF0000FF, 0xFFFFFF00 }, // red, cyan
 	{ 0xFF00FF00, 0xFFFF00FF }, // green, magenta
-	{ 0xFFFFFF00, 0xFF0000FF }, // yellow, blue
-	{ 0xFF0000FF, 0xFFFFFF00 }, // blue, yellow
+	{ 0xFF00FFFF, 0xFFFF0000 }, // yellow, blue
+	{ 0xFFFF0000, 0xFF00FFFF }, // blue, yellow
 	{ 0xFFFF00FF, 0xFF00FF00 }, // magenta, green
-	{ 0xFF00FFFF, 0xFFFF0000 }, // cyan, red
+	{ 0xFFFFFF00, 0xFF0000FF }, // cyan, red
 	{ 0xFFFFFFFF, 0xFF000000 }, // white, black
 };
 
@@ -144,7 +149,21 @@ u8 VideoULA::WRITE_Video_ULA_Control_register( u16 address, u8 ctrl_register )
 
 u8 VideoULA::WRITE_Video_ULA_Palette_register( u16 address, u8 value )
 {
-	u8 temp= value;
+	u16 nScreenWidthInChars = m_CRTC.GetRegisterValue( CRTC_6845::Horizontal_displayed_character_lines );
+	u16 bitsPerPixel = nScreenWidthInChars / m_ulaState.nCharactersPerLine;
+
+	switch( bitsPerPixel )
+	{
+		case 1:
+			m_logicalToPhyscialColor[ ( ( value & 0x80 ) >> 7 ) ] = 7 ^ ( value & 15 );
+		break;
+		case 2:
+			m_logicalToPhyscialColor[ ( ( value & 0x80 ) >> 6 ) + ( ( value & 0x20 ) >> 5 ) ] = 7 ^ ( value & 15 );
+		break;
+			m_logicalToPhyscialColor[ value >> 4 ] = 7 ^ ( value & 15 );
+		default:
+		break;
+	}
 	return value;
 }
 
@@ -199,7 +218,8 @@ void VideoULA::RenderScreen()
 				}
 				for ( int pixel = 0 ; pixel < pixelsPerByte; pixel++ )
 				{
-					u8 physicalIndex = m_colorLookup[ table ][ pixel ][ value ];
+					u8 logicalIndex = m_colorLookup[ table ][ pixel ][ value ];
+					u8 physicalIndex = m_logicalToPhyscialColor[ logicalIndex ];
 					*pFB0++ = s_physialColorPalette[ physicalIndex ][ 0 ];
 				}
 			}

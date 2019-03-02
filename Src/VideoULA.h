@@ -27,6 +27,7 @@ private:
 	void RenderScreen();
 
 	u8 m_colorLookup[ 4 ][ 8 ][ 256 ];
+	u8 m_logicalToPhyscialColor[ 16 ];
 
 	SAA5050& m_teletext;
 	CRTC_6845& m_CRTC;
