@@ -61,6 +61,18 @@ void FDC_8271::UpdateStatusRegister( u8 statusRegister )
 	{
 		cpu.ClearNMI();
 	}
+
+	debugOutput( "Status :%#02x DMA:%d, Int%d, Result%d, Param%d, CommandReg%d, CommBusy%d. NMI? %s", 
+				 statusRegister,
+				 ( statusRegister &Status_Non_DMA_Data_Request		) ? 1 : 0,
+				 ( statusRegister &Status_Interrupt_Request			) ? 1 : 0,
+				 ( statusRegister &Status_Result_Register_Full		) ? 1 : 0,
+				 ( statusRegister &Status_Parameter_Register_Full	) ? 1 : 0,
+				 ( statusRegister &Status_Command_Register_Full		) ? 1 : 0,
+				 ( statusRegister &Status_Command_Busy				) ? 1 : 0,
+				  (( statusRegister &Status_Interrupt_Request ) && (!cpu.dbgWillNMINextCycle())) ? "NO***" : ( cpu.dbgWillNMINextCycle() ? "yes" : "no" )
+				  );
+	assert( !( (( statusRegister &Status_Interrupt_Request ) && (!cpu.dbgWillNMINextCycle())) ));
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -102,24 +114,30 @@ void FDC_8271::Tick( int nCPUClockTicks )
 					if ( m_nNumSectorsToTransfer < 0 )
 					{
 						UpdateStatusRegister( Status_Result_Register_Full | Status_Interrupt_Request );
+						debugOutput("ReadData Int **End**" );
 						
 						m_currentPhase = Phase_None;
 						break;
 					}
 					assert( m_bufferReadOffset == m_bufferReadOffsetTest );
-					m_nDataRegister = m_buffer[ m_bufferReadOffset++ ];
+					m_nDataRegister = m_buffer[ m_bufferReadOffset ];
+					static int totalCount = 0;
+					debugOutput("ReadData (%d) :%d [%d]", m_bufferReadOffset, m_nDataRegister, totalCount++ );
+					m_bufferReadOffset++;
 					bool bLastByte = false;
 					if ( m_bufferReadOffset >= m_nSectorSize ) 
 					{
 						m_bufferReadOffset = 0;
 						if ( --m_nNumSectorsToTransfer ) 
 						{
+							debugOutput("ReadData **New Sector** :%d", m_nNumSectorsToTransfer );
 							m_uCurrentSector[ m_uCommandDrive ]++;
 							m_disk[ m_uCommandDrive ]->Read( m_buffer, m_uCurrentTrack[ m_uCommandDrive ], m_uCurrentSector[ m_uCommandDrive ], m_nSectorSize );
 					    } 
 						else 
 						{
 							// Last sector done
+							debugOutput("ReadData **Last Byte**" );
 							UpdateStatusRegister( Status_Command_Busy | Status_Interrupt_Request | Status_Non_DMA_Data_Request | Status_Result_Register_Full );
 
 							bLastByte = true;
@@ -425,6 +443,7 @@ void FDC_8271::ExecuteCommand()
 					m_disk[ m_uCommandDrive ]->SetBadTrack( 0, m_nBadTrack[ m_uCommandDrive ][ 0 ] );
 					m_disk[ m_uCommandDrive ]->SetBadTrack( 1, m_nBadTrack[ m_uCommandDrive ][ 1 ] );
 				}
+				debugOutput("Command_LoadBadTracks drv:%d = %d, %d", m_uCommandDrive, m_nBadTrack[ m_uCommandDrive ][ 0 ], m_nBadTrack[ m_uCommandDrive ][ 1 ] );
 			}
 			break;
 		}
@@ -444,12 +463,14 @@ void FDC_8271::ExecuteCommand()
 		case Command_Read_Special_Reg:
 		{
 			m_uResultRegister = ReadSpecialRegister( m_uParameters[ 0 ] );
+			debugOutput("Read Special Reg %d = %d", m_uParameters[ 0 ], m_uResultRegister );
 			UpdateStatusRegister( ( m_nStatusRegister | Status_Result_Register_Full ) & ( ~Status_Command_Busy ) );
 			m_currentPhase = Phase_Result;
 			break;
 		}
 		case Command_Write_Special_Reg:
 		{
+			debugOutput("Write Special Reg %d, %d", m_uParameters[ 0 ], m_uParameters[ 1 ] );
 			WriteSpecialRegister( m_uParameters[ 0 ], m_uParameters[ 1 ] );
 			UpdateStatusRegister( m_nStatusRegister & ( ~Status_Command_Busy ) );
 			m_currentPhase = Phase_None;
@@ -490,6 +511,7 @@ void FDC_8271::ExecuteCommand()
 			m_nSectorSize = 128 << ( m_uParameters[ 2 ] >> 5 );
 			m_nNumSectorsToTransfer = ( m_uParameters[ 2 ] & 0x1f );
 			m_currentPhase = Phase_Execution;
+			debugOutput("Read_Data track:%d, sector:%d, bytes:%d", m_uCurrentTrack[ m_uCommandDrive ], m_uCurrentSector[ m_uCommandDrive ], m_nNumSectorsToTransfer * m_nSectorSize );
 			
 			m_disk[ m_uCommandDrive ]->Read( m_buffer, m_uCurrentTrack[ m_uCommandDrive ], m_uCurrentSector[ m_uCommandDrive ], m_nSectorSize );
 			m_bufferReadOffset = 0;
@@ -497,7 +519,6 @@ void FDC_8271::ExecuteCommand()
 			UpdateStatusRegister( Status_Command_Busy );
 
 			m_nTickDelay = 160;
-
 			break;
 		}
 		case Command_Format:
@@ -646,6 +667,8 @@ void FDC_8271::WriteSpecialRegister( u8 parameter, u8 value )
 
 u8 FDC_8271::ReadData( u16 address, u8 value )
 {
+	debugOutput("Command %d", m_uCurrentCommand );
+
 	switch ( m_uCurrentCommand )
 	{
 		case Command_Read_Special_Reg:
@@ -655,9 +678,11 @@ u8 FDC_8271::ReadData( u16 address, u8 value )
 		case Command_Var_Read_Data:
 		{
 			assert( m_bufferReadOffset != m_bufferReadOffsetTest );
+			debugOutput("ReadData NMI offset %d", m_bufferReadOffsetTest );
 			m_bufferReadOffsetTest++;
 			if ( m_bufferReadOffsetTest >= m_nSectorSize ) 
 				m_bufferReadOffsetTest =0;
+
 			UpdateStatusRegister( m_nStatusRegister & ( ~( Status_Non_DMA_Data_Request | Status_Interrupt_Request ) ) );
 
 			return m_nDataRegister;

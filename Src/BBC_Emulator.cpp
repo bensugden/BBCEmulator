@@ -145,10 +145,34 @@ void BBC_Emulator::DebugDecodeNextInstruction()
 }
 
 //-------------------------------------------------------------------------------------------------
+#define TEST_CODE
+#ifdef TEST_CODE
+static std::string testCode="*exec !boot";
+#endif
+//-------------------------------------------------------------------------------------------------
 bool g_bExternalDebuggerBreakpoint = false;
 
 bool BBC_Emulator::ProcessInstructions( int nCount, std::string* pDisassemblyString, bool bDebug, bool bForceDebugPC, bool bAlwaysSpewToOutputWindow )
 {
+#ifdef TEST_CODE
+	static int iTotalCount = -8;
+	iTotalCount++;
+	static u8 oldDown = 0;
+
+	if ( ( iTotalCount >=0 ) && ( iTotalCount & 3 ) == 0 )
+	{
+		int index = iTotalCount >> 2;
+		if ( index < testCode.length() )
+		{
+			SetKeyDown( testCode[ index ], false );
+			oldDown = testCode[ index ];
+		}
+		if ( index == testCode.length() )
+		{
+			SetKeyDown( VK_RETURN, true );
+		}
+	}
+#endif
 	bool bBreakpoint = false;
 
 	if ( bDebug && ( m_history.IsEmpty()|| bForceDebugPC ) )
@@ -176,6 +200,14 @@ bool BBC_Emulator::ProcessInstructions( int nCount, std::string* pDisassemblyStr
 			bBreakpoint = true;
 			g_bExternalDebuggerBreakpoint = false;
 		}
+#ifdef TEST_CODE
+		if ( i > 20000 )
+		if ( oldDown != 0 )
+		{
+			SetKeyUp( oldDown, false );
+			oldDown = 0;
+		}
+#endif
 	}
 	if ( ((!bAlwaysSpewToOutputWindow)||bBreakpoint) && ( (bBreakpoint||bDebug) && pDisassemblyString ) )
 	{

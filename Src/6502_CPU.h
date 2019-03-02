@@ -279,6 +279,8 @@ struct CPU
 	void						ClearBreakpoints();
 	int							GetBytesAtPC( int pc, u8* bytes ); // grabs 1-3 bytes for next instruction
 	const std::string&			GetBreakpointReason() { return m_breakpointReason; }
+
+	bool						dbgWillNMINextCycle( ) { return ( m_pendingInterrupt & INTERRUPT_NMI )&&( !m_nLastNMI ); } // debug only
 	//-------------------------------------------------------------------------------------------------
 private:
 	bool						CheckBreakPoints();

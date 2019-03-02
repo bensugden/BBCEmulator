@@ -65,3 +65,21 @@ using std::placeholders::_4;
 
 extern CPU cpu;
 extern MemoryState mem;
+
+//-------------------------------------------------------------------------------------------------
+#define debugOutput( ... )
+/*
+inline void debugOutput( const char* strMsg, ... )
+{
+	char strBuffer[512];
+
+	va_list		argptr;
+	va_start( argptr, strMsg );
+    _vsnprintf_s(strBuffer, 512, strMsg, argptr);
+	va_end  ( argptr );
+
+	OutputDebugStringA( strBuffer );
+	OutputDebugStringA( "\n" );
+}
+*/
+//-------------------------------------------------------------------------------------------------

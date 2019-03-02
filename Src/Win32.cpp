@@ -134,7 +134,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				}
 				else
 				{
-					bBreak = g_emulator->RunFrame( &g_disassembly, false );
+					bBreak = g_emulator->ProcessInstructions( 2000000 / 50, nullptr, false, false, false ) ;
+					//bBreak = g_emulator->RunFrame( &g_disassembly, false );
 				}
 
 				UpdateBreakpointReason( bBreak );
