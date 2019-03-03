@@ -255,7 +255,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	CheckMenuItem( GetMenu(hWnd), IDM_SHOW_DEBUGGER, g_bDebuggerActive ? MF_CHECKED : MF_UNCHECKED );
 
 	g_emulator = new BBC_Emulator();
-	g_emulator->InsertDisk( 0, "disks\\test.ssd" );
+//	g_emulator->InsertDisk( 0, "disks\\test.ssd" );
+	g_emulator->InsertDisk( 0, "disks\\chuckieegg.ssd" );
 
 	UpdateStatusWindows( true );
 
@@ -294,8 +295,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					CheckMenuItem( GetMenu(hWnd), IDM_SHOW_DEBUGGER, g_bDebuggerActive ? MF_CHECKED : MF_UNCHECKED );
 					break;
 				case IDM_DRIVE0_INSERT:
-					g_emulator->InsertDisk( 0, "disks\\test.ssd" );
-					//g_emulator->InsertDisk( 0, "disks\\chuckieegg.ssd" );
+					//g_emulator->InsertDisk( 0, "disks\\test.ssd" );
+					g_emulator->InsertDisk( 0, "disks\\chuckieegg.ssd" );
 					break;
 				case IDM_DRIVE0_EJECT:
 					g_emulator->EjectDisk( 0 );

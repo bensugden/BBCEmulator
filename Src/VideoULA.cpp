@@ -36,11 +36,10 @@ VideoULA::VideoULA( SAA5050& teletextChip, CRTC_6845& crtcChip )
 				m_colorLookup[ n ][ o ][ i ] = nAccum;
 			}
 		}
-	}
-
+	}	
 	for ( int i = 0; i < 16; i++ )
 	{
-		m_logicalToPhyscialColor[ i ] = 7 ^ i;
+		m_logicalToPhyscialColor[ i ] = i;
 	}
 }
 
@@ -142,6 +141,11 @@ u8 VideoULA::WRITE_Video_ULA_Control_register( u16 address, u8 ctrl_register )
 	//	8	&E0 (%111 0 00 0 0)
 	//	9	&80 (%100 0 00 0 0)
 	//	10	&84 (%100 0 01 0 0)
+
+	for ( int i = 0; i < 16; i++ )
+	{
+		m_logicalToPhyscialColor[ i ] = i;
+	}
 	return ctrl_register;
 }
 
@@ -160,8 +164,8 @@ u8 VideoULA::WRITE_Video_ULA_Palette_register( u16 address, u8 value )
 		case 2:
 			m_logicalToPhyscialColor[ ( ( value & 0x80 ) >> 6 ) + ( ( value & 0x20 ) >> 5 ) ] = 7 ^ ( value & 15 );
 		break;
-			m_logicalToPhyscialColor[ value >> 4 ] = 7 ^ ( value & 15 );
 		default:
+			m_logicalToPhyscialColor[ value >> 4 ] = 7 ^ ( value & 15 );
 		break;
 	}
 	return value;
