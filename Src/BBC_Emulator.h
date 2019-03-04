@@ -119,11 +119,13 @@ private:
 	VideoULA					m_videoULA;
 	System_VIA_6522				m_systemVIA;
 //	Ports_VIA_6522				m_portsVIA;
+	TI_76489					m_ti76489;
 	LS161PagedRomController		m_pagedRomController;
 	SAA5050						m_teletext;
 	CRTC_6845					m_crtc;
-	FDC_8271					m_fdc;
+	I8271_FDC					m_fdc;
 	BBC_Keyboard				m_keyboard;
+	XAudio2						m_audioPlayer;
 	u64							m_nClockCounter = 0;
 	u64							m_nLastClockCounter = 0;
 	CPUStateHistory				m_history;

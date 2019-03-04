@@ -7,6 +7,7 @@ class VideoULA
 public:
 	VideoULA( class SAA5050& teletextChip, class CRTC_6845& crtcChip );
 	void RefreshDisplay();
+	void SetHardwareScrollScreenOffset( u32 offset );
 private:
 	struct ULAState
 	{
@@ -28,7 +29,7 @@ private:
 
 	u8 m_colorLookup[ 4 ][ 8 ][ 256 ];
 	u8 m_logicalToPhyscialColor[ 16 ];
-
+	u32	m_hardwareScrollOffset = 0 ;
 	SAA5050& m_teletext;
 	CRTC_6845& m_CRTC;
 	ULAState m_ulaState;

@@ -41,6 +41,8 @@ VideoULA::VideoULA( SAA5050& teletextChip, CRTC_6845& crtcChip )
 	{
 		m_logicalToPhyscialColor[ i ] = i;
 	}
+
+	m_hardwareScrollOffset = 0;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -82,6 +84,13 @@ void VideoULA::RefreshDisplay()
 	// Scan screen and render pixels, servicing stored interrups along the way
 	//
 	RenderScreen();
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void VideoULA::SetHardwareScrollScreenOffset( u32 offset )
+{
+	m_hardwareScrollOffset = offset ; // NOTE: not using this ATM- need to work out how/when it's used
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -186,6 +195,8 @@ void VideoULA::RenderScreen()
 
 	u16 bitsPerPixel = nScreenWidthInChars / m_ulaState.nCharactersPerLine;
 	u16 mask = (1<<bitsPerPixel) - 1;
+	if ( bitsPerPixel == 0 )
+		bitsPerPixel = 1;
 	u16 pixelsPerByte = 8 / bitsPerPixel;
 	u16 nPixelWidth = m_ulaState.nCharactersPerLine * 8;
 	u16 nPixelHeight = nScreenHeightInChars * 8;

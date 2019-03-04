@@ -102,7 +102,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;dsound.lib;d3dx11d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;dsound.lib;d3dx11d.lib;%(AdditionalDependencies)winmm.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>($ProjectDir)dx11\lib\x86</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -121,7 +121,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;d3dx11d.lib;dsound.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;d3dx11d.lib;dsound.lib;%(AdditionalDependencies)winmm.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>($ProjectDir)dx11\lib\x64</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -140,7 +140,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;dsound.lib;d3dx11.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;dsound.lib;d3dx11.lib;%(AdditionalDependencies)winmm.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>($ProjectDir)dx11\lib\x86</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -160,7 +160,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;d3dx11.lib;dsound.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;d3dx11.lib;dsound.lib;%(AdditionalDependencies)winmm.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>($ProjectDir)dx11\lib\x64</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -170,7 +170,7 @@
     <ClInclude Include="6522_VIA_System.h" />
     <ClInclude Include="6522_VIA_Ports.h" />
     <ClInclude Include="6845_CRTC.h" />
-    <ClInclude Include="8271_FDC.h" />
+    <ClInclude Include="I8271_FDC.h" />
     <ClInclude Include="BBC_Keyboard.h" />
     <ClInclude Include="BBC_Emulator.h" />
     <ClInclude Include="6502_CPU.h" />
@@ -183,14 +183,17 @@
     <ClInclude Include="MyAssert.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="SAA5050.h" />
+    <ClInclude Include="SDKwavefile.h" />
     <ClInclude Include="SHEILA.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="SystemClock.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="TeletextFont.h" />
+    <ClInclude Include="TI_76489.h" />
     <ClInclude Include="Types.h" />
     <ClInclude Include="VideoULA.h" />
     <ClInclude Include="Win32.h" />
+    <ClInclude Include="XAudio2.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="6502_CPU.cpp" />
@@ -201,7 +204,7 @@
     <ClCompile Include="6522_VIA_System.cpp" />
     <ClCompile Include="6522_VIA_Ports.cpp" />
     <ClCompile Include="6845_CRTC.cpp" />
-    <ClCompile Include="8271_FDC.cpp" />
+    <ClCompile Include="I8271_FDC.cpp" />
     <ClCompile Include="BBC_Keyboard.cpp" />
     <ClCompile Include="BBC_Emulator.cpp" />
     <ClCompile Include="DirectX.cpp" />
@@ -210,6 +213,7 @@
     <ClCompile Include="LS161_PagedRomController.cpp" />
     <ClCompile Include="MiscUtils.cpp" />
     <ClCompile Include="SAA5050.cpp" />
+    <ClCompile Include="SDKwavefile.cpp" />
     <ClCompile Include="SHEILA.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -217,8 +221,10 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="TI_76489.cpp" />
     <ClCompile Include="VideoULA.cpp" />
     <ClCompile Include="Win32.cpp" />
+    <ClCompile Include="XAudio2.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="BBC_Emulator.rc" />

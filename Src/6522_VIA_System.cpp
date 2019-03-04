@@ -15,9 +15,11 @@ struct IC32
 };
 //-------------------------------------------------------------------------------------------------
 
-System_VIA_6522::System_VIA_6522( IKeyboard& keyboard )
+System_VIA_6522::System_VIA_6522( IKeyboard& keyboard, VideoULA& videoULA, TI_76489& sound )
 	: VIA_6522( SHEILA::WRITE_6522_VIA_A_ORB_IRB_Output_register_B  )
 	, m_keyboard( keyboard )
+	, m_videoULA( videoULA )
+	, m_sound( sound )
 {
 	m_nIC32 = 0;
 	m_nSDB = 0;
@@ -28,8 +30,9 @@ System_VIA_6522::System_VIA_6522( IKeyboard& keyboard )
 void System_VIA_6522::WriteToIC32( u8 value )
 {
 	//
-	// Note: Bit 3 (0x80) controls autoscan of keyboard
+	// Set or clear bits
 	//
+	u8 nOldIC32 = m_nIC32;
 	u8 ic32_bit = 1 << ( value & 0x7 );
 	u8 i32_value = ( value & 0x8 );
 	if ( i32_value )
@@ -40,14 +43,17 @@ void System_VIA_6522::WriteToIC32( u8 value )
 	{
 		m_nIC32 &= ~ic32_bit;
 	}
+	//
+	// Bit 0 Edge ?  ( transition from positive to negative )- update sound
+	//
+	if ( ( !( m_nIC32 & 1 ) ) && ( nOldIC32 & 1 ) )
+	{
+		m_sound.UpdateSoundRegister( m_nSDB );
+	}
 
-	//
-	// handle keyboard
-	//
 	//
 	// TODO
 	//
-	// check bit 0 - if set do sound
 	// check bit 1/2 for speech
 	// check bits 6/7 - controls caps lock LED / shift lock LEDs
 	//
@@ -58,6 +64,8 @@ void System_VIA_6522::WriteToIC32( u8 value )
 	// use bits 4/5 for screen offset with modes 0-6 [ not referenced ]
 	u16 screenOffsets[] = { 16 * 1024, 24 * 1024, 22 * 1024, 12 * 1024 };
 	u8 offset = ( m_nIC32 >> 4 ) & 3;
+	m_videoULA.SetHardwareScrollScreenOffset( screenOffsets[ offset ] );
+
 }
 //-------------------------------------------------------------------------------------------------
 /*
@@ -115,7 +123,7 @@ void System_VIA_6522::ScanKeyboard()
 void System_VIA_6522::UpdateSlowDataBus()
 {
 	ScanKeyboard();
-	if (!(m_nIC32 & 8) && !m_keyboard.IsKeyDown_ScanCode( m_nSDB & 0x7f )) 
+	if ( !( m_nIC32 & 8 ) && !m_keyboard.IsKeyDown_ScanCode( m_nSDB & 0x7f ) )
 		m_nSDB &= 0x7f;
 	/*
 	if ( m_nIC32 & 0x8 )
@@ -130,6 +138,11 @@ void System_VIA_6522::UpdateSlowDataBus()
 		}
 	}
 	*/
+
+	if ( !( m_nIC32 & 1 ) ) 
+	{
+		m_sound.UpdateSoundRegister( m_nSDB );
+	}
 }
 
 //-------------------------------------------------------------------------------------------------

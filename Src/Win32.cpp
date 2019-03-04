@@ -3,7 +3,7 @@
 #include "stdafx.h"
 #include "Win32.h"
 #include "windowsx.h"
-
+#include <shobjidl.h>
 //--------------------------------------------------------------------------------------
 
 #define MAX_LOADSTRING 100
@@ -40,6 +40,7 @@ std::string g_disassembly;
 std::string g_memoryDebug;
 
 std::vector< u16 > g_breakpoints;
+HRESULT BasicFileOpen(  std::string& path  );
 
 //-------------------------------------------------------------------------------------------------
 
@@ -295,9 +296,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					CheckMenuItem( GetMenu(hWnd), IDM_SHOW_DEBUGGER, g_bDebuggerActive ? MF_CHECKED : MF_UNCHECKED );
 					break;
 				case IDM_DRIVE0_INSERT:
-					//g_emulator->InsertDisk( 0, "disks\\test.ssd" );
-					g_emulator->InsertDisk( 0, "disks\\chuckieegg.ssd" );
+				{
+					std::string disk;
+					//if ( BasicFileOpen( disk ) )
+					{
+						g_emulator->InsertDisk( 0, "disks\\all games\\E\\Elite-366.ssd" );
+						
+						//g_emulator->InsertDisk( 0, "disks\\all games\\c\\Citadel-290.ssd" );
+						//g_emulator->InsertDisk( 0, "disks\\test.ssd" );
+						//g_emulator->InsertDisk( 0, "disks\\chuckieegg.ssd" );
+						//g_emulator->InsertDisk( 0, disk );
+					}
 					break;
+				}
 				case IDM_DRIVE0_EJECT:
 					g_emulator->EjectDisk( 0 );
 					break;
@@ -685,5 +696,66 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     }
     return (INT_PTR)FALSE;
+}
+//-------------------------------------------------------------------------------------------------
+
+HRESULT BasicFileOpen( std::string& path )
+{
+	HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    if (SUCCEEDED(hr))
+    {
+		// CoCreate the File Open Dialog object.
+		IFileDialog *pfd = NULL;
+		hr = CoCreateInstance(CLSID_FileOpenDialog, 
+						  NULL, 
+						  CLSCTX_INPROC_SERVER, 
+						  IID_PPV_ARGS(&pfd));
+		if (SUCCEEDED(hr))
+		{
+			IFileOpenDialog *pFileOpen;
+
+			// Create the FileOpenDialog object.
+			hr = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, 
+					IID_IFileOpenDialog, reinterpret_cast<void**>(&pFileOpen));
+
+			if (SUCCEEDED(hr))
+			{
+				// Show the Open dialog box.
+				hr = pFileOpen->Show(NULL);
+
+				// Get the file name from the dialog box.
+				if (SUCCEEDED(hr))
+				{
+					IShellItem *pItem;
+					hr = pFileOpen->GetResult(&pItem);
+					if (SUCCEEDED(hr))
+					{
+                        PWSTR pszFilePath = NULL;
+                        hr = pItem->GetDisplayName(SIGDN_FILESYSPATH, 
+                                            &pszFilePath);
+                        if (SUCCEEDED(hr))
+                        {
+							//path = pszFilePath;
+							/*
+                            TaskDialog(NULL,
+                                        NULL,
+                                        L"CommonFileDialogApp",
+                                        pszFilePath,
+                                        NULL,
+                                        TDCBF_OK_BUTTON,
+                                        TD_INFORMATION_ICON,
+                                        NULL);
+										*/
+                            CoTaskMemFree(pszFilePath);
+						}
+						pItem->Release();
+					}
+				}
+				pFileOpen->Release();
+			}
+			CoUninitialize();
+		}
+	}
+    return hr;
 }
 //-------------------------------------------------------------------------------------------------

@@ -19,7 +19,7 @@ public:
 class System_VIA_6522 : public VIA_6522
 {
 public:
-	System_VIA_6522( IKeyboard& keyboard );
+	System_VIA_6522( IKeyboard& keyboard, VideoULA& videoULA, TI_76489& sound );
 
 	virtual void	WritePortA( u8 value ); 
 	virtual void	WritePortB( u8 value ); 
@@ -34,6 +34,8 @@ private:
 	u8				m_nIC32;
 	IKeyboard&		m_keyboard;
 	u8				m_nSDB;
+	VideoULA&		m_videoULA;
+	TI_76489&		m_sound;
 };
 
 //-------------------------------------------------------------------------------------------------

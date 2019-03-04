@@ -96,11 +96,20 @@
     <ClInclude Include="LS161_PagedRomController.h">
       <Filter>Emulator\Headers</Filter>
     </ClInclude>
-    <ClInclude Include="8271_FDC.h">
-      <Filter>Emulator\Headers</Filter>
-    </ClInclude>
     <ClInclude Include="IBM3740_FloppyDisk.h">
       <Filter>Emulator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="I8271_FDC.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="TI_76489.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="XAudio2.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SDKwavefile.h">
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -161,11 +170,20 @@
     <ClCompile Include="LS161_PagedRomController.cpp">
       <Filter>Emulator\Source</Filter>
     </ClCompile>
-    <ClCompile Include="8271_FDC.cpp">
-      <Filter>Emulator\Source</Filter>
-    </ClCompile>
     <ClCompile Include="IBM3740_FloppyDisk.cpp">
       <Filter>Emulator\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="TI_76489.cpp">
+      <Filter>Emulator\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="I8271_FDC.cpp">
+      <Filter>Emulator\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="XAudio2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SDKwavefile.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

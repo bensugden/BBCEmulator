@@ -26,7 +26,7 @@ CPU			cpu;
 BBC_Emulator::BBC_Emulator()
 	: m_videoULA( m_teletext, m_crtc )
 	, m_teletext( m_crtc )
-	, m_systemVIA( m_keyboard )
+	, m_systemVIA( m_keyboard, m_videoULA, m_ti76489 )
 	, m_keyboard( m_systemVIA )
 {
 	m_floppies[ 0 ] = nullptr;
@@ -59,6 +59,7 @@ void BBC_Emulator::PollChips()
 	
 	m_systemVIA.Tick( nClocksElapsed );
 	m_fdc.Tick( nClocksElapsed );
+	m_ti76489.Tick( nClocksElapsed );
 
 	m_nLastClockCounter = m_nClockCounter;
 }
@@ -162,7 +163,7 @@ bool BBC_Emulator::ProcessInstructions( int nCount, std::string* pDisassemblyStr
 	if ( ( iTotalCount >=0 ) && ( iTotalCount & 3 ) == 0 )
 	{
 		int index = iTotalCount >> 2;
-		if ( index < testCode.length() )
+		if ( index < (int)testCode.length() )
 		{
 			SetKeyDown( testCode[ index ], false );
 			oldDown = testCode[ index ];

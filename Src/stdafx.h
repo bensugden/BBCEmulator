@@ -34,6 +34,7 @@ using namespace std;
 #include <d3dcompiler.h>
 #include "resource.h"
 #include "DirectX.h"
+#include "XAudio2.h"
 
 #include "File.h"
 #include "myAssert.h"
@@ -51,12 +52,13 @@ using std::placeholders::_4;
 #include "SHEILA.h"
 #include "VideoULA.h"
 #include "SAA5050.h"
+#include "TI_76489.h"
 #include "6522_VIA.h"
 #include "6522_VIA_System.h"
 #include "6522_VIA_Ports.h"
 #include "6845_CRTC.h"
 #include "IBM3740_FloppyDisk.h"
-#include "8271_FDC.h"
+#include "I8271_FDC.h"
 #include "SystemClock.h"
 #include "LS161_PagedRomController.h"
 

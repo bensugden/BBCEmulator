@@ -156,7 +156,7 @@ void BBC_Keyboard::SetKeyState( u8 vkey, bool bIsVKey, u8 down )
 	//
 	// Handle break
 	//
-	if ( bIsVKey && vkey == VK_PAUSE )
+	if ( bIsVKey && vkey == VK_PAUSE && down )
 	{
 		m_bBreakPressed = true;
 	}
@@ -164,9 +164,27 @@ void BBC_Keyboard::SetKeyState( u8 vkey, bool bIsVKey, u8 down )
 
 //-------------------------------------------------------------------------------------------------
 
+void BBC_Keyboard::ScanKeyboard( )
+{
+	// not working - doesnt shift characters 
+	byte ks[256];
+	GetKeyboardState(ks);
+	for ( int i = 0; i < 128; i++ )
+	{
+		char xx[3];
+		xx[0] = 0;
+ 		if ( ToAscii( i, MapVirtualKey(i,MAPVK_VK_TO_VSC), ks, (LPWORD) &xx[0], 0) == 1 )
+			SetKeyState(  xx[0], false, ks[ i ] & 0x80 ? 1 : 0 );
+		else
+			SetKeyState(  i,true, ks[ i ] & 0x80 ? 1 : 0 );
+	}
+}
+//-------------------------------------------------------------------------------------------------
+
 void BBC_Keyboard::SetKeyDown( u8 vkey, bool bIsVKey )
 {
 	SetKeyState( vkey, bIsVKey, 1 );
+//	ScanKeyboard();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -174,6 +192,7 @@ void BBC_Keyboard::SetKeyDown( u8 vkey, bool bIsVKey )
 void BBC_Keyboard::SetKeyUp( u8 vkey, bool bIsVKey )
 {
 	SetKeyState( vkey, bIsVKey, 0 );
+//	ScanKeyboard();
 }
 
 //-------------------------------------------------------------------------------------------------
