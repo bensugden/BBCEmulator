@@ -58,6 +58,7 @@ void BBC_Emulator::PollChips()
 	int nClocksElapsed = (int)(m_nClockCounter - m_nLastClockCounter);
 	
 	m_systemVIA.Tick( nClocksElapsed );
+	m_portsVIA.Tick( nClocksElapsed );
 	m_fdc.Tick( nClocksElapsed );
 	m_ti76489.Tick( nClocksElapsed );
 

@@ -118,7 +118,7 @@ private:
 
 	VideoULA					m_videoULA;
 	System_VIA_6522				m_systemVIA;
-//	Ports_VIA_6522				m_portsVIA;
+	Ports_VIA_6522				m_portsVIA;
 	TI_76489					m_ti76489;
 	LS161PagedRomController		m_pagedRomController;
 	SAA5050						m_teletext;

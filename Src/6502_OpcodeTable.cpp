@@ -30,6 +30,7 @@ string g_opcodeToInstructionName[]=
 	"BEQ","SBC","KIL","ISC","NOP","SBC","INC","ISC","SED","SBC","NOP","ISC","NOP","SBC","INC","ISC"
 };
 
+//-------------------------------------------------------------------------------------------------
 /*
 	"imm = #$00"
 	"zp = $00"
@@ -43,6 +44,7 @@ string g_opcodeToInstructionName[]=
 	"ind = ($0000)"
 	"rel = $0000 (PC-relative)"
 */
+//-------------------------------------------------------------------------------------------------
 
 string g_addressingModesAndCycleTimes[256]={
 
@@ -66,6 +68,7 @@ string g_addressingModesAndCycleTimes[256]={
 //	"*" : add 1 cycle if page boundary is crossed.			
 //	add 1 cycle on branches if taken.			
 
+//-------------------------------------------------------------------------------------------------
 
 
 string g_fullCommandList[77*21]=
@@ -165,6 +168,8 @@ string g_fullCommandList[77*21]=
 	"LAS","","","","","","","","","","$BB","","","A,X,S:={adr}&S","*","","","","","*","",
 
 };
+
+//-------------------------------------------------------------------------------------------------
 
 /*
 

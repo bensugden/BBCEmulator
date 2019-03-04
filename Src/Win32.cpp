@@ -300,10 +300,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					std::string disk;
 					//if ( BasicFileOpen( disk ) )
 					{
-						g_emulator->InsertDisk( 0, "disks\\all games\\E\\Elite-366.ssd" );
+						//g_emulator->InsertDisk( 0, "disks\\all games\\E\\Elite-366.ssd" );
 						
 						//g_emulator->InsertDisk( 0, "disks\\all games\\c\\Citadel-290.ssd" );
-						//g_emulator->InsertDisk( 0, "disks\\test.ssd" );
+						g_emulator->InsertDisk( 0, "disks\\all games\\a\\Arkanoid-632.ssd" );
 						//g_emulator->InsertDisk( 0, "disks\\chuckieegg.ssd" );
 						//g_emulator->InsertDisk( 0, disk );
 					}

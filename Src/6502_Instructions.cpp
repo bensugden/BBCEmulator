@@ -159,15 +159,50 @@ inline u16& reg_cpuPC()
 
 inline u8 op_ADC(u8 val)
 {
-	u16 newA = cpu.reg.A;
-	newA += val;
-	newA += cpu.GetFlag(flag_C);
-	cpu.SetFlag(flag_C, (newA&0x100)?1:0);
-	cpu.SetFlag(flag_V,(newA^cpu.reg.A)&(val^newA)&0x80); // from http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
-	cpu.reg.A = newA & 0xff;
-	cpu.SetZN(cpu.reg.A);
+	//
+	// BCD version adapted from beebem implementation
+	//
+	if ( cpu.GetFlag( flag_D ) )
+	{
+		int TmpResult = cpu.reg.A + val + cpu.GetFlag( flag_C );
+		int TmpCarry = 0;
+
+		int nLowDec = ( cpu.reg.A & 0xf ) + ( val & 0xf ) + cpu.GetFlag( flag_C );
+		if ( nLowDec > 9 ) 
+		{
+			nLowDec += 6;
+			nLowDec &= 0xf;
+			TmpCarry = 0x10;
+		}
+		int nHighDec = ( cpu.reg.A & 0xf0 ) + ( val & 0xf0 ) + TmpCarry;
+
+		cpu.SetFlag( flag_V, ( ( nHighDec ^ cpu.reg.A ) & 128 ) && ( !( ( cpu.reg.A ^ val ) & 128 ) ) );
+		if ( nHighDec > 0x90 ) 
+		{
+			nHighDec += 0x60;
+			nHighDec &= 0xf0;
+			cpu.SetFlag( flag_C, 1 );
+		}
+		else
+		{
+			cpu.SetFlag( flag_C, 0 );
+		}
+		cpu.reg.A = nHighDec | nLowDec;
+		cpu.SetZN(cpu.reg.A);
+	}
+	else
+	{
+		u16 newA = cpu.reg.A;
+		newA += val;
+		newA += cpu.GetFlag(flag_C);
+		cpu.SetFlag(flag_C, (newA&0x100)?1:0);
+		cpu.SetFlag(flag_V,(newA^cpu.reg.A)&(val^newA)&0x80); // from http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
+		cpu.reg.A = newA & 0xff;
+		cpu.SetZN(cpu.reg.A);
+	}
 	return cpu.reg.A;
 }
+
 //-------------------------------------------------------------------------------------------------
 inline u8 op_AND(u8 val)
 {
@@ -390,7 +425,69 @@ inline u8 op_ROR(u8 val)
 //-------------------------------------------------------------------------------------------------
 inline u8 op_SBC(u8 val)
 {
-	return op_ADC(~val);
+	if ( cpu.GetFlag( flag_D ) )
+	{
+		//
+		// BCD version adapted from beebem implementation
+		//
+		int TmpCarry = 0;
+		u8 nhn = ( cpu.reg.A >> 4 ) & 15;
+		u8 nln = cpu.reg.A & 15;
+
+		// Z flag determined from 2's compl result, not BCD result!
+		int TmpResult = cpu.reg.A - val - ( 1 - cpu.GetFlag( flag_C ) );
+		int ZFlag = ( ( TmpResult & 0xff ) == 0 );
+
+		int ohn = val & 0xf0;
+		int oln = val & 0xf;
+		if ( ( oln > 9 ) && ( ( cpu.reg.A & 15 ) < 10 ) )
+		{
+			oln -= 10;
+			ohn += 0x10;
+		}
+		// promote the lower nibble to the next ten, and increase the higher nibble
+		int ln = ( cpu.reg.A & 0xf ) - oln - ( 1 - cpu.GetFlag( flag_C ) );
+		if ( ln < 0 )
+		{
+			if ( ( cpu.reg.A & 15 ) < 10 )
+			{
+				ln -= 6;
+			}
+			ln &= 0xf;
+			TmpCarry = 0x10;
+		}
+		int hn = ( cpu.reg.A & 0xf0 ) - ohn - TmpCarry;
+		// N and V flags are determined before high nibble is adjusted.
+		//   NOTE: V is not always correct 
+		int TmpResultV = ( signed char ) cpu.reg.A - ( signed char ) val - ( 1 - cpu.GetFlag( flag_C ) );
+		if ( ( TmpResultV < -128 ) || ( TmpResultV > 127 ) )
+		{
+			cpu.SetFlag( flag_V, 1 );
+		}
+		else
+		{
+			cpu.SetFlag( flag_V, 0 );
+		}
+
+		if ( hn < 0 ) 
+		{
+			hn -= 0x60;
+			hn &= 0xf0;
+		}
+		cpu.reg.A = hn | ln;
+		if ( cpu.reg.A == 0 )
+		{
+			ZFlag = 1;
+		}
+		cpu.SetFlag( flag_Z, ZFlag );
+		cpu.SetFlag( flag_N, ( hn & 128 ) );
+		cpu.SetFlag( flag_C, ( TmpResult & 256 ) == 0 );
+		return val;
+	}
+	else
+	{
+		return op_ADC( ~val );
+	}
 }
 //-------------------------------------------------------------------------------------------------
 inline u8 op_SEC(u8 val)
@@ -464,6 +561,279 @@ inline u8 op_TYA(u8 val)
 {
 	cpu.reg.A = cpu.reg.Y;
 	cpu.SetZN(cpu.reg.A);
+	return cpu.reg.A;
+}
+
+//-----------------------------------------------------------------------------------------------------------------//
+//                                                                                                                 //
+// "Illegal" opcodes                                                                                               //
+//                                                                                                                 //
+//-----------------------------------------------------------------------------------------------------------------//
+// Opcode	imp	imm	zp	zpx	zpy	izx	izy	abs	abx	aby	ind	rel	Function					N	V	B	D	I	Z	C  //
+//-----------------------------------------------------------------------------------------------------------------//
+// SLO	 	 	$07	$17	 	$03	$13	$0F	$1F	$1B	 	 	{adr}:={adr}*2 A:=A or {adr}	*	 	 	 	 	*	*  //
+// RLA	 	 	$27	$37	 	$23	$33	$2F	$3F	$3B	 	 	{adr}:={adr}rol A:=A and {adr}	*	 	 	 	 	*	*  //
+// SRE	 	 	$47	$57	 	$43	$53	$4F	$5F	$5B	 	 	{adr}:={adr}/2 A:=A exor {adr}	*	 	 	 	 	*	*  //
+// RRA	 	 	$67	$77	 	$63	$73	$6F	$7F	$7B	 	 	{adr}:={adr}ror A:=A adc {adr}	*	*	 	 	 	*	*  //
+// SAX	 	 	$87	 	$97	$83	 	$8F	 	 	 	 	{adr}:=A&X	 	 	 	 	 	                           //
+// LAX	 	 	$A7	 	$B7	$A3	$B3	$AF	 	$BF	 	 	A,X:={adr}						*	 	 	 	 	*	   //
+// DCP	 	 	$C7	$D7	 	$C3	$D3	$CF	$DF	$DB	 	 	{adr}:={adr}-1 A-{adr}			*	 	 	 	 	*	*  //
+// ISC	 	 	$E7	$F7	 	$E3	$F3	$EF	$FF	$FB	 	 	{adr}:={adr}+1 A:=A-{adr}		*	*	 	 	 	*	*  //
+// ANC	 	$0B	 	 	 	 	 	 	 	 	 	 	A:=A&#{imm}						*	 	 	 	 	*	*  //
+// ANC	 	$2B	 	 	 	 	 	 	 	 	 	 	A:=A&#{imm}						*	 	 	 	 	*	*  //
+// ALR	 	$4B	 	 	 	 	 	 	 	 	 	 	A:=(A&#{imm})/2					*	 	 	 	 	*	*  //
+// ARR	 	$6B	 	 	 	 	 	 	 	 	 	 	A:=(A&#{imm})/2					*	*	 	 	 	*	*  //
+// XAA²	 	$8B	 	 	 	 	 	 	 	 	 	 	A:=X&#{imm}						*	 	 	 	 	*	   //
+// LAX²	 	$AB	 	 	 	 	 	 	 	 	 	 	A,X:=#{imm}						*	 	 	 	 	*	   //
+// AXS	 	$CB	 	 	 	 	 	 	 	 	 	 	X:=A&X-#{imm}					*	 	 	 	 	*	*  //
+// SBC	 	$EB	 	 	 	 	 	 	 	 	 	 	A:=A-#{imm}						*	*	 	 	 	*	*  //
+// AHX¹	 	 	 	 	 	 	$93	 	 	$9F	 	 	{adr}:=A&X&H	 	 	 	 		 	                   //
+// SHY¹	 	 	 	 	 	 	 	 	$9C	 	 	 	{adr}:=Y&H	 	 	 	 	 		 	                   //
+// SHX¹	 	 	 	 	 	 	 	 	 	$9E	 	 	{adr}:=X&H	 	 	 	 	 		 	                   //
+// TAS¹	 	 	 	 	 	 	 	 	 	$9B	 	 	S:=A&X {adr}:=S&H	 	 	 		 	                   //
+// LAS	 	 	 	 	 	 	 	 	 	$BB	 	 	A,X,S:={adr}&S					*	 	 	 	 	*	   //
+//                                                                                                                 //
+//-----------------------------------------------------------------------------------------------------------------//
+// ¹ = unstable in certain matters                                                                                 //
+// ² = highly unstable (results are not predictable on some machines)                                              //
+//-----------------------------------------------------------------------------------------------------------------//
+
+inline u8 op_SLO( u8 val )
+{
+
+	// {adr}:={adr}*2 A:=A or {adr}
+	cpu.SetFlag(flag_C, (val & 0x80));
+	val = val << 1;
+	cpu.reg.A |= val;
+	cpu.SetZN(cpu.reg.A);
+	return val;
+}
+//-------------------------------------------------------------------------------------------------
+inline u8 op_RLA(u8 val)
+{
+	// {adr}:={adr}rol A:=A and {adr}
+	u8 C = cpu.GetFlag(flag_C);
+	cpu.SetFlag(flag_C, (val & 0x80));
+	val <<= 1;
+	val |= C;
+	cpu.reg.A &= val;
+	cpu.SetZN( cpu.reg.A );
+	return val;
+}
+//-------------------------------------------------------------------------------------------------
+inline u8 op_SRE(u8 val)
+{
+	// {adr}:={adr}/2 A:=A exor {adr}
+	cpu.SetFlag(flag_C, (val & 1));
+	val = val >> 1;
+	cpu.reg.A ^= val;
+	cpu.SetZN( cpu.reg.A);
+	return val;
+}
+//-------------------------------------------------------------------------------------------------
+inline u8 op_RRA(u8 val)
+{
+	// {adr}:={adr}ror A:=A adc {adr}
+	u8 C = cpu.GetFlag(flag_C);
+	cpu.SetFlag(flag_C, (val & 0x1));
+	val >>= 1;
+	val |= C<<7;
+	op_ADC(val);
+	return val;
+}
+//-------------------------------------------------------------------------------------------------
+inline u8 op_SAX(u8 val)
+{
+	// {adr}:=A&X	 
+	val = cpu.reg.A & cpu.reg.X;
+	return val;
+}
+//-------------------------------------------------------------------------------------------------
+inline u8 op_LAX(u8 val)
+{
+	// A,X:={adr}
+	cpu.reg.A = val;
+	cpu.reg.X = val;
+	cpu.SetZN(cpu.reg.A);
+	return val;
+}
+//-------------------------------------------------------------------------------------------------
+inline u8 op_DCP(u8 val)
+{
+	// {adr}:={adr}-1 A-{adr}	
+	val--;
+    cpu.SetZN(cpu.reg.A-val);
+	cpu.SetFlag(flag_C, ( cpu.reg.A >= val ));
+	return val;
+}
+
+//-------------------------------------------------------------------------------------------------
+inline u8 op_ISC(u8 val)
+{
+	// {adr}:={adr}+1 A:=A-{adr}		
+	val++;
+	op_SBC( val );
+	return val;
+}
+//-------------------------------------------------------------------------------------------------
+inline u8 op_ANC(u8 val)
+{
+	//A:=A&#{imm}
+	cpu.reg.A &= val;
+	cpu.SetZN( cpu.reg.A );
+	cpu.SetFlag(flag_C,cpu.GetFlag(flag_N));
+	return cpu.reg.A;
+}
+
+//-------------------------------------------------------------------------------------------------
+inline u8 op_ALR(u8 val)
+{
+	// A:=(A&#{imm})/2					
+	cpu.reg.A &= val;
+	cpu.SetFlag(flag_C,cpu.reg.A&1);
+	cpu.reg.A>>=1;
+	cpu.SetZN( cpu.reg.A );
+	return cpu.reg.A;
+}
+//-------------------------------------------------------------------------------------------------
+inline u8 op_ARR(u8 val)
+{
+	// A:=(A&#{imm})/2	
+	if ( cpu.GetFlag( flag_D ) ) 
+	{
+		// 
+		// Adapted this version from b-em 
+		//
+		// This instruction is just as broken on a real 6502 as it is here
+		//
+		/*
+		cpu.reg.A &= val;
+		cpu.SetFlag( flag_V, ( cpu.reg.A >> 6 ) ^ ( cpu.reg.A >> 7 ) ); //V set if bit 6 changes in ROR
+		cpu.reg.A >>= 1;
+		if ( cpu.GetFlag( flag_C ) )
+		{
+			cpu.reg.A |= 0x80;
+			cpu.SetFlag( flag_Z, 1 );
+			cpu.SetFlag( flag_N, 1 );
+			cpu.SetFlag( flag_C, 0 );
+		}
+		else
+		{
+			cpu.SetFlag( flag_Z, 0 );
+			cpu.SetFlag( flag_N, 0 );
+		}
+		if ( ( cpu.reg.A & 0xF ) + ( cpu.reg.A & 1 ) > 5 )
+		{
+			cpu.reg.A = ( cpu.reg.A & 0xF0 ) + ( ( cpu.reg.A & 0xF ) + 6 ); //Do broken fixup
+		}
+		if ( ( cpu.reg.A & 0xF0 ) + ( cpu.reg.A & 0x10 ) > 0x50 )
+		{
+			cpu.reg.A += 0x60;
+			cpu.SetFlag( flag_C, 1 );
+		}
+		*/
+		// 
+		// Adapted this version from 64doc.txt https://atarihq.com/danb/files/64doc.txt
+		//
+
+        u8 t = cpu.reg.A & val;            // Perform the AND. 
+        u8 AH = t >> 4;                    // Separate the high 
+        u8 AL = t & 15;                    // and low nybbles.
+
+		cpu.reg.A = (t >> 1) | (cpu.GetFlag( flag_C ) << 7);
+        cpu.SetFlag( flag_N, cpu.GetFlag( flag_C ));                // Set the N and
+        cpu.SetFlag( flag_Z, cpu.reg.A != 0 );						// Z flags traditionally
+        cpu.SetFlag( flag_V,  (t ^ cpu.reg.A) & 64 );               // and V flag in a weird way.
+
+		// BCD "fixup" for low nybble.
+        if (AL + (AL & 1) > 5)						
+		{
+			cpu.reg.A = (cpu.reg.A & 0xF0) | ((cpu.reg.A + 6) & 0xF);
+		}
+
+		// Set the Carry flag. 
+        if ( AH + (AH & 1) > 5 )      
+		{
+			// BCD "fixup" for high nybble.
+			cpu.reg.A = (cpu.reg.A + 0x60) & 0xFF;       
+			cpu.SetFlag( flag_C, 1 );
+		}
+		else
+		{
+			cpu.SetFlag( flag_C, 0 );
+		}
+	}
+	else
+	{
+		// V & C flag behaviours in 64doc.txt are backwards
+		cpu.reg.A &= val;
+		cpu.SetFlag( flag_V, ( cpu.reg.A >> 6 ) ^ ( cpu.reg.A >> 7 ) ); // V set if bit 6 changes in ROR
+		cpu.reg.A >>= 1;
+		if ( cpu.GetFlag( flag_C ) )
+		{
+			cpu.reg.A |= 0x80;
+		}
+		cpu.SetZN( cpu.reg.A );
+		cpu.SetFlag( flag_C, cpu.reg.A & 0x40 );
+	}
+	return cpu.reg.A;
+}
+//-------------------------------------------------------------------------------------------------
+inline u8 op_XAA(u8 val)
+{
+	// A:=X&#{imm}						
+	cpu.reg.A = cpu.reg.X & val;
+	cpu.SetZN( cpu.reg.A );
+	cpu.SetFlag(flag_C,cpu.GetFlag(flag_N));
+	return cpu.reg.A;
+}
+
+//-------------------------------------------------------------------------------------------------
+inline u8 op_AXS(u8 val)
+{
+	// X:=A&X-#{imm}					
+	cpu.SetFlag(flag_C,( cpu.reg.A & cpu.reg.X )>=val);
+	cpu.reg.X = ( cpu.reg.A & cpu.reg.X ) - val;
+	cpu.SetZN( cpu.reg.X );
+	return cpu.reg.X;
+}
+//-------------------------------------------------------------------------------------------------
+inline u8 op_AHX(u8 val,u8 H /*((addr>>8)+1))*/ )
+{
+	// {adr}:=A&X&H	 	 	 	 	
+    val = cpu.reg.A & cpu.reg.X & H;
+	return val;
+}
+//-------------------------------------------------------------------------------------------------
+inline u8 op_SHY(u8 val,u8 H /*((addr>>8)+1))*/ )
+{
+	// {adr}:=Y&H	 	 	 	 	 	
+    val = cpu.reg.Y & H;
+	return val;
+}
+//-------------------------------------------------------------------------------------------------
+inline u8 op_SHX(u8 val,u8 H /*((addr>>8)+1))*/ )
+{
+	// {adr}:=X&H	 	 	 	 	 	
+    val = cpu.reg.X & H;
+	return val;
+}
+//-------------------------------------------------------------------------------------------------
+inline u8 op_TAS(u8 val,u8 H /*((addr>>8)+1))*/ )
+{
+	// S:=A&X {adr}:=S&H
+	cpu.reg.S = cpu.reg.A & cpu.reg.X;
+	val = cpu.reg.S & H;
+	return val;
+}
+//-------------------------------------------------------------------------------------------------
+inline u8 op_LAS(u8 val)
+{
+	// A,X,S:={adr}&S					
+	cpu.reg.S &= val;
+	cpu.reg.X = cpu.reg.S;
+	cpu.reg.A = cpu.reg.S;
+	cpu.SetZN( cpu.reg.A );
 	return cpu.reg.A;
 }
 
