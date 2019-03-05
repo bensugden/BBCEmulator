@@ -4,20 +4,6 @@
 
 //-------------------------------------------------------------------------------------------------
 
-u16 s_screenResolutions[ ][ 2 ] =
-{ 
-	{ 640, 256 },  // Mode 0
-	{ 320, 256 },  // Mode 1 
-	{ 160, 256 },  // Mode 2
-	{ 640, 256 },  // Mode 3
-	{ 160, 256 },  // Mode 4
-	{ 320, 256 },  // Mode 5
-	{ 320, 256 },  // Mode 6
-	{ 160, 256 },  // Mode 7
-};
-
-//-------------------------------------------------------------------------------------------------
-
 MemoryState mem( 32768, 65536 );
 CPU			cpu;
 
@@ -110,9 +96,9 @@ bool BBC_Emulator::RunFrame( std::string* pDisassemblyString, bool bDebug )
 	time( &m_lastTime );
 
 
-	int nTotalCyclesPerFrame = cpu.GetCycleCount() + 2000000 / 50;
+	u64 nTotalCyclesPerFrame = cpu.GetClockCounter() + 2000000 / 50;
 	bool bBreakpoint = false;
-	while ( cpu.GetCycleCount() < nTotalCyclesPerFrame )
+	while ( cpu.GetClockCounter() < nTotalCyclesPerFrame )
 	{
 		if ( ProcessInstructions( 1, nullptr, true ) )
 		{

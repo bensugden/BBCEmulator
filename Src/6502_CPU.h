@@ -111,9 +111,9 @@ struct CPU
 
 	//-------------------------------------------------------------------------------------------------
 
-	int GetCycleCount() 
+	inline u64 GetClockCounter() 
 	{
-		return nTotalCycles;
+		return m_pClock->GetClockCounter();
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -170,10 +170,7 @@ struct CPU
 
 	inline void LastTick( )
 	{
-		if ( m_pClock )
-		{
-			m_pClock->PollChips();
-		}
+		m_pClock->PollChips();
 		// pipelines with next opcode fetch instruction
 	}
 
@@ -246,9 +243,6 @@ struct CPU
 
 	inline void SetNMI( )
 	{
-		//extern bool g_inNMI;
-		//
-		//	assert(( interrupt != INTERRUPT_NMI )||( !g_inNMI ))
 		m_pendingInterrupt |= INTERRUPT_NMI;
 	}
 

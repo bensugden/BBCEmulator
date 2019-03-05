@@ -29,6 +29,32 @@
 */
 
 //-------------------------------------------------------------------------------------------------
+//
+//		R0. Total length of line (displayed and non-displayed cycles (retrace) in CCLK cycles minus 1 )
+//		R1. Number of characters displayed in a line
+//		R2. The position of the horizontal sync pulse start in distance from line start
+//		R3. (Bits 0-3) The width of the horizontal sync pulse in CCLK cycles (0 means 16) .
+//		    (Bits 4-7) Length of vertical sync pulse in times of a rasterline (Bits 4-7)
+//		R4. (7_bit) The number of character lines of the screen minus 1
+//		R5. (5_bit) The additional number of scanlines to complete a screen
+//		R6. (7_bit) Number character lines that are displayed
+//		R7. (7_bit) Position of the vertical sync pulse in character lines.
+//		R8.
+//		R9. Number of scanlines per character minus 1
+//		R10. (5+2_bit)  Bits 0-4 start scanline of cursor
+//				 Bits 6,5: 0  0    non-blink
+//						   0  1    Cursor non-display
+//						   1  0    blink, 1/16 frame rate
+//						   1  1    blink, 1/32 frame rate
+//		R11. (5_bit) Bits 0-4 last scanline of cursor
+//		R12. (6_bit) Bits 8-13 of the start of display memory address
+//		R13. (8_bit) Bits 0-7 of the start of display memory address
+//		R14. (6_bit) Bits 8-13 of the memory address where Cursor Enable should be active 
+//		R15. (8_bit) Bits 0-7 of the Cursor Enable memory register
+//		R16. (6_bit) Light Pen H
+//		R17. (8_bit) Light Pen L
+//
+//-------------------------------------------------------------------------------------------------
 
 u8 CRTC_6845::WriteRegisterAddress( u16 address, u8 value )
 {
@@ -55,12 +81,19 @@ u8 CRTC_6845::WriteRegisterFile( u16 address, u8 value )
 }
 
 //-------------------------------------------------------------------------------------------------
+u8 CRTC_6845::ReadRegisterFile( u16 address, u8 value )
+{
+	return r[ m_nCurrentRegister ];
+}
+
+//-------------------------------------------------------------------------------------------------
 CRTC_6845::CRTC_6845()
 {
 	m_nCurrentRegister = -1;
 	memset( r, 0, sizeof( r ) );
-	mem.RegisterMemoryMap_Write( SHEILA::WRITE_6845_CRTC_Address_register, MemoryMapHandler( CRTC_6845::WriteRegisterAddress ) );
-	mem.RegisterMemoryMap_Write( SHEILA::WRITE_6845_CRTC_Register_file,    MemoryMapHandler( CRTC_6845::WriteRegisterFile ) );
+	mem.RegisterMemoryMap_Write( SHEILA::WRITE_6845_CRTC_Address_register,	MemoryMapHandler( CRTC_6845::WriteRegisterAddress ) );
+	mem.RegisterMemoryMap_Write( SHEILA::WRITE_6845_CRTC_Register_file,		MemoryMapHandler( CRTC_6845::WriteRegisterFile ) );
+	mem.RegisterMemoryMap_Read( SHEILA::READ_6845_CRTC_Register_file,		MemoryMapHandler( CRTC_6845::ReadRegisterFile ) );
 }
 
 //-------------------------------------------------------------------------------------------------

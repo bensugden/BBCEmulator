@@ -33,8 +33,8 @@ public:
 		Display_start_address_low,				// R13. (8_bit) Bits 0-7 of the start of display memory address
 		Cursor_address_high,					// R14. (6_bit) Bits 8-13 of the memory address where Cursor Enable should be active 
 		Cursor_address_low,						// R15. (8_bit) Bits 0-7 of the Cursor Enable memory register
-		Lightpen_address_high,					// R16. (6_bit)
-		Lightpen_address_low,					// R17. (8_bit)
+		Lightpen_address_high,					// R16. (6_bit) Light Pen H
+		Lightpen_address_low,					// R17. (8_bit)	Light Pen L
 	};
 	u8 GetRegisterValue( Register reg ) const
 	{
@@ -43,6 +43,7 @@ public:
 private:
 	u8 WriteRegisterAddress(  u16 address, u8 value  );
 	u8 WriteRegisterFile(  u16 address, u8 value  );
+	u8 ReadRegisterFile(  u16 address, u8 value  );
 	int m_nCurrentRegister;
 	u8 r[18];
 };

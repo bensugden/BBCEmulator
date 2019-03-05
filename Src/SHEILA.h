@@ -96,6 +96,8 @@ namespace SHEILA
 
 	enum Read_Address
 	{
+		READ_6845_CRTC_Register_file								= 0xFE01,
+
 		READ_6850_ACIA_Status_register								= 0xFE08,
 		READ_6850_ACIA_Receive_data_register						= 0xFE09,
 		

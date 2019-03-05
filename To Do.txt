@@ -1,0 +1,13 @@
+To Do:
+----------------------------------------------
+
+Vertical Retrace / track down ULA status register docs
+Record which cycles video changes are made & integrate into render loop (screen mode change etc)
+Teletext graphics
+IC69 missing problem (revs) 
+Look at keyboard stuff to make more robust ( track down why we lose keyboard control )
+Debug citadel speech (volume?)
+Add noise to sound generator
+Arkanoid not running?
+Knightlore not working
+

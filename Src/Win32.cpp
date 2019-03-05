@@ -257,7 +257,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	g_emulator = new BBC_Emulator();
 //	g_emulator->InsertDisk( 0, "disks\\test.ssd" );
-	g_emulator->InsertDisk( 0, "disks\\chuckieegg.ssd" );
+	g_emulator->InsertDisk( 0, "disks\\all games\\r\\Revs-267.ssd" );
 
 	UpdateStatusWindows( true );
 
