@@ -2,6 +2,7 @@ To Do:
 ----------------------------------------------
 
 Vertical Retrace / track down ULA status register docs
+mode 3/6 support 
 Record which cycles video changes are made & integrate into render loop (screen mode change etc)
 Teletext graphics
 IC69 missing problem (revs) 

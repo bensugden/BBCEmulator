@@ -4,7 +4,7 @@
 class CRTC_6845
 {
 public:
-	CRTC_6845();
+	CRTC_6845( class VideoULA& );
 	void Tick();
 	
 	//
@@ -36,16 +36,18 @@ public:
 		Lightpen_address_high,					// R16. (6_bit) Light Pen H
 		Lightpen_address_low,					// R17. (8_bit)	Light Pen L
 	};
-	u8 GetRegisterValue( Register reg ) const
-	{
-		return r[ reg ];
-	}
+
+	//-------------------------------------------------------------------------------------------------
+	inline void						SetRegister( u8 reg, u8 value ) { r[ m_nCurrentRegister ] = value; }
+	u8								GetRegisterValue( u8 reg ) const { return r[ reg ]; }
+	void							VSync();
 private:
-	u8 WriteRegisterAddress(  u16 address, u8 value  );
-	u8 WriteRegisterFile(  u16 address, u8 value  );
-	u8 ReadRegisterFile(  u16 address, u8 value  );
-	int m_nCurrentRegister;
-	u8 r[18];
+	u8								WriteRegisterAddress(  u16 address, u8 value  );
+	u8								WriteRegisterFile(  u16 address, u8 value  );
+	u8								ReadRegisterFile(  u16 address, u8 value  );
+	int								m_nCurrentRegister;
+	u8								r[18];
+	class VideoULA&					m_videoULA;
 };
 
 //-------------------------------------------------------------------------------------------------

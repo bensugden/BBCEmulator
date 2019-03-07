@@ -15,7 +15,6 @@ public:
 	SAA5050( const CRTC_6845& CRTC );
 
 	void RenderScreen();
-
 	const CRTC_6845& m_CRTC ;
 	u32* m_scaledFonts;
 };

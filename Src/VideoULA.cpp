@@ -8,6 +8,32 @@
 
 //-------------------------------------------------------------------------------------------------
 
+static u32 s_physialColorPalette[ 16 ][ 2 ] =
+{
+	//
+	// ARGB 32 Bit Colors. 
+	// 2 Entries - primary flash / secondary flash
+	//
+	{ 0xFF000000, 0xFF000000 },	// black
+	{ 0xFF0000FF, 0xFF0000FF }, // red
+	{ 0xFF00FF00, 0xFF00FF00 }, // green
+	{ 0xFF00FFFF, 0xFF00FFFF }, // yellow
+	{ 0xFFFF0000, 0xFFFF0000 }, // blue
+	{ 0xFFFF00FF, 0xFFFF00FF }, // magenta
+	{ 0xFFFFFF00, 0xFFFFFF00 }, // cyan
+	{ 0xFFFFFFFF, 0xFFFFFFFF }, // white
+	{ 0xFF000000, 0xFFFFFFFF }, // black, white
+	{ 0xFF0000FF, 0xFFFFFF00 }, // red, cyan
+	{ 0xFF00FF00, 0xFFFF00FF }, // green, magenta
+	{ 0xFF00FFFF, 0xFFFF0000 }, // yellow, blue
+	{ 0xFFFF0000, 0xFF00FFFF }, // blue, yellow
+	{ 0xFFFF00FF, 0xFF00FF00 }, // magenta, green
+	{ 0xFFFFFF00, 0xFF0000FF }, // cyan, red
+	{ 0xFFFFFFFF, 0xFF000000 }, // white, black
+};
+
+//-------------------------------------------------------------------------------------------------
+
 VideoULA::VideoULA( SAA5050& teletextChip, CRTC_6845& crtcChip )
 	: m_teletext( teletextChip )
 	, m_CRTC( crtcChip )
@@ -43,33 +69,9 @@ VideoULA::VideoULA( SAA5050& teletextChip, CRTC_6845& crtcChip )
 	}
 
 	m_hardwareScrollOffset = 0;
+	m_cpuClockAtVerticalRefresh = 0;
+	m_registerOpsThisFrame.resize(0);
 }
-
-//-------------------------------------------------------------------------------------------------
-
-static u32 s_physialColorPalette[ 16 ][ 2 ] =
-{
-	//
-	// ARGB 32 Bit Colors. 
-	// 2 Entries - primary flash / secondary flash
-	//
-	{ 0xFF000000, 0xFF000000 },	// black
-	{ 0xFF0000FF, 0xFF0000FF }, // red
-	{ 0xFF00FF00, 0xFF00FF00 }, // green
-	{ 0xFF00FFFF, 0xFF00FFFF }, // yellow
-	{ 0xFFFF0000, 0xFFFF0000 }, // blue
-	{ 0xFFFF00FF, 0xFFFF00FF }, // magenta
-	{ 0xFFFFFF00, 0xFFFFFF00 }, // cyan
-	{ 0xFFFFFFFF, 0xFFFFFFFF }, // white
-	{ 0xFF000000, 0xFFFFFFFF }, // black, white
-	{ 0xFF0000FF, 0xFFFFFF00 }, // red, cyan
-	{ 0xFF00FF00, 0xFFFF00FF }, // green, magenta
-	{ 0xFF00FFFF, 0xFFFF0000 }, // yellow, blue
-	{ 0xFFFF0000, 0xFF00FFFF }, // blue, yellow
-	{ 0xFFFF00FF, 0xFF00FF00 }, // magenta, green
-	{ 0xFFFFFF00, 0xFF0000FF }, // cyan, red
-	{ 0xFFFFFFFF, 0xFF000000 }, // white, black
-};
 
 //-------------------------------------------------------------------------------------------------
 
@@ -84,6 +86,21 @@ void VideoULA::RefreshDisplay()
 	// Scan screen and render pixels, servicing stored interrups along the way
 	//
 	RenderScreen();
+	m_cpuClockAtVerticalRefresh = cpu.GetClockCounter();
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void VideoULA::NotifyRegisterWrite( u8 reg, u8 value, bool bIsCRTCRegister )
+{
+	RegisterWriteOp op;
+
+	op.m_bIsCRTCRegister	= bIsCRTCRegister;
+	op.m_value				= value;
+	op.m_register			= reg;
+	op.m_cpuClockTick		= cpu.GetClockCounter();
+
+	m_registerOpsThisFrame.push_back( op );
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -106,6 +123,15 @@ u8 VideoULA::WRITE_Video_ULA_Control_register( u16 address, u8 ctrl_register )
 {
 	assert( address == SHEILA::WRITE_Video_ULA_Control_register );
 
+	NotifyRegisterWrite( 0, ctrl_register, false );
+	SetControlRegister( ctrl_register );
+	return ctrl_register;
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void VideoULA::SetControlRegister( u8 ctrl_register )
+{ 
 	//
 	// Parse bitfield
 	//
@@ -155,13 +181,12 @@ u8 VideoULA::WRITE_Video_ULA_Control_register( u16 address, u8 ctrl_register )
 	{
 		m_logicalToPhyscialColor[ i ] = i;
 	}
-	return ctrl_register;
 }
 
 //-------------------------------------------------------------------------------------------------
 
-u8 VideoULA::WRITE_Video_ULA_Palette_register( u16 address, u8 value )
-{
+void VideoULA::SetPaletteRegister( u8 value )
+{ 
 	u16 nScreenWidthInChars = m_CRTC.GetRegisterValue( CRTC_6845::Horizontal_displayed_character_lines );
 	u16 bitsPerPixel = nScreenWidthInChars / m_ulaState.nCharactersPerLine;
 
@@ -177,12 +202,21 @@ u8 VideoULA::WRITE_Video_ULA_Palette_register( u16 address, u8 value )
 			m_logicalToPhyscialColor[ value >> 4 ] = 7 ^ ( value & 15 );
 		break;
 	}
+}
+
+//-------------------------------------------------------------------------------------------------
+
+u8 VideoULA::WRITE_Video_ULA_Palette_register( u16 address, u8 value )
+{
+	NotifyRegisterWrite( 1, value, false );
+	
+	SetPaletteRegister( value );
 	return value;
 }
 
 //-------------------------------------------------------------------------------------------------
 
-void VideoULA::RenderScreen()
+void VideoULA::RenderScreen( )
 {
 	u8 hi = m_CRTC.GetRegisterValue( CRTC_6845::Display_start_address_high );
 	u8 lo = m_CRTC.GetRegisterValue( CRTC_6845::Display_start_address_low );
@@ -190,23 +224,28 @@ void VideoULA::RenderScreen()
 	u16 uStartAddress = MakeAddress( hi, lo ) * 8;
 	u16 nRomAddress = 0x8000;
 
-	u16 nScreenWidthInChars = m_CRTC.GetRegisterValue( CRTC_6845::Horizontal_displayed_character_lines );
-	u16 nScreenHeightInChars = m_CRTC.GetRegisterValue( CRTC_6845::Vertical_displayed_character_lines );
+	static const int c_nFBWidth = 640;
+	static const int c_nFBHeight = 256;
 
+	GFXSystem::FrameBufferInfo fbInfo;
+	fbInfo = GFXSystem::LockFrameBuffer( c_nFBWidth, c_nFBHeight );
+	u16 nCurrentAddress = uStartAddress; 
+	
+	//
+	// Setup values from previous video register states
+	//
+	u16 nScreenHeightInChars = m_CRTC.GetRegisterValue( CRTC_6845::Vertical_displayed_character_lines );
+	u16 nPixelHeight = nScreenHeightInChars * 8;
+
+	u16 nScreenWidthInChars = m_CRTC.GetRegisterValue( CRTC_6845::Horizontal_displayed_character_lines );
 	u16 bitsPerPixel = nScreenWidthInChars / m_ulaState.nCharactersPerLine;
-	u16 mask = (1<<bitsPerPixel) - 1;
 	if ( bitsPerPixel == 0 )
 		bitsPerPixel = 1;
 	u16 pixelsPerByte = 8 / bitsPerPixel;
 	u16 nPixelWidth = m_ulaState.nCharactersPerLine * 8;
-	u16 nPixelHeight = nScreenHeightInChars * 8;
 
 	u16 nScreenSizeInBytes = nPixelWidth * nPixelHeight * bitsPerPixel / 8;
-
-	GFXSystem::FrameBufferInfo fbInfo;
-
-	fbInfo = GFXSystem::LockFrameBuffer( nPixelWidth, nPixelHeight );
-	u16 nCurrentAddress = uStartAddress; 
+	u8 nHorizPixDup = c_nFBWidth / nPixelWidth;
 
 	int table = 0;
 	while ( ( 1 << table ) != bitsPerPixel )
@@ -214,10 +253,55 @@ void VideoULA::RenderScreen()
 		table++;
 	}
 
+	int nRegisterChangeIndex = 0; 
+	u64 nClock = m_cpuClockAtVerticalRefresh;
+	u64 nClockForNextRegisterChange = m_registerOpsThisFrame.size() != 0 ? m_registerOpsThisFrame[ 0 ].m_cpuClockTick : INT64_MAX;
 	for ( int y = 0 ; y < nPixelHeight; y += 8 )
 	{
 		for ( int x = 0 ; x < nPixelWidth; x+= pixelsPerByte )
 		{
+			//
+			// Poll video registers & commit changes if they were submitted during the elapsed cycles
+			//
+			while ( nClock > nClockForNextRegisterChange )
+			{
+				RegisterWriteOp op = m_registerOpsThisFrame[ nRegisterChangeIndex++ ];
+				if ( op.m_bIsCRTCRegister )
+				{
+					m_CRTC.SetRegister( op.m_register, op.m_value );
+				}
+				else
+				{ 
+					if ( op.m_register == 0 )
+					{
+						SetControlRegister( op.m_value );
+					}
+					else
+					{
+						SetPaletteRegister( op.m_value );
+					}
+				}
+				//
+				// Need to refresh pixel sizes etc.
+				//
+				nScreenWidthInChars = m_CRTC.GetRegisterValue( CRTC_6845::Horizontal_displayed_character_lines );
+				bitsPerPixel = nScreenWidthInChars / m_ulaState.nCharactersPerLine;
+				if ( bitsPerPixel == 0 )
+					bitsPerPixel = 1;
+				pixelsPerByte = 8 / bitsPerPixel;
+				nPixelWidth = m_ulaState.nCharactersPerLine * 8;
+				nHorizPixDup = c_nFBWidth / nPixelWidth;
+				table = 0;
+				while ( ( 1 << table ) != bitsPerPixel )
+				{
+					table++;
+				}
+
+				nClockForNextRegisterChange = m_registerOpsThisFrame.size() > nRegisterChangeIndex ? m_registerOpsThisFrame[ nRegisterChangeIndex ].m_cpuClockTick : INT64_MAX;
+			}
+			//
+			// Render Char
+			//
 			for ( int dy = 0 ; dy < 8; dy++ )
 			{
 				u32* pFB0 = fbInfo.m_pData + x + ( y + dy ) * fbInfo.m_pitch;
@@ -235,13 +319,19 @@ void VideoULA::RenderScreen()
 				{
 					u8 logicalIndex = m_colorLookup[ table ][ pixel ][ value ];
 					u8 physicalIndex = m_logicalToPhyscialColor[ logicalIndex ];
-					*pFB0++ = s_physialColorPalette[ physicalIndex ][ 0 ];
+					for ( int d = 0; d< nHorizPixDup; d++ )
+					{
+						*pFB0++ = s_physialColorPalette[ physicalIndex ][ 0 ];
+					}
 				}
 			}
+			nClock += 16;
 		}
 	}
 	GFXSystem::UnlockFrameBuffer();
 	GFXSystem::SetAnisotropicFiltering( false );
+
+	m_registerOpsThisFrame.resize(0);
 }
 
 //-------------------------------------------------------------------------------------------------

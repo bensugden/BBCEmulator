@@ -11,24 +11,29 @@
 // Status Register - [Address 0 - Read]
 //
 //-------------------------------------------------------------------------------------------------
-/*
- 7      UR - Update ready (Rockwell R6545 only)
-          0     Register 31 has been either read or written by the CPU
-          1     an update strobe has occured
- 6      LRF - LPEN Register Full 
-          0     Register 16 or 17 has been read by the CPU
-          1     LPEN strobe has occured
- 5      VRT - Vertical retrace 
-          0     Scan is currently not in the vertical blanking position
-          1     [MOS6545] Scan is currently in its vertical blanking time 
-          1     [R6545] Scan is currently in its vertical re-trace time.
-                   Note: this bit goes to a 1 one when vertical re-trace starts.
-                   It goes to a 0 five character clock times before vertical
-                   re-trace ends to ensure that critical timings for refresh
-                   RAM operations are met.
-*/
-
+//
+// 7      UR - Update ready (Rockwell R6545 only)
+//          0     Register 31 has been either read or written by the CPU
+//          1     an update strobe has occured
+// 6      LRF - LPEN Register Full 
+//          0     Register 16 or 17 has been read by the CPU
+//          1     LPEN strobe has occured
+// 5      VRT - Vertical retrace 
+//          0     Scan is currently not in the vertical blanking position
+//          1     [MOS6545] Scan is currently in its vertical blanking time 
+//          1     [R6545] Scan is currently in its vertical re-trace time.
+//                   Note: this bit goes to a 1 one when vertical re-trace starts.
+//                   It goes to a 0 five character clock times before vertical
+//                   re-trace ends to ensure that critical timings for refresh
+//                   RAM operations are met.
+//
 //-------------------------------------------------------------------------------------------------
+//
+// Registers
+//
+//-------------------------------------------------------------------------------------------------
+//
+// From Here: http://www.6502.org/users/andre/hwinfo/crtc/crtc.html
 //
 //		R0. Total length of line (displayed and non-displayed cycles (retrace) in CCLK cycles minus 1 )
 //		R1. Number of characters displayed in a line
@@ -72,13 +77,17 @@ u8 CRTC_6845::WriteRegisterFile( u16 address, u8 value )
 	//
 	assert( m_nCurrentRegister != -1 );
 
-	r[ m_nCurrentRegister ] = value;
+	SetRegister( m_nCurrentRegister, value );
 	//
 	// Don't write this again
 	//
 	m_nCurrentRegister = -1;
+
+	m_videoULA.NotifyRegisterWrite( m_nCurrentRegister, value, true );
+	
 	return value;
 }
+
 
 //-------------------------------------------------------------------------------------------------
 u8 CRTC_6845::ReadRegisterFile( u16 address, u8 value )
@@ -87,13 +96,20 @@ u8 CRTC_6845::ReadRegisterFile( u16 address, u8 value )
 }
 
 //-------------------------------------------------------------------------------------------------
-CRTC_6845::CRTC_6845()
+CRTC_6845::CRTC_6845( VideoULA& videoULA )
+	: m_videoULA( videoULA )
 {
 	m_nCurrentRegister = -1;
 	memset( r, 0, sizeof( r ) );
 	mem.RegisterMemoryMap_Write( SHEILA::WRITE_6845_CRTC_Address_register,	MemoryMapHandler( CRTC_6845::WriteRegisterAddress ) );
 	mem.RegisterMemoryMap_Write( SHEILA::WRITE_6845_CRTC_Register_file,		MemoryMapHandler( CRTC_6845::WriteRegisterFile ) );
 	mem.RegisterMemoryMap_Read( SHEILA::READ_6845_CRTC_Register_file,		MemoryMapHandler( CRTC_6845::ReadRegisterFile ) );
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void CRTC_6845::VSync()
+{
 }
 
 //-------------------------------------------------------------------------------------------------

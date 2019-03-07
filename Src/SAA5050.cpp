@@ -11,6 +11,20 @@
 
 //-------------------------------------------------------------------------------------------------
 
+static u32 s_colorLookup[]=
+{
+	0xFF000000,
+	0xFF0000FF,
+	0xFF00FF00,
+	0xFF00FFFF,
+	0xFFFF0000,
+	0xFFFF00FF,
+	0xFFFFFF00,
+	0xFFFFFFFF,
+};
+
+//-------------------------------------------------------------------------------------------------
+
 SAA5050::SAA5050( const CRTC_6845& CRTC )
 	: m_CRTC( CRTC )
 {
@@ -101,14 +115,168 @@ void SAA5050::RenderScreen()
 	// Render characters to frame buffer
 	//
 	u16 nCurrentAddress = uStartAddress; 
+	bool bFlashOffThisFrame = false; // todo
 
 	for ( int y = 0 ; y < nScreenHeight; y++ )
 	{
-		u32* pFB0 = fbInfo.m_pData + y * fbInfo.m_pitch * nCharHeightPlusSpace;
+		u8 lastChar					= 0x20;
+		u8 heldChar					= 0x20;
+		u32 uForegroundColorMask    = s_colorLookup[ 7 ]; // white
+		u32 uBackgroundColorMask	= s_colorLookup[ 0 ]; // black
+		u32 uCurrentColorMask		= uForegroundColorMask;
+		bool bDoubleHeight			= false;
+		bool bConceal				= false;
+		u32 nFontOffset				= 0;
+		u32* pFrameBufferPtr0		= fbInfo.m_pData + y * fbInfo.m_pitch * nCharHeightPlusSpace;
 
 		for ( int x = 0 ; x < nScreenWidth; x++ )
 		{
+
 			u8 displayChar = mem.Read_Internal( nCurrentAddress++ );
+
+			//
+			// Process control code
+			//
+			if ( displayChar < 0x20 )
+			{
+				switch ( displayChar )
+				{
+					case 0x00:
+					case 0x01:
+					case 0x02:
+					case 0x03:
+					case 0x04:
+					case 0x05:
+					case 0x06:
+					case 0x07:
+					{
+						// alpha color
+						uCurrentColorMask = uForegroundColorMask = s_colorLookup[ displayChar ];
+						nFontOffset = 0 ;
+						bConceal = false;
+						break;
+					}
+					case 0x08:
+					{
+						// flash
+						if ( bFlashOffThisFrame )
+						{
+							uCurrentColorMask = uBackgroundColorMask;
+						}
+					}
+					case 0x09:
+					{
+						// steady
+						uCurrentColorMask = uForegroundColorMask;
+					}
+					case 0x0a:
+					{
+						// end box ??
+						break;
+					}
+					case 0x0b:
+					{
+						// start box??
+						break;
+					}
+					case 0x0c:
+					{
+						// normal height
+						bDoubleHeight = false;
+						break;
+					}
+					case 0x0d:
+					{
+						// double height
+						bDoubleHeight = true;
+						break;
+					}
+					case 0x0e:
+					{
+						// S0?
+						break;
+					}
+					case 0x0f:
+					{
+						// S1?
+						break;
+					}
+					case 0x10:
+					case 0x11:
+					case 0x12:
+					case 0x13:
+					case 0x14:
+					case 0x15:
+					case 0x16:
+					case 0x17:
+					{
+						// set graphics & color
+						uCurrentColorMask = s_colorLookup[ displayChar & 0x7 ];
+						nFontOffset = 96 ;
+						bConceal = false;
+						break;
+					}
+					case 0x18:
+					{
+						// conceal
+						bConceal = true;
+						break;
+					}
+					case 0x19:
+					{
+						// contiguous graphics
+						nFontOffset = 96;
+						break;
+					}
+					case 0x1a:
+					{
+						// separated graphics
+						nFontOffset = 96 *2 ;
+						break;
+					}
+					case 0x1b:
+					{
+						// black background
+						uBackgroundColorMask = s_colorLookup[ 0 ];
+						break;
+					}
+					case 0x1c:
+					{
+						// esc ??
+						break;
+					}
+					case 0x1d:
+					{
+						// 	new background
+						uBackgroundColorMask = uForegroundColorMask;
+						break;
+					}
+					case 0x1e:
+					{
+						// hold graphics
+						heldChar = lastChar;
+						break;
+					}
+					case 0x1f:
+					{
+						// release graphics
+						heldChar = 0x20;
+						break;
+					}
+				}
+
+				displayChar = heldChar;				
+			}
+
+			if ( displayChar > 0x7f  )
+			{
+				displayChar = heldChar;				
+			}
+			if ( bConceal )
+			{
+				displayChar = 0x20;
+			}
+			
 			//
 			// Do wrap around for vertical scroll
 			//
@@ -117,20 +285,30 @@ void SAA5050::RenderScreen()
 				nCurrentAddress -= nScreenSizeInBytes;
 			}
 
-			u32* pFB1 = pFB0 + x * nCharWidthPlusSpace;
-
-			if ( displayChar < 0x20 || ( displayChar >= ( 0x20 + 96 ) ) )
-				continue;
-
+			//
+			// Render Character
+			//
+			u32* pFrameBufferPtr1 = pFrameBufferPtr0 + x * nCharWidthPlusSpace;
+			
 			u32* lookupChar = m_scaledFonts + ( displayChar - 0x20 ) * 60 * 4;
+
+			if (bDoubleHeight && ( y & 1 ))
+			{
+				lookupChar += 30 * 4;
+			}
 			for ( int dy = 0; dy < nCharHeight; dy++ )
 			{
 				for ( int dx = 0; dx < nCharWidth; dx++ )
 				{
-					*pFB1++ = *lookupChar++;
+					pFrameBufferPtr1[ dx ] = ( lookupChar[dx] & uCurrentColorMask ) | uBackgroundColorMask;
 				}
-				pFB1 += fbInfo.m_pitch - nCharWidth;
+				if ((!bDoubleHeight)||(dy&1))
+				{
+					lookupChar += nCharWidth;
+				}
+				pFrameBufferPtr1 += fbInfo.m_pitch;
 			}
+			lastChar = displayChar;
 		}
 	}
 
