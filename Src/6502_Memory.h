@@ -357,7 +357,10 @@ struct MemoryState
 
 	//-------------------------------------------------------------------------------------------------
 
-	//u8*			m_pMemory;
+	u32	GetAllocatedMemorySize() const { return m_maxAllocatedMemory; }
+
+	//-------------------------------------------------------------------------------------------------
+
 	u16			m_nEndUserMemory;		// everything up to this point is guaranteed to NOT be memory mapped
 	u32			m_maxAllocatedMemory;
 	MemoryMap	m_writeMemoryMap;

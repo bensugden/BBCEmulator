@@ -74,7 +74,7 @@ public:
 	OpcodeTable();
 	void					BuildOpcodeTables();
 	bool					SetFunctionHandler( EAddressingMode ea, EInstruction instruction, void (*functionHandler)( ) );
-	const CommandInfo&		GetCommandForOpcode( u8 opcode );
+	const CommandInfo&		GetCommandForOpcode( u8 opcode ) const ;
 
 private:
 

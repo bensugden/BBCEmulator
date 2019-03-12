@@ -276,11 +276,12 @@ struct CPU
 	};
 
 	void						Disassemble( const Registers& reg, const u8* bytes, string& dissassemble, const CommandInfo** ppOutCommand );
+
 	void						SetBreakpoint( u16 address );
 	void						ClearBreakpoints();
 	int							GetBytesAtPC( int pc, u8* bytes ); // grabs 1-3 bytes for next instruction
 	const std::string&			GetBreakpointReason() { return m_breakpointReason; }
-
+	const OpcodeTable&			GetOpcodeTable() const { return m_opcodeTable; }
 	bool						dbgWillNMINextCycle( ) { return ( m_pendingInterrupt & INTERRUPT_NMI )&&( !m_nLastNMI ); } // debug only
 	//-------------------------------------------------------------------------------------------------
 private:

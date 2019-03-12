@@ -111,6 +111,9 @@
     <ClInclude Include="SDKwavefile.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="6502_Disassembler.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -184,6 +187,9 @@
     </ClCompile>
     <ClCompile Include="SDKwavefile.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="6502_Disassembler.cpp">
+      <Filter>Emulator\Source</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

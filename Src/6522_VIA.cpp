@@ -812,7 +812,7 @@ void VIA_6522::Tick( int nCPUClocks )
 	//
 	if ( reg.IER & INTERRUPT_TIMER1 )
 	{
-		if ( reg.T1_COUNTER > 0 )
+		//if ( reg.T1_COUNTER > 0 )
 		{
 			reg.T1_COUNTER -= nCPUClocks;
 
@@ -855,7 +855,7 @@ void VIA_6522::Tick( int nCPUClocks )
 	//
 	if ( reg.IER & INTERRUPT_TIMER2 )
 	{
-		if ( reg.T2_COUNTER > 0 )
+		//if ( reg.T2_COUNTER > 0 )
 		{
 			u8 mode = reg.ACR & 0x20;
 

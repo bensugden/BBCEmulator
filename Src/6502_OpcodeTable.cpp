@@ -382,7 +382,7 @@ bool OpcodeTable::SetFunctionHandler( EAddressingMode ea, EInstruction instructi
 
 //-------------------------------------------------------------------------------------------------
 
-const CommandInfo& OpcodeTable::GetCommandForOpcode( u8 opcode )
+const CommandInfo& OpcodeTable::GetCommandForOpcode( u8 opcode ) const
 {
 	return m_commands[ opcode ];
 }
