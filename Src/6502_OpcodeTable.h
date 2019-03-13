@@ -44,6 +44,8 @@ enum EInstruction
 	AHX, SHY, SHX, TAS, LAS
 };
 
+#define FIRST_ILLEGAL_OPCODE SLO
+
 //-------------------------------------------------------------------------------------------------
 
 struct CommandInfo
@@ -54,11 +56,15 @@ struct CommandInfo
 		m_addCycleIfPageBoundaryCrossed = false;
 		m_functionHandler = nullptr;
 	}
-
+	bool IsIllegalOpcode() const
+	{
+		return ( m_instruction >= FIRST_ILLEGAL_OPCODE );  
+	}
 	string				m_name;
 	string				m_functionName;
 	int					m_index;
 	int					m_cycles;
+	int					m_nSize;
 	EAddressingMode		m_addressingMode;
 	bool				m_addCycleIfPageBoundaryCrossed;
 	EFlagSetMode		m_flagMode[ 8 ];

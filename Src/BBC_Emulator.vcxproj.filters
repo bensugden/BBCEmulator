@@ -191,6 +191,9 @@
     <ClCompile Include="6502_Disassembler.cpp">
       <Filter>Emulator\Source</Filter>
     </ClCompile>
+    <ClCompile Include="DisassemblyWindow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="BBC_Emulator.rc">

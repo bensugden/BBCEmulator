@@ -294,6 +294,12 @@ OpcodeTable::OpcodeTable()
 			}
 		}
 
+		command.m_nSize = 2;
+		if ( command.m_addressingMode == mode_imp || command.m_addressingMode == mode_invalid )
+			command.m_nSize = 1;
+		if ( command.m_addressingMode >= mode_abs && command.m_addressingMode < mode_rel )
+			command.m_nSize = 3;
+
 		command.m_cycles = p[iCycleIndex]- 48;
 		command.m_addCycleIfPageBoundaryCrossed = ( s.find("*")!=string::npos);
 		m_commands.push_back( command );

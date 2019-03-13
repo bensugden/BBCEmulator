@@ -16,8 +16,9 @@ Disassembler::Disassembler( int nMemorySize )
 
 //-------------------------------------------------------------------------------------------------
 
-int Disassembler::GetDestAddress( int pc, const CommandInfo& command, u8 lo, u8 hi )
+int Disassembler::GetDestAddress( int pc, const CommandInfo& command )
 {
+	u8 lo = mem.Read_Internal( pc + 1 );
 	if ( command.m_addressingMode == mode_rel )
 	{
 		return (int)(pc + 2 + ((s8)lo)); 
@@ -28,6 +29,7 @@ int Disassembler::GetDestAddress( int pc, const CommandInfo& command, u8 lo, u8 
 	}
 	else if ( command.m_addressingMode == mode_abs )
 	{
+		u8 hi = mem.Read_Internal( pc + 2 );
 		return int( lo + ( u16( hi ) <<8 ) );
 	}
 	return -1;
@@ -35,13 +37,31 @@ int Disassembler::GetDestAddress( int pc, const CommandInfo& command, u8 lo, u8 
 
 //-------------------------------------------------------------------------------------------------
 
-void Disassembler::CrawlCodeFrom( int pc )
+const CommandInfo& Disassembler::DecodeAt( int pc )
 {
-	while ( true )
-	{
-		u8 bytes[ 3 ];
-		bytes[ 0 ] = mem.Read_Internal( pc );
+	//
+	// Decode and read extra bytes for instruction
+	//
+	return cpu.GetOpcodeTable().GetCommandForOpcode( mem.Read_Internal( pc ) );
+}
 
+//-------------------------------------------------------------------------------------------------
+
+void Disassembler::MarkAsDecoded( int pc, const CommandInfo& command )
+{
+	for ( int i = 0; i< command.m_nSize; i++ )
+	{
+		m_memory[ pc  + i ].data = mem.Read_Internal( pc + i );
+		m_memory[ pc  + i ].type =  i == 0 ? MemReference::MEM_INSTRUCTION : MemReference::MEM_EA;
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+
+bool Disassembler::IsMemoryAlreadyDisassembled( int pc, const CommandInfo& command )
+{
+	for ( int i = 0; i < command.m_nSize; i++ )
+	{
 		//
 		// Already processed?
 		//
@@ -50,36 +70,58 @@ void Disassembler::CrawlCodeFrom( int pc )
 			//
 			// Memory not changed
 			//
-			if ( m_memory[ pc ].data == bytes[ 0 ] )
+			if ( m_memory[ pc ].data == mem.Read_Internal( pc ) )
 			{
-				return;
+				return true;
 			}
 		}
-		m_memory[ pc ].data = bytes[ 0 ];
-		m_memory[ pc ].type = MemReference::MEM_INSTRUCTION;
+	}
+	return false;
+}
 
-		//
-		// Decode and read extra bytes for instruction
-		//
-		const CommandInfo& command = cpu.GetOpcodeTable().GetCommandForOpcode( bytes[ 0 ] );
-		EAddressingMode mode = command.m_addressingMode;
+//-------------------------------------------------------------------------------------------------
 
-		int nSize = 1;
-		if ( mode == mode_imp || mode == mode_invalid )
-			nSize = 0;
-		if ( mode >= mode_abs && mode < mode_rel )
-			nSize = 2;
+void Disassembler::DisassembleFrom( int entry_point )
+{
+	//
+	// First crawl from entry point PC
+	//
+	CrawlCodeFrom( entry_point );
 
-		int nCount = 1;
-		while ( nCount <= nSize )
+	//
+	// Then take a stab at disassembling raw memory
+	//
+	for ( u32 pc = 0; pc < mem.GetAllocatedMemorySize(); )
+	{
+		const CommandInfo& command = DecodeAt( pc );
+		if ( IsMemoryAlreadyDisassembled( pc, command ) || command.IsIllegalOpcode() )
 		{
-			bytes[ nCount ] = mem.Read_Internal( pc + nCount );
-
-			m_memory[ pc  + nCount ].data = bytes[ nCount ];
-			m_memory[ pc  + nCount ].type =  MemReference::MEM_EA;
-
-			nCount++;
+			pc++;
 		}
+		else
+		{
+			MarkAsDecoded( pc, command );
+			pc += command.m_nSize;
+		}
+	}
+}
+//-------------------------------------------------------------------------------------------------
+
+void Disassembler::CrawlCodeFrom( int pc )
+{
+	while ( true )
+	{
+		//
+		// Decode instruction at PC
+		//
+		const CommandInfo& command = DecodeAt( pc );
+
+		if ( IsMemoryAlreadyDisassembled( pc, command ) )
+		{
+			return;
+		}
+
+		MarkAsDecoded( pc, command );
 
 		//
 		// Check for branching, jumping or termination
@@ -97,18 +139,18 @@ void Disassembler::CrawlCodeFrom( int pc )
 			case JSR:
 			{
 				// conditional jump - take both paths
-				int address = GetDestAddress( pc, command, bytes[1], bytes[2] );
+				int address = GetDestAddress( pc, command );
 				if ( address != -1 )
 				{
 					CrawlCodeFrom( address );
 				}
-				pc += nCount;
+				pc += command.m_nSize;
 				break;
 			}
 			case JMP: 
 			{
 				// unconditional jump - modify pc
-				int address = GetDestAddress( pc, command, bytes[1], bytes[2] );
+				int address = GetDestAddress( pc, command );
 				if ( address == -1 )
 				{
 					return;
@@ -125,7 +167,7 @@ void Disassembler::CrawlCodeFrom( int pc )
 			}
 			default:
 			{
-				pc += nCount;
+				pc += command.m_nSize;
 				break;
 			}
 		}

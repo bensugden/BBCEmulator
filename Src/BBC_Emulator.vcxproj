@@ -206,6 +206,7 @@
     <ClCompile Include="6522_VIA_System.cpp" />
     <ClCompile Include="6522_VIA_Ports.cpp" />
     <ClCompile Include="6845_CRTC.cpp" />
+    <ClCompile Include="DisassemblyWindow.cpp" />
     <ClCompile Include="I8271_FDC.cpp" />
     <ClCompile Include="BBC_Keyboard.cpp" />
     <ClCompile Include="BBC_Emulator.cpp" />
