@@ -38,7 +38,7 @@ public:
 	};
 
 	//-------------------------------------------------------------------------------------------------
-	inline void						SetRegister( u8 reg, u8 value ) { r[ m_nCurrentRegister ] = value; }
+	inline void						SetRegister( u8 reg, u8 value ) { r[ reg ] = value; }
 	u8								GetRegisterValue( u8 reg ) const { return r[ reg ]; }
 	void							VSync();
 private:

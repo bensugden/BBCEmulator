@@ -10,6 +10,7 @@ public:
 	void		RefreshDisplay();
 	void		SetHardwareScrollScreenOffset( u32 offset );
 	void		NotifyRegisterWrite( u8 reg, u8 value, bool bIsCRTCRegister );
+	bool		Tick( int nCycles );
 
 	//-------------------------------------------------------------------------------------------------
 
@@ -47,7 +48,6 @@ private:
 	void		RenderScreen();
 	void		SetControlRegister( u8 value );
 	void		SetPaletteRegister( u8 value );
-
 	//-------------------------------------------------------------------------------------------------
 
 	u8								m_colorLookup[ 4 ][ 8 ][ 256 ];
@@ -56,7 +56,8 @@ private:
 	SAA5050&						m_teletext;
 	CRTC_6845&						m_CRTC;
 	ULAState						m_ulaState;
-	u64								m_cpuClockAtVerticalRefresh;
+	u64								m_clock;
+	int								m_nRegisterChangeIndex; 
 	std::vector< RegisterWriteOp >	m_registerOpsThisFrame;
 };
 

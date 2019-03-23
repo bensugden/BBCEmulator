@@ -69,8 +69,9 @@ VideoULA::VideoULA( SAA5050& teletextChip, CRTC_6845& crtcChip )
 	}
 
 	m_hardwareScrollOffset = 0;
-	m_cpuClockAtVerticalRefresh = 0;
+	m_clock = 0;
 	m_registerOpsThisFrame.resize(0);
+	m_nRegisterChangeIndex = 0;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -79,6 +80,7 @@ void VideoULA::RefreshDisplay()
 {
 	if ( m_ulaState.bTeletextMode )
 	{
+		Tick( (int)(cpu.GetClockCounter() - m_clock) );
 		m_teletext.RenderScreen();
 		return;
 	}
@@ -86,7 +88,8 @@ void VideoULA::RefreshDisplay()
 	// Scan screen and render pixels, servicing stored interrups along the way
 	//
 	RenderScreen();
-	m_cpuClockAtVerticalRefresh = cpu.GetClockCounter();
+	m_registerOpsThisFrame.resize(0);
+	m_nRegisterChangeIndex = 0;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -210,8 +213,47 @@ u8 VideoULA::WRITE_Video_ULA_Palette_register( u16 address, u8 value )
 {
 	NotifyRegisterWrite( 1, value, false );
 	
-	SetPaletteRegister( value );
+	//SetPaletteRegister( value );
 	return value;
+}
+
+//-------------------------------------------------------------------------------------------------
+
+bool VideoULA::Tick( int nCycles )
+{
+	m_clock += nCycles;
+
+	if ( m_nRegisterChangeIndex == ((int)m_registerOpsThisFrame.size()) )
+		return false;
+
+	bool bUpdated;
+
+	while ( m_clock > m_registerOpsThisFrame[ m_nRegisterChangeIndex ].m_cpuClockTick )
+	{
+		bUpdated = true;
+
+		RegisterWriteOp op = m_registerOpsThisFrame[ m_nRegisterChangeIndex++ ];
+		if ( op.m_bIsCRTCRegister )
+		{
+			m_CRTC.SetRegister( op.m_register, op.m_value );
+		}
+		else
+		{ 
+			if ( op.m_register == 0 )
+			{
+				SetControlRegister( op.m_value );
+			}
+			else
+			{
+				SetPaletteRegister( op.m_value );
+			}
+		}
+		if ( m_nRegisterChangeIndex == ((int)m_registerOpsThisFrame.size()) )
+		{
+			break;
+		}
+	}
+	return bUpdated;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -253,9 +295,7 @@ void VideoULA::RenderScreen( )
 		table++;
 	}
 
-	int nRegisterChangeIndex = 0; 
-	u64 nClock = m_cpuClockAtVerticalRefresh;
-	u64 nClockForNextRegisterChange = m_registerOpsThisFrame.size() != 0 ? m_registerOpsThisFrame[ 0 ].m_cpuClockTick : INT64_MAX;
+	int nTicks = 0;
 	for ( int y = 0 ; y < nPixelHeight; y += 8 )
 	{
 		for ( int x = 0 ; x < nPixelWidth; x+= pixelsPerByte )
@@ -263,24 +303,8 @@ void VideoULA::RenderScreen( )
 			//
 			// Poll video registers & commit changes if they were submitted during the elapsed cycles
 			//
-			while ( nClock > nClockForNextRegisterChange )
+			if ( Tick( nTicks ) )
 			{
-				RegisterWriteOp op = m_registerOpsThisFrame[ nRegisterChangeIndex++ ];
-				if ( op.m_bIsCRTCRegister )
-				{
-					m_CRTC.SetRegister( op.m_register, op.m_value );
-				}
-				else
-				{ 
-					if ( op.m_register == 0 )
-					{
-						SetControlRegister( op.m_value );
-					}
-					else
-					{
-						SetPaletteRegister( op.m_value );
-					}
-				}
 				//
 				// Need to refresh pixel sizes etc.
 				//
@@ -296,15 +320,14 @@ void VideoULA::RenderScreen( )
 				{
 					table++;
 				}
-
-				nClockForNextRegisterChange = m_registerOpsThisFrame.size() > nRegisterChangeIndex ? m_registerOpsThisFrame[ nRegisterChangeIndex ].m_cpuClockTick : INT64_MAX;
 			}
+			
 			//
 			// Render Char
 			//
 			for ( int dy = 0 ; dy < 8; dy++ )
 			{
-				u32* pFB0 = fbInfo.m_pData + x + ( y + dy ) * fbInfo.m_pitch;
+				u32* pFB0 = fbInfo.m_pData + x * nHorizPixDup + ( y + dy ) * fbInfo.m_pitch;
 
 				u8 value = mem.Read_Internal( nCurrentAddress++ );
 
@@ -325,13 +348,13 @@ void VideoULA::RenderScreen( )
 					}
 				}
 			}
-			nClock += 16;
+			nTicks = 16;
 		}
 	}
+	Tick( int( cpu.GetClockCounter() - m_clock ) );
+
 	GFXSystem::UnlockFrameBuffer();
 	GFXSystem::SetAnisotropicFiltering( false );
-
-	m_registerOpsThisFrame.resize(0);
 }
 
 //-------------------------------------------------------------------------------------------------

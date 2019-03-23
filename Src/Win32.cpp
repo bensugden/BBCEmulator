@@ -257,8 +257,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	g_emulator = new BBC_Emulator();
 //	g_emulator->InsertDisk( 0, "disks\\test.ssd" );
-	g_emulator->InsertDisk( 0, "disks\\all games\\r\\Revs-267.ssd" );
-
+//	g_emulator->InsertDisk( 0, "disks\\all games\\r\\Revs-267.ssd" );
+	g_emulator->InsertDisk( 0, "disks\\all games\\p\\Planetoid-11.ssd" );
+	
 	UpdateStatusWindows( true );
 
 	return TRUE;
@@ -298,14 +299,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				case IDM_DRIVE0_INSERT:
 				{
 					std::string disk;
-					//if ( BasicFileOpen( disk ) )
+					if ( BasicFileOpen( disk ) == S_OK )
 					{
 						//g_emulator->InsertDisk( 0, "disks\\all games\\E\\Elite-366.ssd" );
 						
 						//g_emulator->InsertDisk( 0, "disks\\all games\\c\\Citadel-290.ssd" );
-						g_emulator->InsertDisk( 0, "disks\\all games\\a\\Arkanoid-632.ssd" );
+						//g_emulator->InsertDisk( 0, "disks\\all games\\a\\Arkanoid-632.ssd" );
 						//g_emulator->InsertDisk( 0, "disks\\chuckieegg.ssd" );
-						//g_emulator->InsertDisk( 0, disk );
+						g_emulator->InsertDisk( 0, disk );
 					}
 					break;
 				}
@@ -701,23 +702,23 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
 HRESULT BasicFileOpen( std::string& path )
 {
-	HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
-    if (SUCCEEDED(hr))
+	HRESULT hr;
+//	HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+ //   if (SUCCEEDED(hr))
     {
 		// CoCreate the File Open Dialog object.
-		IFileDialog *pfd = NULL;
-		hr = CoCreateInstance(CLSID_FileOpenDialog, 
-						  NULL, 
-						  CLSCTX_INPROC_SERVER, 
-						  IID_PPV_ARGS(&pfd));
-		if (SUCCEEDED(hr))
-		{
 			IFileOpenDialog *pFileOpen;
 
 			// Create the FileOpenDialog object.
 			hr = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, 
 					IID_IFileOpenDialog, reinterpret_cast<void**>(&pFileOpen));
 
+			IShellItem *psiFolder;
+			std::wstring folder = L"D:\\Work\\BBC Emulator\\Disks\\All Games\\";
+			//std::wstring folder = L".\\disks\\all disks\\";
+			hr = SHCreateItemFromParsingName ( folder.data(), NULL, IID_PPV_ARGS(&psiFolder) );
+			pFileOpen->SetDefaultFolder( psiFolder );
+			pFileOpen->SetDefaultExtension(L"ssd");
 			if (SUCCEEDED(hr))
 			{
 				// Show the Open dialog box.
@@ -735,7 +736,9 @@ HRESULT BasicFileOpen( std::string& path )
                                             &pszFilePath);
                         if (SUCCEEDED(hr))
                         {
-							//path = pszFilePath;
+							char str[128];
+							wcstombs(str, pszFilePath, 128);
+							path = str;
 							/*
                             TaskDialog(NULL,
                                         NULL,
@@ -753,8 +756,6 @@ HRESULT BasicFileOpen( std::string& path )
 				}
 				pFileOpen->Release();
 			}
-			CoUninitialize();
-		}
 	}
     return hr;
 }

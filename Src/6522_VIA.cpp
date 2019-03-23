@@ -810,12 +810,14 @@ void VIA_6522::Tick( int nCPUClocks )
 	//
 	// Timer 1 enabled?
 	//
+	int oldT1 = reg.T1_COUNTER;
+
+	reg.T1_COUNTER -= nCPUClocks;
+
 	if ( reg.IER & INTERRUPT_TIMER1 )
 	{
-		if ( reg.T1_COUNTER > 0 )
+		if ( oldT1 > 0 )
 		{
-			reg.T1_COUNTER -= nCPUClocks;
-
 			if ( reg.T1_COUNTER <= 0 )
 			{
 				u8 mode = reg.ACR >> 6;
@@ -853,15 +855,18 @@ void VIA_6522::Tick( int nCPUClocks )
 	//
 	// Timer 2
 	//
+	int oldT2 = reg.T2_COUNTER;
+	reg.T2_COUNTER -= nCPUClocks;
+
 	if ( reg.IER & INTERRUPT_TIMER2 )
 	{
-		if ( reg.T2_COUNTER > 0 )
+		if ( oldT2 > 0 )
 		{
 			u8 mode = reg.ACR & 0x20;
 
 			if ( mode == 0 )
 			{
-				reg.T2_COUNTER -= nCPUClocks;
+			//	reg.T2_COUNTER -= nCPUClocks;
 
 				if ( reg.T2_COUNTER <= 0 )
 				{
@@ -880,9 +885,9 @@ void VIA_6522::Tick( int nCPUClocks )
 			{
 				if ( ReadPortB() & 0x40 )
 				{
-					reg.T2_COUNTER -= nCPUClocks;
+				//	reg.T2_COUNTER -= nCPUClocks;
 
-					if (  reg.T2_COUNTER <= 0 )
+					if ( reg.T2_COUNTER <= 0 )
 					{
 						if ( reg.T2_INTERRUPT_ENABLED )
 						{

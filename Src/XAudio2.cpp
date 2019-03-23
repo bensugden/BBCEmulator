@@ -47,7 +47,7 @@ XAudio2::XAudio2( u32 nSamplesPerSecond )
 	//
 	// Initialize XAudio2
 	//
-	CoInitializeEx( NULL, COINIT_MULTITHREADED );
+	CoInitializeEx( NULL, COINIT_MULTITHREADED | COINIT_DISABLE_OLE1DDE);
 
 	m_pXAudio2 = NULL;
 

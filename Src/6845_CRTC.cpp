@@ -77,13 +77,12 @@ u8 CRTC_6845::WriteRegisterFile( u16 address, u8 value )
 	//
 	assert( m_nCurrentRegister != -1 );
 
-	SetRegister( m_nCurrentRegister, value );
+	m_videoULA.NotifyRegisterWrite( m_nCurrentRegister, value, true );
+	//SetRegister( m_nCurrentRegister, value );
 	//
 	// Don't write this again
 	//
 	m_nCurrentRegister = -1;
-
-	m_videoULA.NotifyRegisterWrite( m_nCurrentRegister, value, true );
 	
 	return value;
 }

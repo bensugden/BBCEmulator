@@ -134,7 +134,7 @@ void BBC_Emulator::DebugDecodeNextInstruction()
 }
 
 //-------------------------------------------------------------------------------------------------
-#define TEST_CODE
+//#define TEST_CODE
 #ifdef TEST_CODE
 static std::string testCode="*exec !boot";
 #endif

@@ -116,23 +116,22 @@ void SAA5050::RenderScreen()
 	//
 	u16 nCurrentAddress = uStartAddress; 
 	bool bFlashOffThisFrame = false; // todo
-
+	
 	for ( int y = 0 ; y < nScreenHeight; y++ )
 	{
-		u8 lastChar					= 0x20;
-		u8 heldChar					= 0x20;
+		int lastChar				= 0x20;
+		int heldChar				= 0x20;
 		u32 uForegroundColorMask    = s_colorLookup[ 7 ]; // white
 		u32 uBackgroundColorMask	= s_colorLookup[ 0 ]; // black
 		u32 uCurrentColorMask		= uForegroundColorMask;
 		bool bDoubleHeight			= false;
 		bool bConceal				= false;
-		u32 nFontOffset				= 0;
+		int nFontOffset				= 0;
 		u32* pFrameBufferPtr0		= fbInfo.m_pData + y * fbInfo.m_pitch * nCharHeightPlusSpace;
 
 		for ( int x = 0 ; x < nScreenWidth; x++ )
 		{
-
-			u8 displayChar = mem.Read_Internal( nCurrentAddress++ );
+			int displayChar = mem.Read_Internal( nCurrentAddress++ ) & 0x7f;
 
 			//
 			// Process control code
@@ -268,15 +267,15 @@ void SAA5050::RenderScreen()
 				displayChar = heldChar;				
 			}
 
-			if ( displayChar > 0x7f  )
-			{
-				displayChar = heldChar;				
-			}
 			if ( bConceal )
 			{
 				displayChar = 0x20;
 			}
-			
+			else
+			{
+				displayChar += nFontOffset;
+			}
+
 			//
 			// Do wrap around for vertical scroll
 			//
@@ -292,7 +291,7 @@ void SAA5050::RenderScreen()
 			
 			u32* lookupChar = m_scaledFonts + ( displayChar - 0x20 ) * 60 * 4;
 
-			if (bDoubleHeight && ( y & 1 ))
+			if (bDoubleHeight && (( y != 0 )&&( mem.Read_Internal( nCurrentAddress-nScreenWidth-1 ) == displayChar )))
 			{
 				lookupChar += 30 * 4;
 			}
