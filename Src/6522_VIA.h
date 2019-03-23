@@ -88,14 +88,14 @@ protected:
 
 	enum InterruptFlags
 	{
-		INTERRUPT_CA2			= 1 << 0,
-		INTERRUPT_CA1			= 1 << 1,
-		INTERRUPT_SHIFT			= 1 << 2,
-		INTERRUPT_CB2			= 1 << 3,
-		INTERRUPT_CB1			= 1 << 4,
-		INTERRUPT_TIMER2		= 1 << 5,
-		INTERRUPT_TIMER1		= 1 << 6,
-		INTERRUPT_SET			= 1 << 7,
+		INTERRUPT_CA2			= 1 << 0, // 0x01
+		INTERRUPT_CA1			= 1 << 1, // 0x02
+		INTERRUPT_SHIFT			= 1 << 2, // 0x04
+		INTERRUPT_CB2			= 1 << 3, // 0x08
+		INTERRUPT_CB1			= 1 << 4, // 0x10
+		INTERRUPT_TIMER2		= 1 << 5, // 0x20
+		INTERRUPT_TIMER1		= 1 << 6, // 0x40
+		INTERRUPT_SET			= 1 << 7, // 0x80
 	};
 
 	//-------------------------------------------------------------------------------------------------
@@ -157,6 +157,8 @@ private:
 	void			ThrowInterrupt( InterruptFlags interrupt );
 
 	u16				m_baseAddress;
+
+	friend class VideoULA;
 };
 
 //-------------------------------------------------------------------------------------------------

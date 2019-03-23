@@ -5,7 +5,7 @@
 class VideoULA
 {
 public:
-	VideoULA( class SAA5050& teletextChip, class CRTC_6845& crtcChip );
+	VideoULA( class SAA5050& teletextChip, class CRTC_6845& crtcChip, class System_VIA_6522& sysVIA );
 
 	void		RefreshDisplay();
 	void		SetHardwareScrollScreenOffset( u32 offset );
@@ -55,6 +55,7 @@ private:
 	u32								m_hardwareScrollOffset = 0 ;
 	SAA5050&						m_teletext;
 	CRTC_6845&						m_CRTC;
+	System_VIA_6522&				m_sysVIA;
 	ULAState						m_ulaState;
 	u64								m_clock;
 	int								m_nRegisterChangeIndex; 

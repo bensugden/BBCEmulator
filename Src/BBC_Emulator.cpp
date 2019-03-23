@@ -10,7 +10,7 @@ CPU			cpu;
 //-------------------------------------------------------------------------------------------------
 
 BBC_Emulator::BBC_Emulator()
-	: m_videoULA( m_teletext, m_crtc )
+	: m_videoULA( m_teletext, m_crtc, m_systemVIA )
 	, m_teletext( m_crtc )
 	, m_systemVIA( m_keyboard, m_videoULA, m_ti76489 )
 	, m_keyboard( m_systemVIA )
@@ -71,6 +71,10 @@ void BBC_Emulator::Reset()
 	//cpu.reg.PC = 0x400;
 
 	m_history.Clear();
+	QueryPerformanceCounter( &m_lastTime );
+	QueryPerformanceFrequency(&m_timerFreq);
+	m_lastTimeInSeconds =  (((double)(m_lastTime.QuadPart)) / ((double)m_timerFreq.QuadPart)); 
+
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -81,20 +85,20 @@ bool BBC_Emulator::RunFrame( std::string* pDisassemblyString, bool bDebug )
 	{
 		return false;
 	}
+	LARGE_INTEGER thisTime;
+	QueryPerformanceCounter(&thisTime);
 	if ( m_bStarted )
 	{
 		//
 		// Return if 1/50th of a second hasn't elapsed since the beginning of last frame
 		//
-		double elapsed = 0;
-		time_t timer;
-		time(&timer);
-		if ( difftime( timer, m_lastTime ) < 1.0f )
+		double elapsed = ((double)(thisTime.QuadPart-m_lastTime.QuadPart)) / ((double)m_timerFreq.QuadPart);
+		if ( elapsed < 1.0f / 50.f )
 		{
 			return false;
 		}
 	}
-	time( &m_lastTime );
+	m_lastTime = thisTime;
 
 
 	u64 nTotalCyclesPerFrame = cpu.GetClockCounter() + 2000000 / 50;

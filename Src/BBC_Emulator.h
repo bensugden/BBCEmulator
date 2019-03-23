@@ -129,7 +129,11 @@ private:
 	u64							m_nClockCounter = 0;
 	u64							m_nLastClockCounter = 0;
 	CPUStateHistory				m_history;
-	time_t						m_lastTime;
+
+	LARGE_INTEGER				m_lastTime;
+	LARGE_INTEGER				m_timerFreq;
+	double						m_lastTimeInSeconds;
+
 	FloppyDisk*					m_floppies[2];
 	bool						m_bStarted = false;
 	bool						m_bPaused = false;

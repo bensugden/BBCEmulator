@@ -34,9 +34,10 @@ static u32 s_physialColorPalette[ 16 ][ 2 ] =
 
 //-------------------------------------------------------------------------------------------------
 
-VideoULA::VideoULA( SAA5050& teletextChip, CRTC_6845& crtcChip )
+VideoULA::VideoULA( SAA5050& teletextChip, CRTC_6845& crtcChip, class System_VIA_6522& sysVIA )
 	: m_teletext( teletextChip )
 	, m_CRTC( crtcChip )
+	, m_sysVIA( sysVIA )
 {
 	mem.RegisterMemoryMap_Write( SHEILA::WRITE_Serial_ULA_Control_register, MemoryMapHandler( VideoULA::WRITE_Serial_ULA_Control_register ) );
 	mem.RegisterMemoryMap_Write( SHEILA::WRITE_Video_ULA_Control_register,  MemoryMapHandler( VideoULA::WRITE_Video_ULA_Control_register  ) );
@@ -72,6 +73,7 @@ VideoULA::VideoULA( SAA5050& teletextChip, CRTC_6845& crtcChip )
 	m_clock = 0;
 	m_registerOpsThisFrame.resize(0);
 	m_nRegisterChangeIndex = 0;
+	SetControlRegister( 0 );
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -260,6 +262,9 @@ bool VideoULA::Tick( int nCycles )
 
 void VideoULA::RenderScreen( )
 {
+	if ( m_ulaState.nCharactersPerLine == 0 )
+		return;
+
 	u8 hi = m_CRTC.GetRegisterValue( CRTC_6845::Display_start_address_high );
 	u8 lo = m_CRTC.GetRegisterValue( CRTC_6845::Display_start_address_low );
 
@@ -282,7 +287,7 @@ void VideoULA::RenderScreen( )
 	u16 nScreenWidthInChars = m_CRTC.GetRegisterValue( CRTC_6845::Horizontal_displayed_character_lines );
 	u16 bitsPerPixel = nScreenWidthInChars / m_ulaState.nCharactersPerLine;
 	if ( bitsPerPixel == 0 )
-		bitsPerPixel = 1;
+		goto exit;
 	u16 pixelsPerByte = 8 / bitsPerPixel;
 	u16 nPixelWidth = m_ulaState.nCharactersPerLine * 8;
 
@@ -290,7 +295,7 @@ void VideoULA::RenderScreen( )
 	u8 nHorizPixDup = c_nFBWidth / nPixelWidth;
 
 	int table = 0;
-	while ( ( 1 << table ) != bitsPerPixel )
+	while ( ( 1 << table ) < bitsPerPixel )
 	{
 		table++;
 	}
@@ -311,12 +316,12 @@ void VideoULA::RenderScreen( )
 				nScreenWidthInChars = m_CRTC.GetRegisterValue( CRTC_6845::Horizontal_displayed_character_lines );
 				bitsPerPixel = nScreenWidthInChars / m_ulaState.nCharactersPerLine;
 				if ( bitsPerPixel == 0 )
-					bitsPerPixel = 1;
+					goto exit;
 				pixelsPerByte = 8 / bitsPerPixel;
 				nPixelWidth = m_ulaState.nCharactersPerLine * 8;
 				nHorizPixDup = c_nFBWidth / nPixelWidth;
 				table = 0;
-				while ( ( 1 << table ) != bitsPerPixel )
+				while ( ( 1 << table ) < bitsPerPixel )
 				{
 					table++;
 				}
@@ -351,7 +356,10 @@ void VideoULA::RenderScreen( )
 			nTicks = 16;
 		}
 	}
+exit:
+	m_sysVIA.SetCA1( 1 );
 	Tick( int( cpu.GetClockCounter() - m_clock ) );
+	m_sysVIA.SetCA1( 0 );
 
 	GFXSystem::UnlockFrameBuffer();
 	GFXSystem::SetAnisotropicFiltering( false );

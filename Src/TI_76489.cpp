@@ -25,6 +25,7 @@ TI_76489::TI_76489()
 	{
 		memset( &m_streams[ i ], 128, c_streamSize );
 	}
+	m_storedRegisterValue = 0;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -125,6 +126,8 @@ void TI_76489::UpdateSoundRegister( u8 value )
 	}
 	else
 	{
+		if ( m_storedRegisterValue == 0 )
+			return;
 		// tone frequency ( 2nd byte )
 		u8 channel = 2 - ( ( m_storedRegisterValue >> 5 ) & 3 );
 		u16 raw_frequency = ( m_storedRegisterValue & 7 ) + ( ( value & 0x3f ) << 4 );
