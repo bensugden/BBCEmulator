@@ -165,6 +165,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="6502_Disassembler.h" />
     <ClInclude Include="6502_OpcodeTable.h" />
     <ClInclude Include="6522_VIA.h" />
     <ClInclude Include="6522_VIA_System.h" />
@@ -197,6 +198,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="6502_CPU.cpp" />
+    <ClCompile Include="6502_Disassembler.cpp" />
     <ClCompile Include="6502_Instructions.cpp" />
     <ClCompile Include="6502_Memory.cpp" />
     <ClCompile Include="6502_OpcodeTable.cpp" />
@@ -204,6 +206,7 @@
     <ClCompile Include="6522_VIA_System.cpp" />
     <ClCompile Include="6522_VIA_Ports.cpp" />
     <ClCompile Include="6845_CRTC.cpp" />
+    <ClCompile Include="DisassemblyWindow.cpp" />
     <ClCompile Include="I8271_FDC.cpp" />
     <ClCompile Include="BBC_Keyboard.cpp" />
     <ClCompile Include="BBC_Emulator.cpp" />
