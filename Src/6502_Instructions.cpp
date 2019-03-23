@@ -391,6 +391,11 @@ inline u8 op_LSR(u8 val)
 	return val;
 }
 //-------------------------------------------------------------------------------------------------
+inline u8 op_NULL(u8 val)
+{
+	return val;
+}
+//-------------------------------------------------------------------------------------------------
 inline u8 op_NOP(u8 val)
 {
 	return val;
@@ -1274,6 +1279,13 @@ namespace ImmediateAddressing
 		opcodeTable.SetFunctionHandler( mode_imm, LDA, fn_Immediate<op_LDA> );
 		opcodeTable.SetFunctionHandler( mode_imm, LDX, fn_Immediate<op_LDX> );
 		opcodeTable.SetFunctionHandler( mode_imm, LDY, fn_Immediate<op_LDY> );
+
+		opcodeTable.SetFunctionHandler( mode_imm, ANC, fn_Immediate<op_ANC> );
+		opcodeTable.SetFunctionHandler( mode_imm, ALR, fn_Immediate<op_ALR> );
+		opcodeTable.SetFunctionHandler( mode_imm, ARR, fn_Immediate<op_ARR> );
+		opcodeTable.SetFunctionHandler( mode_imm, XAA, fn_Immediate<op_XAA> );
+		opcodeTable.SetFunctionHandler( mode_imm, LAX, fn_Immediate<op_LAX> );
+		opcodeTable.SetFunctionHandler( mode_imm, AXS, fn_Immediate<op_AXS> );
 	}
 }
 
@@ -1393,7 +1405,7 @@ namespace AbsoluteAddressing
         3    PC     R  fetch high byte of address, increment PC
         4  address  W  write register to effective address
 	*/	
-	template <u8&(*Register)()>
+	template <u8&(*Register)(),u8(*Operation)(u8)>
 	void fn_WriteInstructions()
 	{
 		u16 address = 0;
@@ -1405,7 +1417,7 @@ namespace AbsoluteAddressing
 		cpu.IncPC();
 		cpu.Tick();
 
-		mem.Write(address, Register());
+		mem.Write(address, Operation( Register() ));
 		cpu.LastTick();
 	}
 
@@ -1426,7 +1438,7 @@ namespace AbsoluteAddressing
 		opcodeTable.SetFunctionHandler(mode_abs, CPX, fn_ReadInstructions<op_CPX>);
 		opcodeTable.SetFunctionHandler(mode_abs, CPY, fn_ReadInstructions<op_CPY>);
 		opcodeTable.SetFunctionHandler(mode_abs, BIT, fn_ReadInstructions<op_BIT>);
-		// Not implemented: LAX
+		opcodeTable.SetFunctionHandler(mode_abs, LAX, fn_ReadInstructions<op_LAX>);
 
 		opcodeTable.SetFunctionHandler(mode_abs, ASL, fn_ReadModifyWriteInstructions<op_ASL>);
 		opcodeTable.SetFunctionHandler(mode_abs, LSR, fn_ReadModifyWriteInstructions<op_LSR>);
@@ -1434,12 +1446,18 @@ namespace AbsoluteAddressing
 		opcodeTable.SetFunctionHandler(mode_abs, ROR, fn_ReadModifyWriteInstructions<op_ROR>);
 		opcodeTable.SetFunctionHandler(mode_abs, INC, fn_ReadModifyWriteInstructions<op_INC>);
 		opcodeTable.SetFunctionHandler(mode_abs, DEC, fn_ReadModifyWriteInstructions<op_DEC>);
-		// Not implemented: SLO, SRE, RLA, RRA, ISB, DCP
 
-		opcodeTable.SetFunctionHandler(mode_abs, STA, fn_WriteInstructions<reg_cpuA>);
-		opcodeTable.SetFunctionHandler(mode_abs, STX, fn_WriteInstructions<reg_cpuX>);
-		opcodeTable.SetFunctionHandler(mode_abs, STY, fn_WriteInstructions<reg_cpuY>);
-		// Not implemented: SAX
+		opcodeTable.SetFunctionHandler(mode_abs, SLO, fn_ReadModifyWriteInstructions<op_SLO>);
+		opcodeTable.SetFunctionHandler(mode_abs, SRE, fn_ReadModifyWriteInstructions<op_SRE>);
+		opcodeTable.SetFunctionHandler(mode_abs, RLA, fn_ReadModifyWriteInstructions<op_RLA>);
+		opcodeTable.SetFunctionHandler(mode_abs, RRA, fn_ReadModifyWriteInstructions<op_RRA>);
+		opcodeTable.SetFunctionHandler(mode_abs, ISC, fn_ReadModifyWriteInstructions<op_ISC>);
+		opcodeTable.SetFunctionHandler(mode_abs, DCP, fn_ReadModifyWriteInstructions<op_DCP>);
+
+		opcodeTable.SetFunctionHandler(mode_abs, STA, fn_WriteInstructions<reg_cpuA,op_NULL>);
+		opcodeTable.SetFunctionHandler(mode_abs, STX, fn_WriteInstructions<reg_cpuX,op_NULL>);
+		opcodeTable.SetFunctionHandler(mode_abs, STY, fn_WriteInstructions<reg_cpuY,op_NULL>);
+		opcodeTable.SetFunctionHandler(mode_abs, SAX, fn_WriteInstructions<reg_cpuY,op_SAX>);
 	}
 }
 //=================================================================================================
@@ -1523,7 +1541,7 @@ namespace ZeroPageAddressing
         2    PC     R  fetch address, increment PC
         3  address  W  write register to effective address
 	*/
-	template <u8&(*Index)(), u8&(*Register)()>
+	template <u8&(*Register)(), u8(*Operation)(u8)>
 	void fn_WriteInstructions()
 	{
 		u8 address = 0;
@@ -1531,7 +1549,7 @@ namespace ZeroPageAddressing
 		cpu.IncPC();
 		cpu.Tick();
 
-		mem.Write(address, Register());
+		mem.Write(address, Operation( Register() ) );
 		cpu.LastTick();
 	}
 
@@ -1551,7 +1569,7 @@ namespace ZeroPageAddressing
 		opcodeTable.SetFunctionHandler(mode_zp, CPX, fn_ReadInstructions<reg_cpuX, op_CPX>);
 		opcodeTable.SetFunctionHandler(mode_zp, CPY, fn_ReadInstructions<reg_cpuX, op_CPY>);
 		opcodeTable.SetFunctionHandler(mode_zp, BIT, fn_ReadInstructions<reg_cpuX, op_BIT>);
-		// Not implemented: LAX
+		opcodeTable.SetFunctionHandler(mode_zp, LAX, fn_ReadInstructions<reg_cpuX, op_LAX>);
 
 		opcodeTable.SetFunctionHandler(mode_zp, ASL, fn_ReadModifyWriteInstructions<op_ASL>);
 		opcodeTable.SetFunctionHandler(mode_zp, LSR, fn_ReadModifyWriteInstructions<op_LSR>);
@@ -1559,12 +1577,18 @@ namespace ZeroPageAddressing
 		opcodeTable.SetFunctionHandler(mode_zp, ROR, fn_ReadModifyWriteInstructions<op_ROR>);
 		opcodeTable.SetFunctionHandler(mode_zp, INC, fn_ReadModifyWriteInstructions<op_INC>);
 		opcodeTable.SetFunctionHandler(mode_zp, DEC, fn_ReadModifyWriteInstructions<op_DEC>);
-		// Not implemented: SLO, SRE, RLA, RRA, ISB, DCP
 
-		opcodeTable.SetFunctionHandler(mode_zp, STA, fn_WriteInstructions<reg_cpuX, reg_cpuA>);
-		opcodeTable.SetFunctionHandler(mode_zp, STX, fn_WriteInstructions<reg_cpuX, reg_cpuX>);
-		opcodeTable.SetFunctionHandler(mode_zp, STY, fn_WriteInstructions<reg_cpuX, reg_cpuY>);
-		// Not implemented: SAX
+		opcodeTable.SetFunctionHandler(mode_zp, SLO, fn_ReadModifyWriteInstructions<op_SLO>);
+		opcodeTable.SetFunctionHandler(mode_zp, SRE, fn_ReadModifyWriteInstructions<op_SRE>);
+		opcodeTable.SetFunctionHandler(mode_zp, RLA, fn_ReadModifyWriteInstructions<op_RLA>);
+		opcodeTable.SetFunctionHandler(mode_zp, RRA, fn_ReadModifyWriteInstructions<op_RRA>);
+		opcodeTable.SetFunctionHandler(mode_zp, ISC, fn_ReadModifyWriteInstructions<op_ISC>);
+		opcodeTable.SetFunctionHandler(mode_zp, DCP, fn_ReadModifyWriteInstructions<op_DCP>);
+
+		opcodeTable.SetFunctionHandler(mode_zp, STA, fn_WriteInstructions<reg_cpuA, op_NULL>);
+		opcodeTable.SetFunctionHandler(mode_zp, STX, fn_WriteInstructions<reg_cpuX, op_NULL>);
+		opcodeTable.SetFunctionHandler(mode_zp, STY, fn_WriteInstructions<reg_cpuY, op_NULL>);
+		opcodeTable.SetFunctionHandler(mode_zp, SAX, fn_WriteInstructions<reg_cpuA, op_SAX>);
 	}
 
 }
@@ -1674,7 +1698,7 @@ namespace ZeroPageIndexedAddressing
               * The high byte of the effective address is always zero,
                 i.e. page boundary crossings are not handled.
 	*/
-	template <u8&(*Index)(),u8&(*Register)()>
+	template <u8&(*Index)(),u8&(*Register)(),u8(*Operation)(u8)>
 	void fn_WriteInstructions( )
 	{
 		u8 address = 0;
@@ -1686,7 +1710,7 @@ namespace ZeroPageIndexedAddressing
 		address += Index();
 		cpu.Tick();
 
-		mem.Write( address, Register() );
+		mem.Write( address, Operation( Register() ) );
 		cpu.LastTick();
 	}
 
@@ -1702,10 +1726,9 @@ namespace ZeroPageIndexedAddressing
 		opcodeTable.SetFunctionHandler( mode_zpx, ADC, fn_ReadInstructions<reg_cpuX,op_ADC> );
 		opcodeTable.SetFunctionHandler( mode_zpx, SBC, fn_ReadInstructions<reg_cpuX,op_SBC> );
 		opcodeTable.SetFunctionHandler( mode_zpx, CMP, fn_ReadInstructions<reg_cpuX,op_CMP> );
-		// Not implemented: LAX
 
 		opcodeTable.SetFunctionHandler( mode_zpy, LDX, fn_ReadInstructions<reg_cpuY,op_LDX> );
-		// Not implemented: LAX
+		opcodeTable.SetFunctionHandler( mode_zpy, LAX, fn_ReadInstructions<reg_cpuY,op_LAX> );
 
 		opcodeTable.SetFunctionHandler( mode_zpx, ASL, fn_ReadModifyWriteInstructions<op_ASL> );
 		opcodeTable.SetFunctionHandler( mode_zpx, LSR, fn_ReadModifyWriteInstructions<op_LSR> );
@@ -1713,14 +1736,19 @@ namespace ZeroPageIndexedAddressing
 		opcodeTable.SetFunctionHandler( mode_zpx, ROR, fn_ReadModifyWriteInstructions<op_ROR> );
 		opcodeTable.SetFunctionHandler( mode_zpx, INC, fn_ReadModifyWriteInstructions<op_INC> );
 		opcodeTable.SetFunctionHandler( mode_zpx, DEC, fn_ReadModifyWriteInstructions<op_DEC> );
-		// Not implemented: SLO, SRE, RLA, RRA, ISB, DCP
 
-		opcodeTable.SetFunctionHandler( mode_zpx, STA, fn_WriteInstructions<reg_cpuX,reg_cpuA> );
-		opcodeTable.SetFunctionHandler( mode_zpx, STY, fn_WriteInstructions<reg_cpuX,reg_cpuY> );
-		// Not implemented: SAX
+		opcodeTable.SetFunctionHandler( mode_zpx, SLO, fn_ReadModifyWriteInstructions<op_SLO>);
+		opcodeTable.SetFunctionHandler( mode_zpx, SRE, fn_ReadModifyWriteInstructions<op_SRE>);
+		opcodeTable.SetFunctionHandler( mode_zpx, RLA, fn_ReadModifyWriteInstructions<op_RLA>);
+		opcodeTable.SetFunctionHandler( mode_zpx, RRA, fn_ReadModifyWriteInstructions<op_RRA>);
+		opcodeTable.SetFunctionHandler( mode_zpx, ISC, fn_ReadModifyWriteInstructions<op_ISC>);
+		opcodeTable.SetFunctionHandler( mode_zpx, DCP, fn_ReadModifyWriteInstructions<op_DCP>);
+
+		opcodeTable.SetFunctionHandler( mode_zpx, STA, fn_WriteInstructions<reg_cpuX,reg_cpuA,op_NULL> );
+		opcodeTable.SetFunctionHandler( mode_zpx, STY, fn_WriteInstructions<reg_cpuX,reg_cpuY,op_NULL> );
 		
-		opcodeTable.SetFunctionHandler( mode_zpy, STX, fn_WriteInstructions<reg_cpuY,reg_cpuX> );
-		// Not implemented: SAX
+		opcodeTable.SetFunctionHandler( mode_zpy, STX, fn_WriteInstructions<reg_cpuY,reg_cpuX,op_NULL> );
+		opcodeTable.SetFunctionHandler( mode_zpy, SAX, fn_WriteInstructions<reg_cpuY,reg_cpuA,op_SAX> );
 	}
 }
 //=================================================================================================
@@ -1836,7 +1864,7 @@ namespace AbsoluteIndexedAddressing
 	}
 
 	//-------------------------------------------------------------------------------------------------
-	template <u8&(*Index)(),u8&(*Register)()>
+	template <u8&(*Index)(),u8&(*Register)(),u8(*Operation)(u8)>
 	void fn_WriteInstructions( )
 	{
 		//-------------------------------------------------------------------------------------------------
@@ -1878,7 +1906,54 @@ namespace AbsoluteIndexedAddressing
 		address = address + Index(); 
 		cpu.Tick();
 
-		mem.Write( address, Register() );
+		mem.Write( address, Operation( Register() ) );
+		cpu.LastTick();
+	}
+	//-------------------------------------------------------------------------------------------------
+	// This variant passes the high byte in of the effective address (plus 1 ?!)
+	template <u8&(*Index)(),u8&(*Register)(),u8(*Operation)(u8,u8)>
+	void fn_WriteInstructionsH( )
+	{
+		//-------------------------------------------------------------------------------------------------
+		//	
+		// Write instructions (STA, STX, STY, SHA, SHX, SHY)
+		//
+		//-------------------------------------------------------------------------------------------------
+		/*
+			#   address  R/W description
+		   --- --------- --- ------------------------------------------
+			1     PC      R  fetch opcode, increment PC
+			2     PC      R  fetch low byte of address, increment PC
+			3     PC      R  fetch high byte of address,
+							 add index register to low address byte,
+							 increment PC
+			4  address+I* R  read from effective address,
+							 fix the high byte of effective address
+			5  address+I  W  write to effective address
+
+		   Notes: I denotes either index register (X or Y).
+
+				  * The high byte of the effective address may be invalid
+					at this time, i.e. it may be smaller by $100. Because
+					the processor cannot undo a write to an invalid
+					address, it always reads from the address first.
+					*/
+
+		u16 address = 0;
+		mem.ReadLoByte( cpu.reg.PC, address );
+		cpu.IncPC();
+		cpu.Tick();
+
+		mem.ReadHiByte( cpu.reg.PC, address );
+		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + Index() ) & 0xff );
+		cpu.IncPC();
+		cpu.Tick();
+
+		u8 value = mem.Read( temp_address );
+		address = address + Index(); 
+		cpu.Tick();
+
+		mem.Write( address, Operation( Register(), 1 + ( ( address >> 8 ) & 0xff ) ) );
 		cpu.LastTick();
 	}
 	//-------------------------------------------------------------------------------------------------
@@ -1892,7 +1967,6 @@ namespace AbsoluteIndexedAddressing
 		opcodeTable.SetFunctionHandler( mode_abx, ADC, fn_ReadInstructions<reg_cpuX,op_ADC> );
 		opcodeTable.SetFunctionHandler( mode_abx, SBC, fn_ReadInstructions<reg_cpuX,op_SBC> );
 		opcodeTable.SetFunctionHandler( mode_abx, CMP, fn_ReadInstructions<reg_cpuX,op_CMP> );
-		// Not implemented: LAX, LAE, SHS
 		
 		opcodeTable.SetFunctionHandler( mode_aby, LDA, fn_ReadInstructions<reg_cpuY,op_LDA> );
 		opcodeTable.SetFunctionHandler( mode_aby, LDX, fn_ReadInstructions<reg_cpuY,op_LDX> );
@@ -1902,7 +1976,6 @@ namespace AbsoluteIndexedAddressing
 		opcodeTable.SetFunctionHandler( mode_aby, ADC, fn_ReadInstructions<reg_cpuY,op_ADC> );
 		opcodeTable.SetFunctionHandler( mode_aby, SBC, fn_ReadInstructions<reg_cpuY,op_SBC> );
 		opcodeTable.SetFunctionHandler( mode_aby, CMP, fn_ReadInstructions<reg_cpuY,op_CMP> );
-		// Not implemented: LAX, LAE, SHS
 
 		opcodeTable.SetFunctionHandler( mode_abx, ASL, fn_ReadModifyWriteInstructions<op_ASL> );
 		opcodeTable.SetFunctionHandler( mode_abx, LSR, fn_ReadModifyWriteInstructions<op_LSR> );
@@ -1910,14 +1983,30 @@ namespace AbsoluteIndexedAddressing
 		opcodeTable.SetFunctionHandler( mode_abx, ROR, fn_ReadModifyWriteInstructions<op_ROR> );
 		opcodeTable.SetFunctionHandler( mode_abx, INC, fn_ReadModifyWriteInstructions<op_INC> );
 		opcodeTable.SetFunctionHandler( mode_abx, DEC, fn_ReadModifyWriteInstructions<op_DEC> );
-		// Not implemented: SLO, SRE, RLA, RRA, ISB, DCP
 
-		opcodeTable.SetFunctionHandler( mode_abx, STA, fn_WriteInstructions<reg_cpuX,reg_cpuA> );
-		// Not implemented: SHA, SHX, SHY
+		opcodeTable.SetFunctionHandler( mode_abx, SLO, fn_ReadModifyWriteInstructions<op_SLO>);
+		opcodeTable.SetFunctionHandler( mode_abx, SRE, fn_ReadModifyWriteInstructions<op_SRE>);
+		opcodeTable.SetFunctionHandler( mode_abx, RLA, fn_ReadModifyWriteInstructions<op_RLA>);
+		opcodeTable.SetFunctionHandler( mode_abx, RRA, fn_ReadModifyWriteInstructions<op_RRA>);
+		opcodeTable.SetFunctionHandler( mode_abx, ISC, fn_ReadModifyWriteInstructions<op_ISC>);
+		opcodeTable.SetFunctionHandler( mode_abx, DCP, fn_ReadModifyWriteInstructions<op_DCP>);
+
+		opcodeTable.SetFunctionHandler( mode_abx, STA, fn_WriteInstructions<reg_cpuX,reg_cpuA,op_NULL> );
+		opcodeTable.SetFunctionHandler( mode_abx, SHY, fn_WriteInstructionsH<reg_cpuX,reg_cpuA,op_SHY> );
 		
-		opcodeTable.SetFunctionHandler( mode_aby, STA, fn_WriteInstructions<reg_cpuY,reg_cpuA> );
-		// Not implemented: SHA, SHX, SHY
+		opcodeTable.SetFunctionHandler( mode_aby, STA, fn_WriteInstructions<reg_cpuY,reg_cpuA,op_NULL> );
+		opcodeTable.SetFunctionHandler( mode_aby, LAX, fn_WriteInstructions<reg_cpuY,reg_cpuA,op_LAX> );
+		opcodeTable.SetFunctionHandler( mode_aby, AHX, fn_WriteInstructionsH<reg_cpuY,reg_cpuA,op_AHX> );
+		opcodeTable.SetFunctionHandler( mode_aby, SHX, fn_WriteInstructionsH<reg_cpuY,reg_cpuA,op_SHX> );
+		opcodeTable.SetFunctionHandler( mode_aby, TAS, fn_WriteInstructionsH<reg_cpuY,reg_cpuA,op_TAS> );
+		opcodeTable.SetFunctionHandler( mode_aby, LAS, fn_WriteInstructions<reg_cpuY,reg_cpuA,op_LAS> );
 
+		opcodeTable.SetFunctionHandler( mode_aby, SLO, fn_ReadModifyWriteInstructions<op_SLO>);
+		opcodeTable.SetFunctionHandler( mode_aby, SRE, fn_ReadModifyWriteInstructions<op_SRE>);
+		opcodeTable.SetFunctionHandler( mode_aby, RLA, fn_ReadModifyWriteInstructions<op_RLA>);
+		opcodeTable.SetFunctionHandler( mode_aby, RRA, fn_ReadModifyWriteInstructions<op_RRA>);
+		opcodeTable.SetFunctionHandler( mode_aby, ISC, fn_ReadModifyWriteInstructions<op_ISC>);
+		opcodeTable.SetFunctionHandler( mode_aby, DCP, fn_ReadModifyWriteInstructions<op_DCP>);
 	}
 	//-------------------------------------------------------------------------------------------------
 
@@ -2100,7 +2189,7 @@ namespace IndexedIndirectAddressing
        Note: The effective address is always fetched from zero page,
              i.e. the zero page boundary crossing is not handled.
 	 */
-	template <u8&(*Register)()>
+	template <u8&(*Register)(),u8(*Operation)(u8)>
 	void fn_WriteInstructions( )
 	{
 		u8 pointer = FetchPointer();
@@ -2112,7 +2201,7 @@ namespace IndexedIndirectAddressing
 
 		u16 address = Get16BitAddressFromPointer( pointer );
 
-		u8 value = Register();
+		u8 value = Operation( Register() );
 		mem.Write( address, value );
 		cpu.LastTick();
 	}
@@ -2126,13 +2215,18 @@ namespace IndexedIndirectAddressing
 		opcodeTable.SetFunctionHandler( mode_izx, ADC, fn_ReadInstructions<op_ADC> );
 		opcodeTable.SetFunctionHandler( mode_izx, CMP, fn_ReadInstructions<op_CMP> );
 		opcodeTable.SetFunctionHandler( mode_izx, SBC, fn_ReadInstructions<op_SBC> );
-		// Not implemented: LAX
 
-		// Read-Modify-Write instructions 
-		// Not implemented : (SLO, SRE, RLA, RRA, ISB, DCP)
+		opcodeTable.SetFunctionHandler( mode_izx, LAX, fn_ReadInstructions<op_LAX> );
 
-		opcodeTable.SetFunctionHandler( mode_izx, STA, fn_WriteInstructions<reg_cpuA> );
-		// Not implemented: SAX
+		opcodeTable.SetFunctionHandler( mode_izx, SLO, fn_ReadModifyWriteInstructions<op_SLO>);
+		opcodeTable.SetFunctionHandler( mode_izx, RLA, fn_ReadModifyWriteInstructions<op_RLA>);
+		opcodeTable.SetFunctionHandler( mode_izx, SRE, fn_ReadModifyWriteInstructions<op_SRE>);
+		opcodeTable.SetFunctionHandler( mode_izx, RRA, fn_ReadModifyWriteInstructions<op_RRA>);
+		opcodeTable.SetFunctionHandler( mode_izx, ISC, fn_ReadModifyWriteInstructions<op_ISC>);
+		opcodeTable.SetFunctionHandler( mode_izx, DCP, fn_ReadModifyWriteInstructions<op_DCP>);
+
+		opcodeTable.SetFunctionHandler( mode_izx, STA, fn_WriteInstructions<reg_cpuA,op_NULL> );
+		opcodeTable.SetFunctionHandler( mode_izx, SAX, fn_WriteInstructions<reg_cpuA,op_SAX> );
 	}
 
 };
@@ -2232,7 +2326,7 @@ namespace IndirectIndexedAddressing
 		cpu.Tick();
 		u16 address = Get16BitAddressFromPointer( pointer );
 
-		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + Index() ) & 0xff );
+		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + cpu.reg.Y ) & 0xff );
 		address += cpu.reg.Y;
 
 		cpu.Tick();
@@ -2252,7 +2346,7 @@ namespace IndirectIndexedAddressing
 	}
 	//-------------------------------------------------------------------------------------------------
 	//
-    // Write instructions (STA, SHA)
+    // Write instructions (SHA)
 	//
 	//-------------------------------------------------------------------------------------------------
 	/*
@@ -2273,7 +2367,7 @@ namespace IndirectIndexedAddressing
               * The high byte of the effective address may be invalid
                 at this time, i.e. it may be smaller by $100.
 	*/
-	template <u8&(*Register)()>
+	template <u8&(*Register)(),u8(*Operation)(u8)>
 	void fn_WriteInstructions( )
 	{
 		u8 pointer = FetchPointer();
@@ -2294,10 +2388,58 @@ namespace IndirectIndexedAddressing
 			value = mem.Read( address );
 			cpu.Tick();
 		}
-		mem.Write( address, Register() );
+		mem.Write( address, Operation( Register() ) );
 		cpu.LastTick();
 	}
 
+	//-------------------------------------------------------------------------------------------------
+	//
+    // Write instructions (STA)
+	//
+	//-------------------------------------------------------------------------------------------------
+	/*
+        #    address   R/W description
+       --- ----------- --- ------------------------------------------
+        1      PC       R  fetch opcode, increment PC
+        2      PC       R  fetch pointer address, increment PC
+        3    pointer    R  fetch effective address low
+        4   pointer+1   R  fetch effective address high,
+                           add Y to low byte of effective address
+        5   address+Y*  R  read from effective address,
+                           fix high byte of effective address
+        6   address+Y   W  write to effective address
+
+       Notes: The effective address is always fetched from zero page,
+              i.e. the zero page boundary crossing is not handled.
+
+              * The high byte of the effective address may be invalid
+                at this time, i.e. it may be smaller by $100.
+	*/
+	// This variant passes the high byte in of the effective address (plus 1 ?!)
+	template <u8&(*Register)(),u8(*Operation)(u8,u8)>
+	void fn_WriteInstructionsH( )
+	{
+		u8 pointer = FetchPointer();
+		cpu.Tick();
+
+		mem.Read( pointer );
+		cpu.Tick();
+		u16 address = Get16BitAddressFromPointer( pointer );
+
+		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + cpu.reg.Y ) & 0xff );
+		address += cpu.reg.Y;
+
+		cpu.Tick();
+
+		u8 value = mem.Read( temp_address );
+		if ( temp_address != address )
+		{
+			value = mem.Read( address );
+			cpu.Tick();
+		}
+		mem.Write( address, Operation( Register(), 1 + ( ( address >> 8 ) & 0xff ) ) );
+		cpu.LastTick();
+	}
 	//-------------------------------------------------------------------------------------------------
 	void RegisterInstructions( OpcodeTable& opcodeTable )
 	{
@@ -2308,13 +2450,18 @@ namespace IndirectIndexedAddressing
 		opcodeTable.SetFunctionHandler( mode_izy, ADC, fn_ReadInstructions<op_ADC> );
 		opcodeTable.SetFunctionHandler( mode_izy, CMP, fn_ReadInstructions<op_CMP> );
 		opcodeTable.SetFunctionHandler( mode_izy, SBC, fn_ReadInstructions<op_SBC> );
-		// Not implemented: LAX
 
-		// Read-Modify-Write instructions 
-		// Not implemented : (SLO, SRE, RLA, RRA, ISB, DCP)
+		opcodeTable.SetFunctionHandler( mode_izy, LAX, fn_ReadInstructions<op_LAX> );
 
-		opcodeTable.SetFunctionHandler( mode_izy, STA, fn_WriteInstructions<reg_cpuA> );
-		// Not implemented: SAX
+		opcodeTable.SetFunctionHandler( mode_izy, SLO, fn_ReadModifyWriteInstructions<op_SLO>);
+		opcodeTable.SetFunctionHandler( mode_izy, RLA, fn_ReadModifyWriteInstructions<op_RLA>);
+		opcodeTable.SetFunctionHandler( mode_izy, SRE, fn_ReadModifyWriteInstructions<op_SRE>);
+		opcodeTable.SetFunctionHandler( mode_izy, RRA, fn_ReadModifyWriteInstructions<op_RRA>);
+		opcodeTable.SetFunctionHandler( mode_izy, ISC, fn_ReadModifyWriteInstructions<op_ISC>);
+		opcodeTable.SetFunctionHandler( mode_izy, DCP, fn_ReadModifyWriteInstructions<op_DCP>);
+
+		opcodeTable.SetFunctionHandler( mode_izy, STA, fn_WriteInstructions<reg_cpuA,op_NULL> );
+		opcodeTable.SetFunctionHandler( mode_izy, AHX, fn_WriteInstructionsH<reg_cpuA,op_AHX> );
 	}
 };
 
@@ -2380,6 +2527,8 @@ void RegisterInstructionHandlers( OpcodeTable& opcodeTable )
 	AbsoluteIndirectAddressing		::RegisterInstructions( opcodeTable );
 	IndirectIndexedAddressing		::RegisterInstructions( opcodeTable );
 	IndexedIndirectAddressing		::RegisterInstructions( opcodeTable );
+
+	opcodeTable.CheckForMissingOpcodes();
 }
 //=================================================================================================
 /*

@@ -368,6 +368,7 @@ bool OpcodeTable::SetFunctionHandler( EAddressingMode ea, EInstruction instructi
 	//
 	// Linear search - slow. Really only use at setup time
 	//
+	bool bFound = false;
 	for ( u32 i = 0; i < m_commands.size(); i++ )
 	{
 		if  ( ( m_commands[ i ].m_instruction == instruction ) && 
@@ -376,14 +377,56 @@ bool OpcodeTable::SetFunctionHandler( EAddressingMode ea, EInstruction instructi
 			assert( m_commands[ i ].m_functionHandler == nullptr );
 			m_commands[ i ].m_functionHandler = functionHandler;
 			m_iRegisteredInstructionCount++;
-			return true;
+			bFound = true;
 		}
 	}
 	//
-	// No such combination
+	// No such combination ?
 	//
-	assert( false );
-	return false;
+	assert( bFound );
+	return bFound;
+}
+
+//-------------------------------------------------------------------------------------------------
+template < int cycles > static void static_fn_NOP(  )
+{
+	for ( int i = 1; i < cycles; i++ )
+	{
+		cpu.Tick();
+	}
+	cpu.LastTick();
+}
+//-------------------------------------------------------------------------------------------------
+
+void OpcodeTable::CheckForMissingOpcodes()
+{
+	for ( u32 i = 0; i < m_commands.size(); i++ )
+	{
+		if ( m_commands[ i ].m_functionHandler == nullptr )
+		{ 
+			if (( m_commands[ i ].m_name != "KIL" )&&( m_commands[ i ].m_name != "NOP" ))
+			{
+				assert(false);
+			}
+			else
+			{
+				if ( m_commands[ i ].m_cycles == 1 )
+					m_commands[ i ].m_functionHandler = static_fn_NOP<1>;
+				else
+				if ( m_commands[ i ].m_cycles == 2 )
+					m_commands[ i ].m_functionHandler = static_fn_NOP<2>;
+				else
+				if ( m_commands[ i ].m_cycles == 3 )
+					m_commands[ i ].m_functionHandler = static_fn_NOP<3>;
+				else
+				if ( m_commands[ i ].m_cycles == 4 )
+					m_commands[ i ].m_functionHandler = static_fn_NOP<4>;
+				else
+					m_commands[ i ].m_functionHandler = static_fn_NOP<1>;
+				m_iRegisteredInstructionCount++;
+			}
+		}
+	}
 }
 
 //-------------------------------------------------------------------------------------------------

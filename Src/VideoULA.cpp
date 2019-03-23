@@ -73,6 +73,7 @@ VideoULA::VideoULA( SAA5050& teletextChip, CRTC_6845& crtcChip, class System_VIA
 	m_clock = 0;
 	m_registerOpsThisFrame.resize(0);
 	m_nRegisterChangeIndex = 0;
+	m_ctrlRegister = -1;
 	SetControlRegister( 0 );
 }
 
@@ -136,7 +137,9 @@ u8 VideoULA::WRITE_Video_ULA_Control_register( u16 address, u8 ctrl_register )
 //-------------------------------------------------------------------------------------------------
 
 void VideoULA::SetControlRegister( u8 ctrl_register )
-{ 
+{
+	m_ctrlRegister = ctrl_register;
+
 	//
 	// Parse bitfield
 	//
@@ -182,10 +185,6 @@ void VideoULA::SetControlRegister( u8 ctrl_register )
 	//	9	&80 (%100 0 00 0 0)
 	//	10	&84 (%100 0 01 0 0)
 
-	for ( int i = 0; i < 16; i++ )
-	{
-		m_logicalToPhyscialColor[ i ] = i;
-	}
 }
 
 //-------------------------------------------------------------------------------------------------

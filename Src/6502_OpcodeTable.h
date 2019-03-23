@@ -82,6 +82,7 @@ public:
 	bool					SetFunctionHandler( EAddressingMode ea, EInstruction instruction, void (*functionHandler)( ) );
 	const CommandInfo&		GetCommandForOpcode( u8 opcode ) const ;
 
+	void					CheckForMissingOpcodes();
 private:
 
 	int						m_iRegisteredInstructionCount;

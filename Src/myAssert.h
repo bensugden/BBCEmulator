@@ -21,8 +21,8 @@
 */
 #ifdef _DEBUG
 	#pragma warning( disable : 4723)
-	#define assert_msg( a, b ){ __analysis_assume( a ); if ( !(a) ) { int i = 1 ; i /= 0; } }
-	#define assert( a ){ __analysis_assume( a ); if ( !(a) ) { int i = 1 ; i /= 0; } }
+	#define assert_msg( a, b ){ __analysis_assume( a ); if ( !(a) ) { int ___i = 1 ; ___i /= 0; } }
+	#define assert( a ){ __analysis_assume( a ); if ( !(a) ) { int ___i = 1 ; ___i /= 0; } }
 #else
 	#define assert_str( a, b )
 	#define assert_msg( a, b )

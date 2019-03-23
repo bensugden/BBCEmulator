@@ -49,7 +49,7 @@ private:
 	void		SetControlRegister( u8 value );
 	void		SetPaletteRegister( u8 value );
 	//-------------------------------------------------------------------------------------------------
-
+	u8								m_ctrlRegister;
 	u8								m_colorLookup[ 4 ][ 8 ][ 256 ];
 	u8								m_logicalToPhyscialColor[ 16 ];
 	u32								m_hardwareScrollOffset = 0 ;
