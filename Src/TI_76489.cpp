@@ -14,7 +14,7 @@ TI_76489::TI_76489()
 	, m_currentBuffer( 0 )
 	, m_currentBufferIndex( 0 )
 {
-	m_skipCount = cpu.Frequency() / c_playerFrequency;
+	m_skipCount = (double)cpu.Frequency() /  (double)c_playerFrequency;
 	m_on[ 0 ] = m_on[ 1 ] = m_on[ 2 ] =	m_on[ 3 ] = false;
 	m_volume[ 0 ] = m_volume[ 1 ] =	m_volume[ 2 ] =	m_volume[ 3 ] = 0;
 	m_frequency[ 0 ] = m_frequency[ 1 ] = m_frequency[ 2 ] = m_frequency[ 3 ] = m_skipCount;
@@ -26,18 +26,18 @@ TI_76489::TI_76489()
 		memset( &m_streams[ i ], 128, c_streamSize );
 	}
 	m_storedRegisterValue = 0;
+	srand(12345);
 }
 
 //-------------------------------------------------------------------------------------------------
 
 void TI_76489::Tick( int nCyclesElapsed )
 {
-	m_cycles += nCyclesElapsed;
+	m_cycles += (double)nCyclesElapsed;
 	while ( m_cycles >= m_skipCount )
 	{
 		m_cycles -= m_skipCount;
 
-		int total_value = 128;
 		for ( int channel = 0;  channel < 3; channel++ )
 		{
 			m_cycleCounter[ channel ] += m_skipCount;
@@ -46,28 +46,61 @@ void TI_76489::Tick( int nCyclesElapsed )
 				m_cycleCounter[ channel ] -= m_frequency[ channel ] ;
 				m_on[ channel ] = !m_on[ channel ];
 			}
-			if ( m_on[ channel ] )
-				total_value += m_volume[ channel ];
-			else
-				total_value -= m_volume[ channel ];
 		}
-		if ( total_value > 255 )
-			total_value = 255;
-		if ( total_value < 0 )
-			total_value = 0;
+
 		//
 		// Noise
 		//
 		if ( m_volume[ 3 ] > 0 )
 		{
-			//
-			// White Noise
-			//
+			double nNoiseFrequency = m_frequency[ 3 ];
+			if ( nNoiseFrequency == 0 ) // this indicates we take the frequency from channel 1
+			{
+				nNoiseFrequency = m_frequency[ 0 ];
+			}
+
+			m_cycleCounter[ 3 ] += m_skipCount;
+
 			if ( m_noiseFB == 1 )
 			{
-			//	total_value -= m_volume
+				//
+				// White Noise
+				//
+				if ( m_cycleCounter[ 3 ] > nNoiseFrequency )
+				{
+					m_on[ 3 ] = ( rand() & 1 ) == 1;
+				}
+			}
+			else
+			{
+				//
+				// Periodic Noise
+				//
+				if ( m_on[ 3 ] )
+				{
+					nNoiseFrequency *= 10;
+				}
+				if ( m_cycleCounter[ 3 ] > nNoiseFrequency )
+				{
+					m_on[ 3 ] = !m_on[ 3 ];
+				}
 			}
 		}
+
+		int total_value = 128;
+		for ( int channel = 0;  channel < 4; channel++ )
+		{
+			if ( m_on[ channel ] )
+				total_value += m_volume[ channel ];
+			else
+				total_value -= m_volume[ channel ];
+		}
+
+
+		if ( total_value > 255 )
+			total_value = 255;
+		if ( total_value < 0 )
+			total_value = 0;
 
 		m_streams[ m_currentBuffer ][ m_currentBufferIndex++ ] = (u8)total_value;
 
@@ -105,21 +138,37 @@ void TI_76489::UpdateSoundRegister( u8 value )
 				// tone volume
 				u8 channel = 2 - ( mode >> 1 );
 				static int expVol[] = { 0, 11, 14, 17, 20, 24, 28, 33, 39, 46, 54, 63, 74, 87, 102, 120 };
-				m_volume[ channel ] =  15 - ( value & 0xf );
+				m_volume[ channel ] =  15 - (value & 0xf );
 				break;
 			}
 			case 6:
 			{
 				// noise control
-				m_frequency[ 3 ] = value & 3;
+				int noise_freq = value & 3;
+				if ( m_noiseFB == 1 )
+				{
+					if ( noise_freq == 0 )
+						m_frequency[ 3 ] = ((double)cpu.Frequency()) / ( 10000 * 2 );
+					else if ( noise_freq == 1 )
+						m_frequency[ 3 ] = ((double)cpu.Frequency()) / ( 5000 * 2 );
+					else if ( noise_freq == 2 )
+						m_frequency[ 3 ] = ((double)cpu.Frequency()) / ( 2500 * 2 );
+					else
+						m_frequency[ 3 ] = 0;
+				}
+				else
+				{
+					m_frequency[ 3 ] = noise_freq;
+				}
 				m_noiseFB = ( value >> 2 ) & 1;
+
 				break;
 			}
 			case 7:
 			{
 				// noise volume
 				static int expVol[] = { 0, 11, 14, 17, 20, 24, 28, 33, 39, 46, 54, 63, 74, 87, 102, 120 };
-				m_volume[ 3 ] = 15 - ( value & 0xf );
+				m_volume[ 3 ] =  15 - (value & 0xf );
 				break;
 			}
 		}
@@ -130,9 +179,9 @@ void TI_76489::UpdateSoundRegister( u8 value )
 			return;
 		// tone frequency ( 2nd byte )
 		u8 channel = 2 - ( ( m_storedRegisterValue >> 5 ) & 3 );
-		u16 raw_frequency = ( m_storedRegisterValue & 7 ) + ( ( value & 0x3f ) << 4 );
-		u32 real_frequency = 4000000 / ( 32 * raw_frequency );
-		u32 cpu_frequency = cpu.Frequency() / ( real_frequency * 2 ); // this many cycles we toggle on / off
+		double raw_frequency = ( m_storedRegisterValue & 0xf ) + ( ( value & 0x3f ) << 4 );
+		double real_frequency = 4000000 / ( 32 * raw_frequency );
+		double cpu_frequency = cpu.Frequency() / ( real_frequency * 2 ); // this many cycles we toggle on / off
 		m_frequency[ channel ] = cpu_frequency ;
 	}
 }
