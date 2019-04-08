@@ -56,10 +56,12 @@ struct CommandInfo
 		m_addCycleIfPageBoundaryCrossed = false;
 		m_functionHandler = nullptr;
 	}
+
 	bool IsIllegalOpcode() const
 	{
 		return ( m_instruction >= FIRST_ILLEGAL_OPCODE );  
 	}
+
 	string				m_name;
 	string				m_functionName;
 	int					m_index;
@@ -67,6 +69,7 @@ struct CommandInfo
 	int					m_nSize;
 	EAddressingMode		m_addressingMode;
 	bool				m_addCycleIfPageBoundaryCrossed;
+	bool				m_isConditionalBranch;
 	EFlagSetMode		m_flagMode[ 8 ];
 	void				(*m_functionHandler)( );
 	EInstruction		m_instruction;
@@ -78,16 +81,19 @@ class OpcodeTable
 {
 public:
 	OpcodeTable();
-	void					BuildOpcodeTables();
-	bool					SetFunctionHandler( EAddressingMode ea, EInstruction instruction, void (*functionHandler)( ) );
-	const CommandInfo&		GetCommandForOpcode( u8 opcode ) const ;
+	void						BuildOpcodeTables();
+	bool						SetFunctionHandler( EAddressingMode ea, EInstruction instruction, void (*functionHandler)( ) );
+	inline const CommandInfo&	GetCommandForOpcode( u8 opcode ) const 
+	{
+		return m_commands[ opcode ];
+	}
 
-	void					CheckForMissingOpcodes();
+	void						CheckForMissingOpcodes();
 private:
 
-	int						m_iRegisteredInstructionCount;
-	map<string, int>		m_instructionToOpcodeMap;
-	vector< CommandInfo >	m_commands;
+	int							m_iRegisteredInstructionCount;
+	map<string, int>			m_instructionToOpcodeMap;
+	vector< CommandInfo >		m_commands;
 };
 
 //-------------------------------------------------------------------------------------------------

@@ -84,6 +84,15 @@ bool CPU::ProcessSingleInstruction()
 	m_nLastNMI = m_pendingInterrupt & INTERRUPT_NMI;
 
 	//
+	// init performance tests
+	//
+	#ifdef TEST_CYCLE_TIMES
+	u64 startCycleTime = m_pClock->GetClockCounter();
+	m_dbgExtraCycleDueToPageFault = false;
+	m_dbgTookBranch = false;
+	#endif
+
+	//
 	// fetch
 	//
 	u8 opcode = mem.Read( reg.PC );
@@ -100,6 +109,21 @@ bool CPU::ProcessSingleInstruction()
 	//
 	assert( command.m_functionHandler != nullptr ); // illegal opcode.
 	command.m_functionHandler( );
+
+	//
+	// check performance metrics
+	//
+	#ifdef TEST_CYCLE_TIMES
+	u64 totalCycles = m_pClock->GetClockCounter() - startCycleTime;
+	u64 okCycles = command.m_cycles;
+	if ( command.m_addCycleIfPageBoundaryCrossed && m_dbgExtraCycleDueToPageFault )
+		okCycles++;
+	if ( command.m_isConditionalBranch && m_dbgTookBranch )
+		okCycles++;
+	assert( totalCycles == okCycles);
+	assert( ( !m_dbgExtraCycleDueToPageFault ) || (command.m_addCycleIfPageBoundaryCrossed) );
+	assert( ( !m_dbgTookBranch ) || ( command.m_isConditionalBranch) );
+	#endif
 
 	//
 	// check for breakpoint

@@ -131,7 +131,6 @@ void BBC_Emulator::SetBreakpoint( u16 address )
 
 void BBC_Emulator::DebugDecodeNextInstruction()
 {
-	string dissassemble;
 	u8 bytes[ 3 ];
 	int nNumBytes = cpu.GetBytesAtPC( cpu.reg.PC, bytes );
 	m_history.RecordCPUState( cpu.reg, bytes );

@@ -302,6 +302,7 @@ OpcodeTable::OpcodeTable()
 
 		command.m_cycles = p[iCycleIndex]- 48;
 		command.m_addCycleIfPageBoundaryCrossed = ( s.find("*")!=string::npos);
+		command.m_isConditionalBranch = command.m_name[0]=='B';
 		m_commands.push_back( command );
 	}
 	//
@@ -429,11 +430,5 @@ void OpcodeTable::CheckForMissingOpcodes()
 	}
 }
 
-//-------------------------------------------------------------------------------------------------
-
-const CommandInfo& OpcodeTable::GetCommandForOpcode( u8 opcode ) const
-{
-	return m_commands[ opcode ];
-}
 
 //-------------------------------------------------------------------------------------------------

@@ -1199,8 +1199,6 @@ namespace AccumulatorOrImpliedAddressing
 	void fn_Implied()
 	{
 		DiscardNextPC();
-		cpu.Tick();
-
 		Operation(0);
 		cpu.LastTick();
 	}
@@ -1208,8 +1206,6 @@ namespace AccumulatorOrImpliedAddressing
 	void fn_Accumulator()
 	{
 		DiscardNextPC();
-		cpu.Tick();
-
 		cpu.reg.A = Operation(cpu.reg.A);
 		cpu.LastTick();
 	}
@@ -1259,8 +1255,6 @@ namespace ImmediateAddressing
 	{
 		u8 value = mem.Read(cpu.reg.PC);
 		cpu.IncPC();
-		cpu.Tick();
-
 		Operation(value);
 		cpu.LastTick();
 	}
@@ -1348,8 +1342,6 @@ namespace AbsoluteAddressing
 		cpu.Tick();
 
 		u8 value = mem.Read(address);
-		cpu.Tick();
-
 		Operation(value);
 		cpu.LastTick();
 	}
@@ -1489,8 +1481,6 @@ namespace ZeroPageAddressing
 		cpu.Tick();
 
 		u8 value = mem.Read(address);
-		cpu.Tick();
-
 		Operation(value);
 		cpu.LastTick();
 	}
@@ -1632,8 +1622,6 @@ namespace ZeroPageIndexedAddressing
 		cpu.Tick();
 
 		u8 value = mem.Read(address);
-		cpu.Tick();
-
 		Operation(value);
 		cpu.LastTick();
 	}
@@ -1800,12 +1788,14 @@ namespace AbsoluteIndexedAddressing
 
 		u8 value = mem.Read( temp_address );
 		address = address + Index(); 
-		cpu.Tick();
 
 		if ( address != temp_address )
 		{ 
 			value = mem.Read( address );
 			cpu.Tick();
+			#ifdef TEST_CYCLE_TIMES
+			cpu.m_dbgExtraCycleDueToPageFault = true;
+			#endif
 		}
 		Operation(value);
 		cpu.LastTick();
@@ -2055,16 +2045,22 @@ namespace RelativeAddressing
 	{
 		u16 oldPC = cpu.reg.PC-1;
 		s8 operand = FetchOperand();
-		cpu.Tick();
 		if ( CheckBranch() )
 		{
+			#ifdef TEST_CYCLE_TIMES
+			cpu.m_dbgTookBranch = true;
+			#endif
 			u16 newPC = cpu.reg.PC + operand;
 			cpu.reg.PC = ( cpu.reg.PC & 0xff00 ) | (( operand + cpu.reg.PC )&0xff );
+			cpu.Tick();
 			
 			if ( newPC != cpu.reg.PC )
 			{
-				cpu.Tick();
 				cpu.reg.PC = newPC;
+				cpu.Tick();
+				#ifdef TEST_CYCLE_TIMES
+				cpu.m_dbgExtraCycleDueToPageFault = true;
+				#endif
 			}
 		}
 		cpu.LastTick();
@@ -2117,9 +2113,7 @@ namespace IndexedIndirectAddressing
 
 		mem.Read( pointer );
 		pointer += cpu.reg.X;
-		cpu.Tick();
-
-		u16 address = Get16BitAddressFromPointer( pointer );
+		u16 address = Get16BitAddressFromPointer( pointer );  // (+2 ticks)
 
 		u8 value = mem.Read( address );
 		cpu.Tick();
@@ -2158,7 +2152,7 @@ namespace IndexedIndirectAddressing
 		pointer += cpu.reg.X;
 		cpu.Tick();
 
-		u16 address = Get16BitAddressFromPointer( pointer );
+		u16 address = Get16BitAddressFromPointer( pointer ); // (+2 ticks)
 
 		u8 value = mem.Read( address );
 		cpu.Tick();
@@ -2199,7 +2193,7 @@ namespace IndexedIndirectAddressing
 		pointer += cpu.reg.X;
 		cpu.Tick();
 
-		u16 address = Get16BitAddressFromPointer( pointer );
+		u16 address = Get16BitAddressFromPointer( pointer ); // (+2 ticks)
 
 		u8 value = Operation( Register() );
 		mem.Write( address, value );
@@ -2272,20 +2266,20 @@ namespace IndirectIndexedAddressing
 		cpu.Tick();
 
 		mem.Read( pointer );
-		cpu.Tick();
 
-		u16 address = Get16BitAddressFromPointer( pointer );
+		u16 address = Get16BitAddressFromPointer( pointer ); // (+2 ticks)
 
 		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + cpu.reg.Y ) & 0xff );
 		address += cpu.reg.Y;
-
-		cpu.Tick();
 
 		u8 value = mem.Read( temp_address );
 		if ( temp_address != address )
 		{
 			value = mem.Read( address );
 			cpu.Tick();
+			#ifdef TEST_CYCLE_TIMES
+			cpu.m_dbgExtraCycleDueToPageFault = true;
+			#endif
 		}
 		Operation( value );
 		cpu.LastTick();
@@ -2323,8 +2317,7 @@ namespace IndirectIndexedAddressing
 		cpu.Tick();
 
 		mem.Read( pointer );
-		cpu.Tick();
-		u16 address = Get16BitAddressFromPointer( pointer );
+		u16 address = Get16BitAddressFromPointer( pointer );  // (+2 ticks)
 
 		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + cpu.reg.Y ) & 0xff );
 		address += cpu.reg.Y;
@@ -2335,8 +2328,8 @@ namespace IndirectIndexedAddressing
 		if ( temp_address != address )
 		{
 			value = mem.Read( address );
-			cpu.Tick();
 		}
+		cpu.Tick();
 		mem.Write( address, value );
 		value = Operation( value );
 		cpu.Tick();
@@ -2374,20 +2367,17 @@ namespace IndirectIndexedAddressing
 		cpu.Tick();
 
 		mem.Read( pointer );
-		cpu.Tick();
-		u16 address = Get16BitAddressFromPointer( pointer );
+		u16 address = Get16BitAddressFromPointer( pointer ); // (+2 ticks)
 
 		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + cpu.reg.Y ) & 0xff );
 		address += cpu.reg.Y;
-
-		cpu.Tick();
 
 		u8 value = mem.Read( temp_address );
 		if ( temp_address != address )
 		{
 			value = mem.Read( address );
-			cpu.Tick();
 		}
+		cpu.Tick();
 		mem.Write( address, Operation( Register() ) );
 		cpu.LastTick();
 	}
@@ -2423,20 +2413,18 @@ namespace IndirectIndexedAddressing
 		cpu.Tick();
 
 		mem.Read( pointer );
-		cpu.Tick();
-		u16 address = Get16BitAddressFromPointer( pointer );
+		u16 address = Get16BitAddressFromPointer( pointer ); // (+2 ticks)
 
 		u16 temp_address = ( address & 0xffffff00 ) + ( ( address + cpu.reg.Y ) & 0xff );
 		address += cpu.reg.Y;
-
-		cpu.Tick();
 
 		u8 value = mem.Read( temp_address );
 		if ( temp_address != address )
 		{
 			value = mem.Read( address );
-			cpu.Tick();
 		}
+		cpu.Tick();
+
 		mem.Write( address, Operation( Register(), 1 + ( ( address >> 8 ) & 0xff ) ) );
 		cpu.LastTick();
 	}

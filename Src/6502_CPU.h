@@ -28,6 +28,14 @@ enum EInterrupt
 	INTERRUPT_IRQ   = 4
 };
 
+//-------------------------------------------------------------------------------------------------
+//
+// Enable this to do performance checking on cycle counts
+//
+//#define TEST_CYCLE_TIMES 
+
+//-------------------------------------------------------------------------------------------------
+
 #include "6502_OpcodeTable.h"
 
 //-------------------------------------------------------------------------------------------------
@@ -170,6 +178,7 @@ struct CPU
 
 	inline void LastTick( )
 	{
+		Tick( );
 		m_pClock->PollChips();
 		// pipelines with next opcode fetch instruction
 	}
@@ -294,10 +303,12 @@ private:
 	u8							m_pendingInterrupt;
 	u8							m_nLastNMI;
 	class ISystemClock*			m_pClock;
-
-	//-------------------------------------------------------------------------------------------------
+	#ifdef TEST_CYCLE_TIMES
 public:
-
+	bool						m_dbgTookBranch;
+	bool						m_dbgExtraCycleDueToPageFault;
+	#endif
+	//-------------------------------------------------------------------------------------------------
 };
 
 //-------------------------------------------------------------------------------------------------
