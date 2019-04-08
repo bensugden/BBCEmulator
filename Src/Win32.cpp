@@ -28,7 +28,7 @@ bool g_bDebuggerActive = false;
 BBC_Emulator* g_emulator = nullptr;
 
 int g_nStep = 0;
-bool g_bRun = true;
+bool g_bRun = false;
 bool g_bDisplayOutput = false;
 bool g_bBreakOnWriteActive = false;
 bool g_bBreakOnReadActive = false;

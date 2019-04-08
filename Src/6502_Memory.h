@@ -307,8 +307,16 @@ struct MemoryState
 	{
 		EnsureMemoryAllocated( nAddress, romID );
 		CFile file( filename, "rb" );
-		assert( file.GetLength() <= m_nPageSize ); // not supported > page size loading
-		file.Load( TranslateAddress( nAddress, romID ), file.GetLength(), 1 );
+		u32 fileLength =file.GetLength() ;
+		int numPages =  ( fileLength + m_nPageSize - 1 ) / m_nPageSize;
+		for ( int page = 0; page < numPages; page++ )
+		{
+			u32 chunkSize = min( fileLength, m_nPageSize );
+			file.Load( TranslateAddress( nAddress, romID ), chunkSize, 1 );
+			fileLength -= chunkSize;
+			nAddress += m_nPageSize;
+		}
+		assert( fileLength == 0 );
 	}
 
 	//-------------------------------------------------------------------------------------------------

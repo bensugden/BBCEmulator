@@ -124,6 +124,7 @@ namespace GFXSystem
 		info.m_height = height;
 		info.m_pixelStride = 4;
 		s_pCurrentTexture = s_pLockedTexture;
+		memset( info.m_pData, 0, mappedTex.RowPitch * height );
 		return info;
 	}
 

@@ -130,7 +130,7 @@ ffff =                  ram_top = -1
                         
                         ;disable test decimal mode ADC & SBC, 0=enable, 1=disable,
                         ;2=disable including decimal flag in processor status
-0001 =                  disable_decimal = 1
+0000 =                  disable_decimal = 0
                         
                                 noopt       ;do not take shortcuts
                         
@@ -2192,7 +2192,7 @@ ffff =                  ram_top = -1
 0901 : a946                     lda #'F'
 0903 : a241                     ldx #'A'
 0905 : a052                     ldy #'R'        ;N=0, V=0, Z=0, C=0
-0907 : 4c9c34                   jmp test_far
+0907 : 4ccb36                   jmp test_far
 090a : ea                       nop
 090b : ea                       nop
                                 trap_ne         ;runover protection
@@ -2286,7 +2286,7 @@ ffff =                  ram_top = -1
 0957 : a949                     lda #'I'
 0959 : a24e                     ldx #'N'
 095b : a044                     ldy #'D'        ;N=0, V=0, Z=0, C=0
-095d : 6cca34                   jmp (ptr_tst_ind)
+095d : 6cfa36                   jmp (ptr_tst_ind)
 0960 : ea                       nop
                                 trap_ne         ;runover protection
 0961 : d0fe            >        bne *           ;failed not equal (non zero)
@@ -2351,7 +2351,7 @@ ffff =                  ram_top = -1
 0993 : a94a                     lda #'J'
 0995 : a253                     ldx #'S'
 0997 : a052                     ldy #'R'        ;N=0, V=0, Z=0, C=0
-0999 : 200935                   jsr test_jsr
+0999 : 203937                   jsr test_jsr
 099b =                  jsr_ret = *-1           ;last address of jsr = return address
 099c : 08                       php             ;either SP or Y count will fail, if we do not hit
 099d : 88                       dey
@@ -13101,7 +13101,7 @@ ffff =                  ram_top = -1
 32ff : a902                     lda #2          ;expected Z-flag
 3301 : 8507                     sta adrf
 3303 : 18               tadd    clc             ;test with carry clear
-3304 : 204f33                   jsr chkadd
+3304 : 207e35                   jsr chkadd
 3307 : e602                     inc adfc        ;now with carry
 3309 : e605                     inc adrl        ;result +1
 330b : 08                       php             ;save N & Z from low result
@@ -13114,7 +13114,7 @@ ffff =                  ram_top = -1
 3315 : 0506             tadd1   ora adrh        ;merge C to expected flags
 3317 : 8507                     sta adrf        ;save expected flags except overflow
 3319 : 38                       sec             ;test with carry set
-331a : 204f33                   jsr chkadd
+331a : 207e35                   jsr chkadd
 331d : c602                     dec adfc        ;same for operand +1 but no carry
 331f : e603                     inc ad1
 3321 : d0e0                     bne tadd        ;iterate op1
@@ -13133,152 +13133,184 @@ ffff =                  ram_top = -1
 333b : d0c6                     bne tadd        ;iterate op2
                             if disable_decimal < 1
                                 next_test
+333d : ad0002          >            lda test_case   ;previous test
+3340 : c929            >            cmp #test_num
+                       >            trap_ne         ;test is out of sequence
+3342 : d0fe            >        bne *           ;failed not equal (non zero)
+                       >
+002a =                 >test_num = test_num + 1
+3344 : a92a            >            lda #test_num   ;*** next tests' number
+3346 : 8d0002          >            sta test_case
+                       >            ;check_ram       ;uncomment to find altered RAM after each test
+                        
                         
                         ; decimal add/subtract test
                         ; *** WARNING - tests documented behavior only! ***
                         ;   only valid BCD operands are tested, N V Z flags are ignored
                         ; iterates through all valid combinations of operands and carry input
                         ; uses increments/decrements to predict result & carry flag
-                                sed 
-                                ldx #ad2        ;for indexed test
-                                ldy #$ff        ;max range
-                                lda #$99        ;start with adding 99 to 99 with carry
-                                sta ad1         ;operand 1 - accumulator
-                                sta ad2         ;operand 2 - memory or immediate
-                                sta ada2        ;non zp
-                                sta adrl        ;expected result bits 0-7
-                                lda #1          ;set carry in & out
-                                sta adfc        ;carry in - for diag
-                                sta adrh        ;expected result bit 8 (carry out)
-                                lda #0          ;complemented operand 2 for subtract
-                                sta sb2
-                                sta sba2        ;non zp
-                        tdad    sec             ;test with carry set
-                                jsr chkdad
-                                dec adfc        ;now with carry clear
-                                lda adrl        ;decimal adjust result
-                                bne tdad1       ;skip clear carry & preset result 99 (9A-1)
-                                dec adrh
-                                lda #$99
-                                sta adrl
-                                bne tdad3
-                        tdad1   and #$f         ;lower nibble mask
-                                bne tdad2       ;no decimal adjust needed
-                                dec adrl        ;decimal adjust (?0-6)
-                                dec adrl
-                                dec adrl
-                                dec adrl
-                                dec adrl
-                                dec adrl
-                        tdad2   dec adrl        ;result -1
-                        tdad3   clc             ;test with carry clear
-                                jsr chkdad
-                                inc adfc        ;same for operand -1 but with carry
-                                lda ad1         ;decimal adjust operand 1
-                                beq tdad5       ;iterate operand 2
-                                and #$f         ;lower nibble mask
-                                bne tdad4       ;skip decimal adjust
-                                dec ad1         ;decimal adjust (?0-6)
-                                dec ad1
-                                dec ad1
-                                dec ad1
-                                dec ad1
-                                dec ad1
-                        tdad4   dec ad1         ;operand 1 -1
-                                jmp tdad        ;iterate op1
+3349 : f8                       sed 
+334a : a204                     ldx #ad2        ;for indexed test
+334c : a0ff                     ldy #$ff        ;max range
+334e : a999                     lda #$99        ;start with adding 99 to 99 with carry
+3350 : 8503                     sta ad1         ;operand 1 - accumulator
+3352 : 8504                     sta ad2         ;operand 2 - memory or immediate
+3354 : 8d0302                   sta ada2        ;non zp
+3357 : 8505                     sta adrl        ;expected result bits 0-7
+3359 : a901                     lda #1          ;set carry in & out
+335b : 8502                     sta adfc        ;carry in - for diag
+335d : 8506                     sta adrh        ;expected result bit 8 (carry out)
+335f : a900                     lda #0          ;complemented operand 2 for subtract
+3361 : 8508                     sta sb2
+3363 : 8d0402                   sta sba2        ;non zp
+3366 : 38               tdad    sec             ;test with carry set
+3367 : 204b34                   jsr chkdad
+336a : c602                     dec adfc        ;now with carry clear
+336c : a505                     lda adrl        ;decimal adjust result
+336e : d008                     bne tdad1       ;skip clear carry & preset result 99 (9A-1)
+3370 : c606                     dec adrh
+3372 : a999                     lda #$99
+3374 : 8505                     sta adrl
+3376 : d012                     bne tdad3
+3378 : 290f             tdad1   and #$f         ;lower nibble mask
+337a : d00c                     bne tdad2       ;no decimal adjust needed
+337c : c605                     dec adrl        ;decimal adjust (?0-6)
+337e : c605                     dec adrl
+3380 : c605                     dec adrl
+3382 : c605                     dec adrl
+3384 : c605                     dec adrl
+3386 : c605                     dec adrl
+3388 : c605             tdad2   dec adrl        ;result -1
+338a : 18               tdad3   clc             ;test with carry clear
+338b : 204b34                   jsr chkdad
+338e : e602                     inc adfc        ;same for operand -1 but with carry
+3390 : a503                     lda ad1         ;decimal adjust operand 1
+3392 : f015                     beq tdad5       ;iterate operand 2
+3394 : 290f                     and #$f         ;lower nibble mask
+3396 : d00c                     bne tdad4       ;skip decimal adjust
+3398 : c603                     dec ad1         ;decimal adjust (?0-6)
+339a : c603                     dec ad1
+339c : c603                     dec ad1
+339e : c603                     dec ad1
+33a0 : c603                     dec ad1
+33a2 : c603                     dec ad1
+33a4 : c603             tdad4   dec ad1         ;operand 1 -1
+33a6 : 4c6633                   jmp tdad        ;iterate op1
                         
-                        tdad5   lda #$99        ;precharge op1 max
-                                sta ad1
-                                lda ad2         ;decimal adjust operand 2
-                                beq tdad7       ;end of iteration
-                                and #$f         ;lower nibble mask
-                                bne tdad6       ;skip decimal adjust
-                                dec ad2         ;decimal adjust (?0-6)
-                                dec ad2
-                                dec ad2
-                                dec ad2
-                                dec ad2
-                                dec ad2
-                                inc sb2         ;complemented decimal adjust for subtract (?9+6)
-                                inc sb2
-                                inc sb2
-                                inc sb2
-                                inc sb2
-                                inc sb2
-                        tdad6   dec ad2         ;operand 2 -1
-                                inc sb2         ;complemented operand for subtract
-                                lda sb2
-                                sta sba2        ;copy as non zp operand
-                                lda ad2
-                                sta ada2        ;copy as non zp operand
-                                sta adrl        ;new result since op1+carry=00+carry +op2=op2
-                                inc adrh        ;result carry
-                                bne tdad        ;iterate op2
-                        tdad7
+33a9 : a999             tdad5   lda #$99        ;precharge op1 max
+33ab : 8503                     sta ad1
+33ad : a504                     lda ad2         ;decimal adjust operand 2
+33af : f030                     beq tdad7       ;end of iteration
+33b1 : 290f                     and #$f         ;lower nibble mask
+33b3 : d018                     bne tdad6       ;skip decimal adjust
+33b5 : c604                     dec ad2         ;decimal adjust (?0-6)
+33b7 : c604                     dec ad2
+33b9 : c604                     dec ad2
+33bb : c604                     dec ad2
+33bd : c604                     dec ad2
+33bf : c604                     dec ad2
+33c1 : e608                     inc sb2         ;complemented decimal adjust for subtract (?9+6)
+33c3 : e608                     inc sb2
+33c5 : e608                     inc sb2
+33c7 : e608                     inc sb2
+33c9 : e608                     inc sb2
+33cb : e608                     inc sb2
+33cd : c604             tdad6   dec ad2         ;operand 2 -1
+33cf : e608                     inc sb2         ;complemented operand for subtract
+33d1 : a508                     lda sb2
+33d3 : 8d0402                   sta sba2        ;copy as non zp operand
+33d6 : a504                     lda ad2
+33d8 : 8d0302                   sta ada2        ;copy as non zp operand
+33db : 8505                     sta adrl        ;new result since op1+carry=00+carry +op2=op2
+33dd : e606                     inc adrh        ;result carry
+33df : d085                     bne tdad        ;iterate op2
+33e1 :                  tdad7
                                 next_test
+33e1 : ad0002          >            lda test_case   ;previous test
+33e4 : c92a            >            cmp #test_num
+                       >            trap_ne         ;test is out of sequence
+33e6 : d0fe            >        bne *           ;failed not equal (non zero)
+                       >
+002b =                 >test_num = test_num + 1
+33e8 : a92b            >            lda #test_num   ;*** next tests' number
+33ea : 8d0002          >            sta test_case
+                       >            ;check_ram       ;uncomment to find altered RAM after each test
+                        
                         
                         ; decimal/binary switch test
                         ; tests CLD, SED, PLP, RTI to properly switch between decimal & binary opcode
                         ;   tables
-                                clc
-                                cld
-                                php
-                                lda #$55
-                                adc #$55
-                                cmp #$aa
+33ed : 18                       clc
+33ee : d8                       cld
+33ef : 08                       php
+33f0 : a955                     lda #$55
+33f2 : 6955                     adc #$55
+33f4 : c9aa                     cmp #$aa
                                 trap_ne         ;expected binary result after cld
-                                clc
-                                sed
-                                php
-                                lda #$55
-                                adc #$55
-                                cmp #$10
+33f6 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+33f8 : 18                       clc
+33f9 : f8                       sed
+33fa : 08                       php
+33fb : a955                     lda #$55
+33fd : 6955                     adc #$55
+33ff : c910                     cmp #$10
                                 trap_ne         ;expected decimal result after sed
-                                cld
-                                plp
-                                lda #$55
-                                adc #$55
-                                cmp #$10
+3401 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+3403 : d8                       cld
+3404 : 28                       plp
+3405 : a955                     lda #$55
+3407 : 6955                     adc #$55
+3409 : c910                     cmp #$10
                                 trap_ne         ;expected decimal result after plp D=1
-                                plp
-                                lda #$55
-                                adc #$55
-                                cmp #$aa
+340b : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+340d : 28                       plp
+340e : a955                     lda #$55
+3410 : 6955                     adc #$55
+3412 : c9aa                     cmp #$aa
                                 trap_ne         ;expected binary result after plp D=0
-                                clc
-                                lda #hi bin_rti_ret ;emulated interrupt for rti
-                                pha
-                                lda #lo bin_rti_ret
-                                pha
-                                php
-                                sed
-                                lda #hi dec_rti_ret ;emulated interrupt for rti
-                                pha
-                                lda #lo dec_rti_ret
-                                pha
-                                php
-                                cld
-                                rti
-                        dec_rti_ret
-                                lda #$55
-                                adc #$55
-                                cmp #$10
+3414 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+3416 : 18                       clc
+3417 : a934                     lda #hi bin_rti_ret ;emulated interrupt for rti
+3419 : 48                       pha
+341a : a931                     lda #lo bin_rti_ret
+341c : 48                       pha
+341d : 08                       php
+341e : f8                       sed
+341f : a934                     lda #hi dec_rti_ret ;emulated interrupt for rti
+3421 : 48                       pha
+3422 : a928                     lda #lo dec_rti_ret
+3424 : 48                       pha
+3425 : 08                       php
+3426 : d8                       cld
+3427 : 40                       rti
+3428 :                  dec_rti_ret
+3428 : a955                     lda #$55
+342a : 6955                     adc #$55
+342c : c910                     cmp #$10
                                 trap_ne         ;expected decimal result after rti D=1
-                                rti
-                        bin_rti_ret        
-                                lda #$55
-                                adc #$55
-                                cmp #$aa
+342e : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+3430 : 40                       rti
+3431 :                  bin_rti_ret        
+3431 : a955                     lda #$55
+3433 : 6955                     adc #$55
+3435 : c9aa                     cmp #$aa
                                 trap_ne         ;expected binary result after rti D=0
+3437 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
                             endif
                             
-333d : ad0002                   lda test_case
-3340 : c929                     cmp #test_num
+3439 : ad0002                   lda test_case
+343c : c92b                     cmp #test_num
                                 trap_ne         ;previous test is out of sequence
-3342 : d0fe            >        bne *           ;failed not equal (non zero)
+343e : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3344 : a9f0                     lda #$f0        ;mark opcode testing complete
-3346 : 8d0002                   sta test_case
+3440 : a9f0                     lda #$f0        ;mark opcode testing complete
+3442 : 8d0002                   sta test_case
                                 
                         ; final RAM integrity test
                         ;   verifies that none of the previous tests has altered RAM outside of the
@@ -13296,11 +13328,11 @@ ffff =                  ram_top = -1
                         ; S U C C E S S ************************************************
                         ; -------------       
                                 success         ;if you get here everything went well
-3349 : 4c4933          >        jmp *           ;test passed, no errors
+3445 : 4c4534          >        jmp *           ;test passed, no errors
                         
                         ; -------------       
                         ; S U C C E S S ************************************************
-334c : 4c0004                   jmp start       ;run again      
+3448 : 4c0004                   jmp start       ;run again      
                         
                             if disable_decimal < 1
                         ; core subroutine of the decimal add/subtract test
@@ -13308,797 +13340,861 @@ ffff =                  ram_top = -1
                         ;   only valid BCD operands are tested, N V Z flags are ignored
                         ; iterates through all valid combinations of operands and carry input
                         ; uses increments/decrements to predict result & carry flag
-                        chkdad
+344b :                  chkdad
                         ; decimal ADC / SBC zp
-                                php             ;save carry for subtract
-                                lda ad1
-                                adc ad2         ;perform add
-                                php          
-                                cmp adrl        ;check result
+344b : 08                       php             ;save carry for subtract
+344c : a503                     lda ad1
+344e : 6504                     adc ad2         ;perform add
+3450 : 08                       php          
+3451 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-                                pla             ;check flags
-                                and #1          ;mask carry
-                                cmp adrh
+3453 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+3455 : 68                       pla             ;check flags
+3456 : 2901                     and #1          ;mask carry
+3458 : c506                     cmp adrh
                                 trap_ne         ;bad carry
-                                plp
-                                php             ;save carry for next add
-                                lda ad1
-                                sbc sb2         ;perform subtract
-                                php          
-                                cmp adrl        ;check result
+345a : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+345c : 28                       plp
+345d : 08                       php             ;save carry for next add
+345e : a503                     lda ad1
+3460 : e508                     sbc sb2         ;perform subtract
+3462 : 08                       php          
+3463 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-                                pla             ;check flags
-                                and #1          ;mask carry
-                                cmp adrh
+3465 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+3467 : 68                       pla             ;check flags
+3468 : 2901                     and #1          ;mask carry
+346a : c506                     cmp adrh
                                 trap_ne         ;bad flags
-                                plp
+346c : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+346e : 28                       plp
                         ; decimal ADC / SBC abs
-                                php             ;save carry for subtract
-                                lda ad1
-                                adc ada2        ;perform add
-                                php          
-                                cmp adrl        ;check result
+346f : 08                       php             ;save carry for subtract
+3470 : a503                     lda ad1
+3472 : 6d0302                   adc ada2        ;perform add
+3475 : 08                       php          
+3476 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-                                pla             ;check flags
-                                and #1          ;mask carry
-                                cmp adrh
+3478 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+347a : 68                       pla             ;check flags
+347b : 2901                     and #1          ;mask carry
+347d : c506                     cmp adrh
                                 trap_ne         ;bad carry
-                                plp
-                                php             ;save carry for next add
-                                lda ad1
-                                sbc sba2        ;perform subtract
-                                php          
-                                cmp adrl        ;check result
+347f : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+3481 : 28                       plp
+3482 : 08                       php             ;save carry for next add
+3483 : a503                     lda ad1
+3485 : ed0402                   sbc sba2        ;perform subtract
+3488 : 08                       php          
+3489 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-                                pla             ;check flags
-                                and #1          ;mask carry
-                                cmp adrh
+348b : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+348d : 68                       pla             ;check flags
+348e : 2901                     and #1          ;mask carry
+3490 : c506                     cmp adrh
                                 trap_ne         ;bad carry
-                                plp
+3492 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+3494 : 28                       plp
                         ; decimal ADC / SBC #
-                                php             ;save carry for subtract
-                                lda ad2
-                                sta ex_adci+1   ;set ADC # operand
-                                lda ad1
-                                jsr ex_adci     ;execute ADC # in RAM
-                                php          
-                                cmp adrl        ;check result
+3495 : 08                       php             ;save carry for subtract
+3496 : a504                     lda ad2
+3498 : 8d1202                   sta ex_adci+1   ;set ADC # operand
+349b : a503                     lda ad1
+349d : 201102                   jsr ex_adci     ;execute ADC # in RAM
+34a0 : 08                       php          
+34a1 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-                                pla             ;check flags
-                                and #1          ;mask carry
-                                cmp adrh
+34a3 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+34a5 : 68                       pla             ;check flags
+34a6 : 2901                     and #1          ;mask carry
+34a8 : c506                     cmp adrh
                                 trap_ne         ;bad carry
-                                plp
-                                php             ;save carry for next add
-                                lda sb2
-                                sta ex_sbci+1   ;set SBC # operand
-                                lda ad1
-                                jsr ex_sbci     ;execute SBC # in RAM
-                                php          
-                                cmp adrl        ;check result
+34aa : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+34ac : 28                       plp
+34ad : 08                       php             ;save carry for next add
+34ae : a508                     lda sb2
+34b0 : 8d1502                   sta ex_sbci+1   ;set SBC # operand
+34b3 : a503                     lda ad1
+34b5 : 201402                   jsr ex_sbci     ;execute SBC # in RAM
+34b8 : 08                       php          
+34b9 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-                                pla             ;check flags
-                                and #1          ;mask carry
-                                cmp adrh
+34bb : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+34bd : 68                       pla             ;check flags
+34be : 2901                     and #1          ;mask carry
+34c0 : c506                     cmp adrh
                                 trap_ne         ;bad carry
-                                plp
+34c2 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+34c4 : 28                       plp
                         ; decimal ADC / SBC zp,x
-                                php             ;save carry for subtract
-                                lda ad1
-                                adc 0,x         ;perform add
-                                php          
-                                cmp adrl        ;check result
+34c5 : 08                       php             ;save carry for subtract
+34c6 : a503                     lda ad1
+34c8 : 7500                     adc 0,x         ;perform add
+34ca : 08                       php          
+34cb : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-                                pla             ;check flags
-                                and #1          ;mask carry
-                                cmp adrh
+34cd : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+34cf : 68                       pla             ;check flags
+34d0 : 2901                     and #1          ;mask carry
+34d2 : c506                     cmp adrh
                                 trap_ne         ;bad carry
-                                plp
-                                php             ;save carry for next add
-                                lda ad1
-                                sbc sb2-ad2,x   ;perform subtract
-                                php          
-                                cmp adrl        ;check result
+34d4 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+34d6 : 28                       plp
+34d7 : 08                       php             ;save carry for next add
+34d8 : a503                     lda ad1
+34da : f504                     sbc sb2-ad2,x   ;perform subtract
+34dc : 08                       php          
+34dd : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-                                pla             ;check flags
-                                and #1          ;mask carry
-                                cmp adrh
+34df : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+34e1 : 68                       pla             ;check flags
+34e2 : 2901                     and #1          ;mask carry
+34e4 : c506                     cmp adrh
                                 trap_ne         ;bad carry
-                                plp
+34e6 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+34e8 : 28                       plp
                         ; decimal ADC / SBC abs,x
-                                php             ;save carry for subtract
-                                lda ad1
-                                adc ada2-ad2,x  ;perform add
-                                php          
-                                cmp adrl        ;check result
+34e9 : 08                       php             ;save carry for subtract
+34ea : a503                     lda ad1
+34ec : 7dff01                   adc ada2-ad2,x  ;perform add
+34ef : 08                       php          
+34f0 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-                                pla             ;check flags
-                                and #1          ;mask carry
-                                cmp adrh
+34f2 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+34f4 : 68                       pla             ;check flags
+34f5 : 2901                     and #1          ;mask carry
+34f7 : c506                     cmp adrh
                                 trap_ne         ;bad carry
-                                plp
-                                php             ;save carry for next add
-                                lda ad1
-                                sbc sba2-ad2,x  ;perform subtract
-                                php          
-                                cmp adrl        ;check result
+34f9 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+34fb : 28                       plp
+34fc : 08                       php             ;save carry for next add
+34fd : a503                     lda ad1
+34ff : fd0002                   sbc sba2-ad2,x  ;perform subtract
+3502 : 08                       php          
+3503 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-                                pla             ;check flags
-                                and #1          ;mask carry
-                                cmp adrh
+3505 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+3507 : 68                       pla             ;check flags
+3508 : 2901                     and #1          ;mask carry
+350a : c506                     cmp adrh
                                 trap_ne         ;bad carry
-                                plp
+350c : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+350e : 28                       plp
                         ; decimal ADC / SBC abs,y
-                                php             ;save carry for subtract
-                                lda ad1
-                                adc ada2-$ff,y  ;perform add
-                                php          
-                                cmp adrl        ;check result
+350f : 08                       php             ;save carry for subtract
+3510 : a503                     lda ad1
+3512 : 790401                   adc ada2-$ff,y  ;perform add
+3515 : 08                       php          
+3516 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-                                pla             ;check flags
-                                and #1          ;mask carry
-                                cmp adrh
+3518 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+351a : 68                       pla             ;check flags
+351b : 2901                     and #1          ;mask carry
+351d : c506                     cmp adrh
                                 trap_ne         ;bad carry
-                                plp
-                                php             ;save carry for next add
-                                lda ad1
-                                sbc sba2-$ff,y  ;perform subtract
-                                php          
-                                cmp adrl        ;check result
+351f : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+3521 : 28                       plp
+3522 : 08                       php             ;save carry for next add
+3523 : a503                     lda ad1
+3525 : f90501                   sbc sba2-$ff,y  ;perform subtract
+3528 : 08                       php          
+3529 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-                                pla             ;check flags
-                                and #1          ;mask carry
-                                cmp adrh
+352b : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+352d : 68                       pla             ;check flags
+352e : 2901                     and #1          ;mask carry
+3530 : c506                     cmp adrh
                                 trap_ne         ;bad carry
-                                plp
+3532 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+3534 : 28                       plp
                         ; decimal ADC / SBC (zp,x)
-                                php             ;save carry for subtract
-                                lda ad1
-                                adc (lo adi2-ad2,x) ;perform add
-                                php          
-                                cmp adrl        ;check result
+3535 : 08                       php             ;save carry for subtract
+3536 : a503                     lda ad1
+3538 : 6144                     adc (lo adi2-ad2,x) ;perform add
+353a : 08                       php          
+353b : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-                                pla             ;check flags
-                                and #1          ;mask carry
-                                cmp adrh
+353d : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+353f : 68                       pla             ;check flags
+3540 : 2901                     and #1          ;mask carry
+3542 : c506                     cmp adrh
                                 trap_ne         ;bad carry
-                                plp
-                                php             ;save carry for next add
-                                lda ad1
-                                sbc (lo sbi2-ad2,x) ;perform subtract
-                                php          
-                                cmp adrl        ;check result
+3544 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+3546 : 28                       plp
+3547 : 08                       php             ;save carry for next add
+3548 : a503                     lda ad1
+354a : e146                     sbc (lo sbi2-ad2,x) ;perform subtract
+354c : 08                       php          
+354d : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-                                pla             ;check flags
-                                and #1          ;mask carry
-                                cmp adrh
+354f : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+3551 : 68                       pla             ;check flags
+3552 : 2901                     and #1          ;mask carry
+3554 : c506                     cmp adrh
                                 trap_ne         ;bad carry
-                                plp
+3556 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+3558 : 28                       plp
                         ; decimal ADC / SBC (abs),y
-                                php             ;save carry for subtract
-                                lda ad1
-                                adc (adiy2),y   ;perform add
-                                php          
-                                cmp adrl        ;check result
+3559 : 08                       php             ;save carry for subtract
+355a : a503                     lda ad1
+355c : 714c                     adc (adiy2),y   ;perform add
+355e : 08                       php          
+355f : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-                                pla             ;check flags
-                                and #1          ;mask carry
-                                cmp adrh
+3561 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+3563 : 68                       pla             ;check flags
+3564 : 2901                     and #1          ;mask carry
+3566 : c506                     cmp adrh
                                 trap_ne         ;bad carry
-                                plp
-                                php             ;save carry for next add
-                                lda ad1
-                                sbc (sbiy2),y   ;perform subtract
-                                php          
-                                cmp adrl        ;check result
+3568 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+356a : 28                       plp
+356b : 08                       php             ;save carry for next add
+356c : a503                     lda ad1
+356e : f14e                     sbc (sbiy2),y   ;perform subtract
+3570 : 08                       php          
+3571 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-                                pla             ;check flags
-                                and #1          ;mask carry
-                                cmp adrh
+3573 : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+3575 : 68                       pla             ;check flags
+3576 : 2901                     and #1          ;mask carry
+3578 : c506                     cmp adrh
                                 trap_ne         ;bad carry
-                                plp
-                                rts
+357a : d0fe            >        bne *           ;failed not equal (non zero)
+                        
+357c : 28                       plp
+357d : 60                       rts
                             endif
                         
                         ; core subroutine of the full binary add/subtract test
                         ; iterates through all combinations of operands and carry input
                         ; uses increments/decrements to predict result & result flags
-334f : a507             chkadd  lda adrf        ;add V-flag if overflow
-3351 : 2983                     and #$83        ;keep N-----ZC / clear V
-3353 : 48                       pha
-3354 : a503                     lda ad1         ;test sign unequal between operands
-3356 : 4504                     eor ad2
-3358 : 300a                     bmi ckad1       ;no overflow possible - operands have different sign
-335a : a503                     lda ad1         ;test sign equal between operands and result
-335c : 4505                     eor adrl
-335e : 1004                     bpl ckad1       ;no overflow occured - operand and result have same sign
-3360 : 68                       pla
-3361 : 0940                     ora #$40        ;set V
-3363 : 48                       pha
-3364 : 68               ckad1   pla
-3365 : 8507                     sta adrf        ;save expected flags
+357e : a507             chkadd  lda adrf        ;add V-flag if overflow
+3580 : 2983                     and #$83        ;keep N-----ZC / clear V
+3582 : 48                       pha
+3583 : a503                     lda ad1         ;test sign unequal between operands
+3585 : 4504                     eor ad2
+3587 : 300a                     bmi ckad1       ;no overflow possible - operands have different sign
+3589 : a503                     lda ad1         ;test sign equal between operands and result
+358b : 4505                     eor adrl
+358d : 1004                     bpl ckad1       ;no overflow occured - operand and result have same sign
+358f : 68                       pla
+3590 : 0940                     ora #$40        ;set V
+3592 : 48                       pha
+3593 : 68               ckad1   pla
+3594 : 8507                     sta adrf        ;save expected flags
                         ; binary ADC / SBC zp
-3367 : 08                       php             ;save carry for subtract
-3368 : a503                     lda ad1
-336a : 6504                     adc ad2         ;perform add
-336c : 08                       php          
-336d : c505                     cmp adrl        ;check result
+3596 : 08                       php             ;save carry for subtract
+3597 : a503                     lda ad1
+3599 : 6504                     adc ad2         ;perform add
+359b : 08                       php          
+359c : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-336f : d0fe            >        bne *           ;failed not equal (non zero)
+359e : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3371 : 68                       pla             ;check flags
-3372 : 29c3                     and #$c3        ;mask NV----ZC
-3374 : c507                     cmp adrf
+35a0 : 68                       pla             ;check flags
+35a1 : 29c3                     and #$c3        ;mask NV----ZC
+35a3 : c507                     cmp adrf
                                 trap_ne         ;bad flags
-3376 : d0fe            >        bne *           ;failed not equal (non zero)
+35a5 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3378 : 28                       plp
-3379 : 08                       php             ;save carry for next add
-337a : a503                     lda ad1
-337c : e508                     sbc sb2         ;perform subtract
-337e : 08                       php          
-337f : c505                     cmp adrl        ;check result
+35a7 : 28                       plp
+35a8 : 08                       php             ;save carry for next add
+35a9 : a503                     lda ad1
+35ab : e508                     sbc sb2         ;perform subtract
+35ad : 08                       php          
+35ae : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-3381 : d0fe            >        bne *           ;failed not equal (non zero)
+35b0 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3383 : 68                       pla             ;check flags
-3384 : 29c3                     and #$c3        ;mask NV----ZC
-3386 : c507                     cmp adrf
+35b2 : 68                       pla             ;check flags
+35b3 : 29c3                     and #$c3        ;mask NV----ZC
+35b5 : c507                     cmp adrf
                                 trap_ne         ;bad flags
-3388 : d0fe            >        bne *           ;failed not equal (non zero)
+35b7 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-338a : 28                       plp
+35b9 : 28                       plp
                         ; binary ADC / SBC abs
-338b : 08                       php             ;save carry for subtract
-338c : a503                     lda ad1
-338e : 6d0302                   adc ada2        ;perform add
-3391 : 08                       php          
-3392 : c505                     cmp adrl        ;check result
+35ba : 08                       php             ;save carry for subtract
+35bb : a503                     lda ad1
+35bd : 6d0302                   adc ada2        ;perform add
+35c0 : 08                       php          
+35c1 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-3394 : d0fe            >        bne *           ;failed not equal (non zero)
+35c3 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3396 : 68                       pla             ;check flags
-3397 : 29c3                     and #$c3        ;mask NV----ZC
-3399 : c507                     cmp adrf
+35c5 : 68                       pla             ;check flags
+35c6 : 29c3                     and #$c3        ;mask NV----ZC
+35c8 : c507                     cmp adrf
                                 trap_ne         ;bad flags
-339b : d0fe            >        bne *           ;failed not equal (non zero)
+35ca : d0fe            >        bne *           ;failed not equal (non zero)
                         
-339d : 28                       plp
-339e : 08                       php             ;save carry for next add
-339f : a503                     lda ad1
-33a1 : ed0402                   sbc sba2        ;perform subtract
-33a4 : 08                       php          
-33a5 : c505                     cmp adrl        ;check result
+35cc : 28                       plp
+35cd : 08                       php             ;save carry for next add
+35ce : a503                     lda ad1
+35d0 : ed0402                   sbc sba2        ;perform subtract
+35d3 : 08                       php          
+35d4 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-33a7 : d0fe            >        bne *           ;failed not equal (non zero)
+35d6 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-33a9 : 68                       pla             ;check flags
-33aa : 29c3                     and #$c3        ;mask NV----ZC
-33ac : c507                     cmp adrf
+35d8 : 68                       pla             ;check flags
+35d9 : 29c3                     and #$c3        ;mask NV----ZC
+35db : c507                     cmp adrf
                                 trap_ne         ;bad flags
-33ae : d0fe            >        bne *           ;failed not equal (non zero)
+35dd : d0fe            >        bne *           ;failed not equal (non zero)
                         
-33b0 : 28                       plp
+35df : 28                       plp
                         ; binary ADC / SBC #
-33b1 : 08                       php             ;save carry for subtract
-33b2 : a504                     lda ad2
-33b4 : 8d1202                   sta ex_adci+1   ;set ADC # operand
-33b7 : a503                     lda ad1
-33b9 : 201102                   jsr ex_adci     ;execute ADC # in RAM
-33bc : 08                       php          
-33bd : c505                     cmp adrl        ;check result
+35e0 : 08                       php             ;save carry for subtract
+35e1 : a504                     lda ad2
+35e3 : 8d1202                   sta ex_adci+1   ;set ADC # operand
+35e6 : a503                     lda ad1
+35e8 : 201102                   jsr ex_adci     ;execute ADC # in RAM
+35eb : 08                       php          
+35ec : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-33bf : d0fe            >        bne *           ;failed not equal (non zero)
+35ee : d0fe            >        bne *           ;failed not equal (non zero)
                         
-33c1 : 68                       pla             ;check flags
-33c2 : 29c3                     and #$c3        ;mask NV----ZC
-33c4 : c507                     cmp adrf
+35f0 : 68                       pla             ;check flags
+35f1 : 29c3                     and #$c3        ;mask NV----ZC
+35f3 : c507                     cmp adrf
                                 trap_ne         ;bad flags
-33c6 : d0fe            >        bne *           ;failed not equal (non zero)
+35f5 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-33c8 : 28                       plp
-33c9 : 08                       php             ;save carry for next add
-33ca : a508                     lda sb2
-33cc : 8d1502                   sta ex_sbci+1   ;set SBC # operand
-33cf : a503                     lda ad1
-33d1 : 201402                   jsr ex_sbci     ;execute SBC # in RAM
-33d4 : 08                       php          
-33d5 : c505                     cmp adrl        ;check result
+35f7 : 28                       plp
+35f8 : 08                       php             ;save carry for next add
+35f9 : a508                     lda sb2
+35fb : 8d1502                   sta ex_sbci+1   ;set SBC # operand
+35fe : a503                     lda ad1
+3600 : 201402                   jsr ex_sbci     ;execute SBC # in RAM
+3603 : 08                       php          
+3604 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-33d7 : d0fe            >        bne *           ;failed not equal (non zero)
+3606 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-33d9 : 68                       pla             ;check flags
-33da : 29c3                     and #$c3        ;mask NV----ZC
-33dc : c507                     cmp adrf
+3608 : 68                       pla             ;check flags
+3609 : 29c3                     and #$c3        ;mask NV----ZC
+360b : c507                     cmp adrf
                                 trap_ne         ;bad flags
-33de : d0fe            >        bne *           ;failed not equal (non zero)
+360d : d0fe            >        bne *           ;failed not equal (non zero)
                         
-33e0 : 28                       plp
+360f : 28                       plp
                         ; binary ADC / SBC zp,x
-33e1 : 08                       php             ;save carry for subtract
-33e2 : a503                     lda ad1
-33e4 : 7500                     adc 0,x         ;perform add
-33e6 : 08                       php          
-33e7 : c505                     cmp adrl        ;check result
+3610 : 08                       php             ;save carry for subtract
+3611 : a503                     lda ad1
+3613 : 7500                     adc 0,x         ;perform add
+3615 : 08                       php          
+3616 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-33e9 : d0fe            >        bne *           ;failed not equal (non zero)
+3618 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-33eb : 68                       pla             ;check flags
-33ec : 29c3                     and #$c3        ;mask NV----ZC
-33ee : c507                     cmp adrf
+361a : 68                       pla             ;check flags
+361b : 29c3                     and #$c3        ;mask NV----ZC
+361d : c507                     cmp adrf
                                 trap_ne         ;bad flags
-33f0 : d0fe            >        bne *           ;failed not equal (non zero)
+361f : d0fe            >        bne *           ;failed not equal (non zero)
                         
-33f2 : 28                       plp
-33f3 : 08                       php             ;save carry for next add
-33f4 : a503                     lda ad1
-33f6 : f504                     sbc sb2-ad2,x   ;perform subtract
-33f8 : 08                       php          
-33f9 : c505                     cmp adrl        ;check result
+3621 : 28                       plp
+3622 : 08                       php             ;save carry for next add
+3623 : a503                     lda ad1
+3625 : f504                     sbc sb2-ad2,x   ;perform subtract
+3627 : 08                       php          
+3628 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-33fb : d0fe            >        bne *           ;failed not equal (non zero)
+362a : d0fe            >        bne *           ;failed not equal (non zero)
                         
-33fd : 68                       pla             ;check flags
-33fe : 29c3                     and #$c3        ;mask NV----ZC
-3400 : c507                     cmp adrf
+362c : 68                       pla             ;check flags
+362d : 29c3                     and #$c3        ;mask NV----ZC
+362f : c507                     cmp adrf
                                 trap_ne         ;bad flags
-3402 : d0fe            >        bne *           ;failed not equal (non zero)
+3631 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3404 : 28                       plp
+3633 : 28                       plp
                         ; binary ADC / SBC abs,x
-3405 : 08                       php             ;save carry for subtract
-3406 : a503                     lda ad1
-3408 : 7dff01                   adc ada2-ad2,x  ;perform add
-340b : 08                       php          
-340c : c505                     cmp adrl        ;check result
+3634 : 08                       php             ;save carry for subtract
+3635 : a503                     lda ad1
+3637 : 7dff01                   adc ada2-ad2,x  ;perform add
+363a : 08                       php          
+363b : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-340e : d0fe            >        bne *           ;failed not equal (non zero)
+363d : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3410 : 68                       pla             ;check flags
-3411 : 29c3                     and #$c3        ;mask NV----ZC
-3413 : c507                     cmp adrf
+363f : 68                       pla             ;check flags
+3640 : 29c3                     and #$c3        ;mask NV----ZC
+3642 : c507                     cmp adrf
                                 trap_ne         ;bad flags
-3415 : d0fe            >        bne *           ;failed not equal (non zero)
+3644 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3417 : 28                       plp
-3418 : 08                       php             ;save carry for next add
-3419 : a503                     lda ad1
-341b : fd0002                   sbc sba2-ad2,x  ;perform subtract
-341e : 08                       php          
-341f : c505                     cmp adrl        ;check result
+3646 : 28                       plp
+3647 : 08                       php             ;save carry for next add
+3648 : a503                     lda ad1
+364a : fd0002                   sbc sba2-ad2,x  ;perform subtract
+364d : 08                       php          
+364e : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-3421 : d0fe            >        bne *           ;failed not equal (non zero)
+3650 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3423 : 68                       pla             ;check flags
-3424 : 29c3                     and #$c3        ;mask NV----ZC
-3426 : c507                     cmp adrf
+3652 : 68                       pla             ;check flags
+3653 : 29c3                     and #$c3        ;mask NV----ZC
+3655 : c507                     cmp adrf
                                 trap_ne         ;bad flags
-3428 : d0fe            >        bne *           ;failed not equal (non zero)
+3657 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-342a : 28                       plp
+3659 : 28                       plp
                         ; binary ADC / SBC abs,y
-342b : 08                       php             ;save carry for subtract
-342c : a503                     lda ad1
-342e : 790401                   adc ada2-$ff,y  ;perform add
-3431 : 08                       php          
-3432 : c505                     cmp adrl        ;check result
+365a : 08                       php             ;save carry for subtract
+365b : a503                     lda ad1
+365d : 790401                   adc ada2-$ff,y  ;perform add
+3660 : 08                       php          
+3661 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-3434 : d0fe            >        bne *           ;failed not equal (non zero)
+3663 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3436 : 68                       pla             ;check flags
-3437 : 29c3                     and #$c3        ;mask NV----ZC
-3439 : c507                     cmp adrf
+3665 : 68                       pla             ;check flags
+3666 : 29c3                     and #$c3        ;mask NV----ZC
+3668 : c507                     cmp adrf
                                 trap_ne         ;bad flags
-343b : d0fe            >        bne *           ;failed not equal (non zero)
+366a : d0fe            >        bne *           ;failed not equal (non zero)
                         
-343d : 28                       plp
-343e : 08                       php             ;save carry for next add
-343f : a503                     lda ad1
-3441 : f90501                   sbc sba2-$ff,y  ;perform subtract
-3444 : 08                       php          
-3445 : c505                     cmp adrl        ;check result
+366c : 28                       plp
+366d : 08                       php             ;save carry for next add
+366e : a503                     lda ad1
+3670 : f90501                   sbc sba2-$ff,y  ;perform subtract
+3673 : 08                       php          
+3674 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-3447 : d0fe            >        bne *           ;failed not equal (non zero)
+3676 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3449 : 68                       pla             ;check flags
-344a : 29c3                     and #$c3        ;mask NV----ZC
-344c : c507                     cmp adrf
+3678 : 68                       pla             ;check flags
+3679 : 29c3                     and #$c3        ;mask NV----ZC
+367b : c507                     cmp adrf
                                 trap_ne         ;bad flags
-344e : d0fe            >        bne *           ;failed not equal (non zero)
+367d : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3450 : 28                       plp
+367f : 28                       plp
                         ; binary ADC / SBC (zp,x)
-3451 : 08                       php             ;save carry for subtract
-3452 : a503                     lda ad1
-3454 : 6144                     adc (lo adi2-ad2,x) ;perform add
-3456 : 08                       php          
-3457 : c505                     cmp adrl        ;check result
+3680 : 08                       php             ;save carry for subtract
+3681 : a503                     lda ad1
+3683 : 6144                     adc (lo adi2-ad2,x) ;perform add
+3685 : 08                       php          
+3686 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-3459 : d0fe            >        bne *           ;failed not equal (non zero)
+3688 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-345b : 68                       pla             ;check flags
-345c : 29c3                     and #$c3        ;mask NV----ZC
-345e : c507                     cmp adrf
+368a : 68                       pla             ;check flags
+368b : 29c3                     and #$c3        ;mask NV----ZC
+368d : c507                     cmp adrf
                                 trap_ne         ;bad flags
-3460 : d0fe            >        bne *           ;failed not equal (non zero)
+368f : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3462 : 28                       plp
-3463 : 08                       php             ;save carry for next add
-3464 : a503                     lda ad1
-3466 : e146                     sbc (lo sbi2-ad2,x) ;perform subtract
-3468 : 08                       php          
-3469 : c505                     cmp adrl        ;check result
+3691 : 28                       plp
+3692 : 08                       php             ;save carry for next add
+3693 : a503                     lda ad1
+3695 : e146                     sbc (lo sbi2-ad2,x) ;perform subtract
+3697 : 08                       php          
+3698 : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-346b : d0fe            >        bne *           ;failed not equal (non zero)
+369a : d0fe            >        bne *           ;failed not equal (non zero)
                         
-346d : 68                       pla             ;check flags
-346e : 29c3                     and #$c3        ;mask NV----ZC
-3470 : c507                     cmp adrf
+369c : 68                       pla             ;check flags
+369d : 29c3                     and #$c3        ;mask NV----ZC
+369f : c507                     cmp adrf
                                 trap_ne         ;bad flags
-3472 : d0fe            >        bne *           ;failed not equal (non zero)
+36a1 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3474 : 28                       plp
+36a3 : 28                       plp
                         ; binary ADC / SBC (abs),y
-3475 : 08                       php             ;save carry for subtract
-3476 : a503                     lda ad1
-3478 : 714c                     adc (adiy2),y   ;perform add
-347a : 08                       php          
-347b : c505                     cmp adrl        ;check result
+36a4 : 08                       php             ;save carry for subtract
+36a5 : a503                     lda ad1
+36a7 : 714c                     adc (adiy2),y   ;perform add
+36a9 : 08                       php          
+36aa : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-347d : d0fe            >        bne *           ;failed not equal (non zero)
+36ac : d0fe            >        bne *           ;failed not equal (non zero)
                         
-347f : 68                       pla             ;check flags
-3480 : 29c3                     and #$c3        ;mask NV----ZC
-3482 : c507                     cmp adrf
+36ae : 68                       pla             ;check flags
+36af : 29c3                     and #$c3        ;mask NV----ZC
+36b1 : c507                     cmp adrf
                                 trap_ne         ;bad flags
-3484 : d0fe            >        bne *           ;failed not equal (non zero)
+36b3 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3486 : 28                       plp
-3487 : 08                       php             ;save carry for next add
-3488 : a503                     lda ad1
-348a : f14e                     sbc (sbiy2),y   ;perform subtract
-348c : 08                       php          
-348d : c505                     cmp adrl        ;check result
+36b5 : 28                       plp
+36b6 : 08                       php             ;save carry for next add
+36b7 : a503                     lda ad1
+36b9 : f14e                     sbc (sbiy2),y   ;perform subtract
+36bb : 08                       php          
+36bc : c505                     cmp adrl        ;check result
                                 trap_ne         ;bad result
-348f : d0fe            >        bne *           ;failed not equal (non zero)
+36be : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3491 : 68                       pla             ;check flags
-3492 : 29c3                     and #$c3        ;mask NV----ZC
-3494 : c507                     cmp adrf
+36c0 : 68                       pla             ;check flags
+36c1 : 29c3                     and #$c3        ;mask NV----ZC
+36c3 : c507                     cmp adrf
                                 trap_ne         ;bad flags
-3496 : d0fe            >        bne *           ;failed not equal (non zero)
+36c5 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3498 : 28                       plp
-3499 : 60                       rts
+36c7 : 28                       plp
+36c8 : 60                       rts
                         
                         ; target for the jump absolute test
-349a : 88                       dey
-349b : 88                       dey
-349c :                  test_far
-349c : 08                       php             ;either SP or Y count will fail, if we do not hit
-349d : 88                       dey
-349e : 88                       dey
-349f : 88                       dey
-34a0 : 28                       plp
+36c9 : 88                       dey
+36ca : 88                       dey
+36cb :                  test_far
+36cb : 08                       php             ;either SP or Y count will fail, if we do not hit
+36cc : 88                       dey
+36cd : 88                       dey
+36ce : 88                       dey
+36cf : 28                       plp
                                 trap_cs         ;flags loaded?
-34a1 : b0fe            >        bcs *           ;failed carry set
+36d0 : b0fe            >        bcs *           ;failed carry set
                         
                                 trap_vs
-34a3 : 70fe            >        bvs *           ;failed overflow set
+36d2 : 70fe            >        bvs *           ;failed overflow set
                         
                                 trap_mi
-34a5 : 30fe            >        bmi *           ;failed minus (bit 7 set)
+36d4 : 30fe            >        bmi *           ;failed minus (bit 7 set)
                         
                                 trap_eq 
-34a7 : f0fe            >        beq *           ;failed equal (zero)
+36d6 : f0fe            >        beq *           ;failed equal (zero)
                         
-34a9 : c946                     cmp #'F'        ;registers loaded?
+36d8 : c946                     cmp #'F'        ;registers loaded?
                                 trap_ne
-34ab : d0fe            >        bne *           ;failed not equal (non zero)
+36da : d0fe            >        bne *           ;failed not equal (non zero)
                         
-34ad : e041                     cpx #'A'
+36dc : e041                     cpx #'A'
                                 trap_ne        
-34af : d0fe            >        bne *           ;failed not equal (non zero)
+36de : d0fe            >        bne *           ;failed not equal (non zero)
                         
-34b1 : c04f                     cpy #('R'-3)
+36e0 : c04f                     cpy #('R'-3)
                                 trap_ne
-34b3 : d0fe            >        bne *           ;failed not equal (non zero)
+36e2 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-34b5 : 48                       pha             ;save a,x
-34b6 : 8a                       txa
-34b7 : 48                       pha
-34b8 : ba                       tsx
-34b9 : e0fd                     cpx #$fd        ;check SP
+36e4 : 48                       pha             ;save a,x
+36e5 : 8a                       txa
+36e6 : 48                       pha
+36e7 : ba                       tsx
+36e8 : e0fd                     cpx #$fd        ;check SP
                                 trap_ne
-34bb : d0fe            >        bne *           ;failed not equal (non zero)
+36ea : d0fe            >        bne *           ;failed not equal (non zero)
                         
-34bd : 68                       pla             ;restore x
-34be : aa                       tax
+36ec : 68                       pla             ;restore x
+36ed : aa                       tax
                                 set_stat $ff
                        >            load_flag $ff
-34bf : a9ff            >            lda #$ff|intdis      ;force disable interrupts
+36ee : a9ff            >            lda #$ff|intdis      ;force disable interrupts
                        >
-34c1 : 48              >            pha         ;use stack to load status
-34c2 : 28              >            plp
+36f0 : 48              >            pha         ;use stack to load status
+36f1 : 28              >            plp
                         
-34c3 : 68                       pla             ;restore a
-34c4 : e8                       inx             ;return registers with modifications
-34c5 : 49aa                     eor #$aa        ;N=1, V=1, Z=0, C=1
-34c7 : 4c1009                   jmp far_ret
+36f2 : 68                       pla             ;restore a
+36f3 : e8                       inx             ;return registers with modifications
+36f4 : 49aa                     eor #$aa        ;N=1, V=1, Z=0, C=1
+36f6 : 4c1009                   jmp far_ret
                                 
                         ; target for the jump indirect test
-                                align
-34ca : d334             ptr_tst_ind dw test_ind
-34cc : 6509             ptr_ind_ret dw ind_ret
+36f9 : 00                       align
+36fa : 0337             ptr_tst_ind dw test_ind
+36fc : 6509             ptr_ind_ret dw ind_ret
                                 trap            ;runover protection
-34ce : 4cce34          >        jmp *           ;failed anyway
+36fe : 4cfe36          >        jmp *           ;failed anyway
                         
-34d1 : 88                       dey
-34d2 : 88                       dey
-34d3 :                  test_ind
-34d3 : 08                       php             ;either SP or Y count will fail, if we do not hit
-34d4 : 88                       dey
-34d5 : 88                       dey
-34d6 : 88                       dey
-34d7 : 28                       plp
+3701 : 88                       dey
+3702 : 88                       dey
+3703 :                  test_ind
+3703 : 08                       php             ;either SP or Y count will fail, if we do not hit
+3704 : 88                       dey
+3705 : 88                       dey
+3706 : 88                       dey
+3707 : 28                       plp
                                 trap_cs         ;flags loaded?
-34d8 : b0fe            >        bcs *           ;failed carry set
+3708 : b0fe            >        bcs *           ;failed carry set
                         
                                 trap_vs
-34da : 70fe            >        bvs *           ;failed overflow set
+370a : 70fe            >        bvs *           ;failed overflow set
                         
                                 trap_mi
-34dc : 30fe            >        bmi *           ;failed minus (bit 7 set)
+370c : 30fe            >        bmi *           ;failed minus (bit 7 set)
                         
                                 trap_eq 
-34de : f0fe            >        beq *           ;failed equal (zero)
+370e : f0fe            >        beq *           ;failed equal (zero)
                         
-34e0 : c949                     cmp #'I'        ;registers loaded?
+3710 : c949                     cmp #'I'        ;registers loaded?
                                 trap_ne
-34e2 : d0fe            >        bne *           ;failed not equal (non zero)
+3712 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-34e4 : e04e                     cpx #'N'
+3714 : e04e                     cpx #'N'
                                 trap_ne        
-34e6 : d0fe            >        bne *           ;failed not equal (non zero)
+3716 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-34e8 : c041                     cpy #('D'-3)
+3718 : c041                     cpy #('D'-3)
                                 trap_ne
-34ea : d0fe            >        bne *           ;failed not equal (non zero)
+371a : d0fe            >        bne *           ;failed not equal (non zero)
                         
-34ec : 48                       pha             ;save a,x
-34ed : 8a                       txa
-34ee : 48                       pha
-34ef : ba                       tsx
-34f0 : e0fd                     cpx #$fd        ;check SP
+371c : 48                       pha             ;save a,x
+371d : 8a                       txa
+371e : 48                       pha
+371f : ba                       tsx
+3720 : e0fd                     cpx #$fd        ;check SP
                                 trap_ne
-34f2 : d0fe            >        bne *           ;failed not equal (non zero)
+3722 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-34f4 : 68                       pla             ;restore x
-34f5 : aa                       tax
+3724 : 68                       pla             ;restore x
+3725 : aa                       tax
                                 set_stat $ff
                        >            load_flag $ff
-34f6 : a9ff            >            lda #$ff|intdis      ;force disable interrupts
+3726 : a9ff            >            lda #$ff|intdis      ;force disable interrupts
                        >
-34f8 : 48              >            pha         ;use stack to load status
-34f9 : 28              >            plp
+3728 : 48              >            pha         ;use stack to load status
+3729 : 28              >            plp
                         
-34fa : 68                       pla             ;restore a
-34fb : e8                       inx             ;return registers with modifications
-34fc : 49aa                     eor #$aa        ;N=1, V=1, Z=0, C=1
-34fe : 6ccc34                   jmp (ptr_ind_ret)
+372a : 68                       pla             ;restore a
+372b : e8                       inx             ;return registers with modifications
+372c : 49aa                     eor #$aa        ;N=1, V=1, Z=0, C=1
+372e : 6cfc36                   jmp (ptr_ind_ret)
                                 trap            ;runover protection
-3501 : 4c0135          >        jmp *           ;failed anyway
+3731 : 4c3137          >        jmp *           ;failed anyway
                         
-3504 : 4c0004                   jmp start       ;catastrophic error - cannot continue
+3734 : 4c0004                   jmp start       ;catastrophic error - cannot continue
                         
                         ; target for the jump subroutine test
-3507 : 88                       dey
-3508 : 88                       dey
-3509 :                  test_jsr
-3509 : 08                       php             ;either SP or Y count will fail, if we do not hit
-350a : 88                       dey
-350b : 88                       dey
-350c : 88                       dey
-350d : 28                       plp
+3737 : 88                       dey
+3738 : 88                       dey
+3739 :                  test_jsr
+3739 : 08                       php             ;either SP or Y count will fail, if we do not hit
+373a : 88                       dey
+373b : 88                       dey
+373c : 88                       dey
+373d : 28                       plp
                                 trap_cs         ;flags loaded?
-350e : b0fe            >        bcs *           ;failed carry set
+373e : b0fe            >        bcs *           ;failed carry set
                         
                                 trap_vs
-3510 : 70fe            >        bvs *           ;failed overflow set
+3740 : 70fe            >        bvs *           ;failed overflow set
                         
                                 trap_mi
-3512 : 30fe            >        bmi *           ;failed minus (bit 7 set)
+3742 : 30fe            >        bmi *           ;failed minus (bit 7 set)
                         
                                 trap_eq 
-3514 : f0fe            >        beq *           ;failed equal (zero)
+3744 : f0fe            >        beq *           ;failed equal (zero)
                         
-3516 : c94a                     cmp #'J'        ;registers loaded?
+3746 : c94a                     cmp #'J'        ;registers loaded?
                                 trap_ne
-3518 : d0fe            >        bne *           ;failed not equal (non zero)
+3748 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-351a : e053                     cpx #'S'
+374a : e053                     cpx #'S'
                                 trap_ne        
-351c : d0fe            >        bne *           ;failed not equal (non zero)
+374c : d0fe            >        bne *           ;failed not equal (non zero)
                         
-351e : c04f                     cpy #('R'-3)
+374e : c04f                     cpy #('R'-3)
                                 trap_ne
-3520 : d0fe            >        bne *           ;failed not equal (non zero)
+3750 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3522 : 48                       pha             ;save a,x
-3523 : 8a                       txa
-3524 : 48                       pha       
-3525 : ba                       tsx             ;sp -4? (return addr,a,x)
-3526 : e0fb                     cpx #$fb
+3752 : 48                       pha             ;save a,x
+3753 : 8a                       txa
+3754 : 48                       pha       
+3755 : ba                       tsx             ;sp -4? (return addr,a,x)
+3756 : e0fb                     cpx #$fb
                                 trap_ne
-3528 : d0fe            >        bne *           ;failed not equal (non zero)
+3758 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-352a : adff01                   lda $1ff        ;propper return on stack
-352d : c909                     cmp #hi(jsr_ret)
+375a : adff01                   lda $1ff        ;propper return on stack
+375d : c909                     cmp #hi(jsr_ret)
                                 trap_ne
-352f : d0fe            >        bne *           ;failed not equal (non zero)
+375f : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3531 : adfe01                   lda $1fe
-3534 : c99b                     cmp #lo(jsr_ret)
+3761 : adfe01                   lda $1fe
+3764 : c99b                     cmp #lo(jsr_ret)
                                 trap_ne
-3536 : d0fe            >        bne *           ;failed not equal (non zero)
+3766 : d0fe            >        bne *           ;failed not equal (non zero)
                         
                                 set_stat $ff
                        >            load_flag $ff
-3538 : a9ff            >            lda #$ff|intdis      ;force disable interrupts
+3768 : a9ff            >            lda #$ff|intdis      ;force disable interrupts
                        >
-353a : 48              >            pha         ;use stack to load status
-353b : 28              >            plp
+376a : 48              >            pha         ;use stack to load status
+376b : 28              >            plp
                         
-353c : 68                       pla             ;pull x,a
-353d : aa                       tax
-353e : 68                       pla
-353f : e8                       inx             ;return registers with modifications
-3540 : 49aa                     eor #$aa        ;N=1, V=1, Z=0, C=1
-3542 : 60                       rts
+376c : 68                       pla             ;pull x,a
+376d : aa                       tax
+376e : 68                       pla
+376f : e8                       inx             ;return registers with modifications
+3770 : 49aa                     eor #$aa        ;N=1, V=1, Z=0, C=1
+3772 : 60                       rts
                                 trap            ;runover protection
-3543 : 4c4335          >        jmp *           ;failed anyway
+3773 : 4c7337          >        jmp *           ;failed anyway
                         
-3546 : 4c0004                   jmp start       ;catastrophic error - cannot continue
+3776 : 4c0004                   jmp start       ;catastrophic error - cannot continue
                                 
                         ;trap in case of unexpected IRQ, NMI, BRK, RESET - BRK test target
-3549 :                  nmi_trap
+3779 :                  nmi_trap
                                 trap            ;check stack for conditions at NMI
-3549 : 4c4935          >        jmp *           ;failed anyway
+3779 : 4c7937          >        jmp *           ;failed anyway
                         
-354c : 4c0004                   jmp start       ;catastrophic error - cannot continue
-354f :                  res_trap
+377c : 4c0004                   jmp start       ;catastrophic error - cannot continue
+377f :                  res_trap
                                 trap            ;unexpected RESET
-354f : 4c4f35          >        jmp *           ;failed anyway
+377f : 4c7f37          >        jmp *           ;failed anyway
                         
-3552 : 4c0004                   jmp start       ;catastrophic error - cannot continue
+3782 : 4c0004                   jmp start       ;catastrophic error - cannot continue
                                 
-3555 : 88                       dey
-3556 : 88                       dey
-3557 :                  irq_trap                ;BRK test or unextpected BRK or IRQ
-3557 : 08                       php             ;either SP or Y count will fail, if we do not hit
-3558 : 88                       dey
-3559 : 88                       dey
-355a : 88                       dey
+3785 : 88                       dey
+3786 : 88                       dey
+3787 :                  irq_trap                ;BRK test or unextpected BRK or IRQ
+3787 : 08                       php             ;either SP or Y count will fail, if we do not hit
+3788 : 88                       dey
+3789 : 88                       dey
+378a : 88                       dey
                                 ;next traps could be caused by unexpected BRK or IRQ
                                 ;check stack for BREAK and originating location
                                 ;possible jump/branch into weeds (uninitialized space)
-355b : c9bd                     cmp #$ff-'B'    ;BRK pass 2 registers loaded?
-355d : f042                     beq break2
-355f : c942                     cmp #'B'        ;BRK pass 1 registers loaded?
+378b : c9bd                     cmp #$ff-'B'    ;BRK pass 2 registers loaded?
+378d : f042                     beq break2
+378f : c942                     cmp #'B'        ;BRK pass 1 registers loaded?
                                 trap_ne
-3561 : d0fe            >        bne *           ;failed not equal (non zero)
+3791 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3563 : e052                     cpx #'R'
+3793 : e052                     cpx #'R'
                                 trap_ne        
-3565 : d0fe            >        bne *           ;failed not equal (non zero)
+3795 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3567 : c048                     cpy #'K'-3
+3797 : c048                     cpy #'K'-3
                                 trap_ne
-3569 : d0fe            >        bne *           ;failed not equal (non zero)
+3799 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-356b : 8500                     sta irq_a       ;save registers during break test
-356d : 8601                     stx irq_x
-356f : ba                       tsx             ;test break on stack
-3570 : bd0201                   lda $102,x
+379b : 8500                     sta irq_a       ;save registers during break test
+379d : 8601                     stx irq_x
+379f : ba                       tsx             ;test break on stack
+37a0 : bd0201                   lda $102,x
                                 cmp_flag 0      ;break test should have B=1 & unused=1 on stack
-3573 : c934            >            cmp #(0      |fai)&m8    ;I_flag is always disabled + always on bits
+37a3 : c934            >            cmp #(0      |fai)&m8    ;I_flag is always disabled + always on bits
                         
                                 trap_ne         ; - no break flag on stack
-3575 : d0fe            >        bne *           ;failed not equal (non zero)
+37a5 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3577 : 68                       pla
+37a7 : 68                       pla
                                 cmp_flag intdis ;should have added interrupt disable
-3578 : c934            >            cmp #(intdis |fai)&m8    ;I_flag is always disabled + always on bits
+37a8 : c934            >            cmp #(intdis |fai)&m8    ;I_flag is always disabled + always on bits
                         
                                 trap_ne
-357a : d0fe            >        bne *           ;failed not equal (non zero)
+37aa : d0fe            >        bne *           ;failed not equal (non zero)
                         
-357c : ba                       tsx
-357d : e0fc                     cpx #$fc        ;sp -3? (return addr, flags)
+37ac : ba                       tsx
+37ad : e0fc                     cpx #$fc        ;sp -3? (return addr, flags)
                                 trap_ne
-357f : d0fe            >        bne *           ;failed not equal (non zero)
+37af : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3581 : adff01                   lda $1ff        ;propper return on stack
-3584 : c909                     cmp #hi(brk_ret0)
+37b1 : adff01                   lda $1ff        ;propper return on stack
+37b4 : c909                     cmp #hi(brk_ret0)
                                 trap_ne
-3586 : d0fe            >        bne *           ;failed not equal (non zero)
+37b6 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-3588 : adfe01                   lda $1fe
-358b : c9d2                     cmp #lo(brk_ret0)
+37b8 : adfe01                   lda $1fe
+37bb : c9d2                     cmp #lo(brk_ret0)
                                 trap_ne
-358d : d0fe            >        bne *           ;failed not equal (non zero)
+37bd : d0fe            >        bne *           ;failed not equal (non zero)
                         
                                 load_flag $ff
-358f : a9ff            >            lda #$ff|intdis      ;force disable interrupts
+37bf : a9ff            >            lda #$ff|intdis      ;force disable interrupts
                         
-3591 : 48                       pha
-3592 : a601                     ldx irq_x
-3594 : e8                       inx             ;return registers with modifications
-3595 : a500                     lda irq_a
-3597 : 49aa                     eor #$aa
-3599 : 28                       plp             ;N=1, V=1, Z=1, C=1 but original flags should be restored
-359a : 40                       rti
+37c1 : 48                       pha
+37c2 : a601                     ldx irq_x
+37c4 : e8                       inx             ;return registers with modifications
+37c5 : a500                     lda irq_a
+37c7 : 49aa                     eor #$aa
+37c9 : 28                       plp             ;N=1, V=1, Z=1, C=1 but original flags should be restored
+37ca : 40                       rti
                                 trap            ;runover protection
-359b : 4c9b35          >        jmp *           ;failed anyway
+37cb : 4ccb37          >        jmp *           ;failed anyway
                         
-359e : 4c0004                   jmp start       ;catastrophic error - cannot continue
+37ce : 4c0004                   jmp start       ;catastrophic error - cannot continue
                                 
-35a1 :                  break2                  ;BRK pass 2        
-35a1 : e0ad                     cpx #$ff-'R'
+37d1 :                  break2                  ;BRK pass 2        
+37d1 : e0ad                     cpx #$ff-'R'
                                 trap_ne        
-35a3 : d0fe            >        bne *           ;failed not equal (non zero)
+37d3 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-35a5 : c0b1                     cpy #$ff-'K'-3
+37d5 : c0b1                     cpy #$ff-'K'-3
                                 trap_ne
-35a7 : d0fe            >        bne *           ;failed not equal (non zero)
+37d7 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-35a9 : 8500                     sta irq_a       ;save registers during break test
-35ab : 8601                     stx irq_x
-35ad : ba                       tsx             ;test break on stack
-35ae : bd0201                   lda $102,x
+37d9 : 8500                     sta irq_a       ;save registers during break test
+37db : 8601                     stx irq_x
+37dd : ba                       tsx             ;test break on stack
+37de : bd0201                   lda $102,x
                                 cmp_flag $ff    ;break test should have B=1
-35b1 : c9ff            >            cmp #($ff    |fai)&m8    ;I_flag is always disabled + always on bits
+37e1 : c9ff            >            cmp #($ff    |fai)&m8    ;I_flag is always disabled + always on bits
                         
                                 trap_ne         ; - no break flag on stack
-35b3 : d0fe            >        bne *           ;failed not equal (non zero)
+37e3 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-35b5 : 68                       pla
-35b6 : 0908                     ora #decmode    ;ignore decmode cleared if 65c02
+37e5 : 68                       pla
+37e6 : 0908                     ora #decmode    ;ignore decmode cleared if 65c02
                                 cmp_flag $ff    ;actual passed flags
-35b8 : c9ff            >            cmp #($ff    |fai)&m8    ;I_flag is always disabled + always on bits
+37e8 : c9ff            >            cmp #($ff    |fai)&m8    ;I_flag is always disabled + always on bits
                         
                                 trap_ne
-35ba : d0fe            >        bne *           ;failed not equal (non zero)
+37ea : d0fe            >        bne *           ;failed not equal (non zero)
                         
-35bc : ba                       tsx
-35bd : e0fc                     cpx #$fc        ;sp -3? (return addr, flags)
+37ec : ba                       tsx
+37ed : e0fc                     cpx #$fc        ;sp -3? (return addr, flags)
                                 trap_ne
-35bf : d0fe            >        bne *           ;failed not equal (non zero)
+37ef : d0fe            >        bne *           ;failed not equal (non zero)
                         
-35c1 : adff01                   lda $1ff        ;propper return on stack
-35c4 : c909                     cmp #hi(brk_ret1)
+37f1 : adff01                   lda $1ff        ;propper return on stack
+37f4 : c909                     cmp #hi(brk_ret1)
                                 trap_ne
-35c6 : d0fe            >        bne *           ;failed not equal (non zero)
+37f6 : d0fe            >        bne *           ;failed not equal (non zero)
                         
-35c8 : adfe01                   lda $1fe
-35cb : c9f8                     cmp #lo(brk_ret1)
+37f8 : adfe01                   lda $1fe
+37fb : c9f8                     cmp #lo(brk_ret1)
                                 trap_ne
-35cd : d0fe            >        bne *           ;failed not equal (non zero)
+37fd : d0fe            >        bne *           ;failed not equal (non zero)
                         
                                 load_flag intdis
-35cf : a904            >            lda #intdis|intdis      ;force disable interrupts
+37ff : a904            >            lda #intdis|intdis      ;force disable interrupts
                         
-35d1 : 48                       pha      
-35d2 : a601                     ldx irq_x
-35d4 : e8                       inx             ;return registers with modifications
-35d5 : a500                     lda irq_a
-35d7 : 49aa                     eor #$aa
-35d9 : 28                       plp             ;N=0, V=0, Z=0, C=0 but original flags should be restored
-35da : 40                       rti
+3801 : 48                       pha      
+3802 : a601                     ldx irq_x
+3804 : e8                       inx             ;return registers with modifications
+3805 : a500                     lda irq_a
+3807 : 49aa                     eor #$aa
+3809 : 28                       plp             ;N=0, V=0, Z=0, C=0 but original flags should be restored
+380a : 40                       rti
                                 trap            ;runover protection
-35db : 4cdb35          >        jmp *           ;failed anyway
+380b : 4c0b38          >        jmp *           ;failed anyway
                         
-35de : 4c0004                   jmp start       ;catastrophic error - cannot continue
+380e : 4c0004                   jmp start       ;catastrophic error - cannot continue
                         
                             if report = 1
                                 include "report.i65"
@@ -14204,9 +14300,9 @@ ffff =                  ram_top = -1
                             
                             if (load_data_direct = 1) & (ROM_vectors = 1)  
 fffa =                          org $fffa       ;vectors
-fffa : 4935                     dw  nmi_trap
-fffc : 4f35                     dw  res_trap
-fffe : 5735                     dw  irq_trap
+fffa : 7937                     dw  nmi_trap
+fffc : 7f37                     dw  res_trap
+fffe : 8737                     dw  irq_trap
                             endif
                         
 fffa =                          end start

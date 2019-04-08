@@ -85,12 +85,16 @@ void VideoULA::RefreshDisplay()
 	{
 		Tick( (int)(cpu.GetClockCounter() - m_clock) );
 		m_teletext.RenderScreen();
-		return;
 	}
-	//
-	// Scan screen and render pixels, servicing stored interrups along the way
-	//
-	RenderScreen();
+	else
+	{
+		//
+		// Scan screen and render pixels, servicing stored interrups along the way
+		//
+		RenderScreen();
+	}
+	m_sysVIA.SetCA1( 1 );
+	m_sysVIA.SetCA1( 0 );
 	m_registerOpsThisFrame.resize(0);
 	m_nRegisterChangeIndex = 0;
 }
@@ -130,7 +134,7 @@ u8 VideoULA::WRITE_Video_ULA_Control_register( u16 address, u8 ctrl_register )
 	assert( address == SHEILA::WRITE_Video_ULA_Control_register );
 
 	NotifyRegisterWrite( 0, ctrl_register, false );
-	SetControlRegister( ctrl_register );
+	//SetControlRegister( ctrl_register );
 	return ctrl_register;
 }
 
@@ -231,18 +235,19 @@ bool VideoULA::Tick( int nCycles )
 
 	while ( m_clock > m_registerOpsThisFrame[ m_nRegisterChangeIndex ].m_cpuClockTick )
 	{
-		bUpdated = true;
 
 		RegisterWriteOp op = m_registerOpsThisFrame[ m_nRegisterChangeIndex++ ];
 		if ( op.m_bIsCRTCRegister )
 		{
 			m_CRTC.SetRegister( op.m_register, op.m_value );
+			bUpdated = true;
 		}
 		else
 		{ 
 			if ( op.m_register == 0 )
 			{
 				SetControlRegister( op.m_value );
+				bUpdated = true;
 			}
 			else
 			{
@@ -356,9 +361,7 @@ void VideoULA::RenderScreen( )
 		}
 	}
 exit:
-	m_sysVIA.SetCA1( 1 );
 	Tick( int( cpu.GetClockCounter() - m_clock ) );
-	m_sysVIA.SetCA1( 0 );
 
 	GFXSystem::UnlockFrameBuffer();
 	GFXSystem::SetAnisotropicFiltering( false );
