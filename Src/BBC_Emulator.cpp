@@ -101,11 +101,11 @@ bool BBC_Emulator::RunFrame( std::string* pDisassemblyString, bool bDebug )
 	m_lastTime = thisTime;
 
 
-	u64 nTotalCyclesPerFrame = cpu.GetClockCounter() + 2000000 / 50;
+	u64 nTotalCyclesPerFrame = cpu.GetClockCounter() + 40960;
 	bool bBreakpoint = false;
 	while ( cpu.GetClockCounter() < nTotalCyclesPerFrame )
 	{
-		if ( ProcessInstructions( 1, nullptr, true ) )
+		if ( ProcessInstructions( 1, nullptr, bDebug ) )
 		{
 			bBreakpoint = true;
 			break;

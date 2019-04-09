@@ -1,7 +1,9 @@
 To Do:
 ----------------------------------------------
 
-test cycle times
+rewrite ula stuff so it operates on ticks (there are more cycles than one frame right now!)
+use registers properly for video ula
+add cursor!
 mode 3/6 support 
 Teletext graphics fix
 Look at keyboard stuff to make more robust ( track down why we lose keyboard control )
