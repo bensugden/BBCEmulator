@@ -10,6 +10,15 @@
 #include "TeletextFont.h"
 
 //-------------------------------------------------------------------------------------------------
+//
+// I think it looks worse (and actually less authentic) interlacing on a 60hz monitor due to
+// the undersampling so I'm disabling it. Re-anable with this define
+//
+// #define ENABLE_INTERLACING
+//
+//-------------------------------------------------------------------------------------------------
+
+//-------------------------------------------------------------------------------------------------
 
 static u32 s_colorLookup[]=
 {
@@ -116,7 +125,10 @@ void SAA5050::RenderScreen()
 	//
 	u16 nCurrentAddress = uStartAddress; 
 	bool bFlashOffThisFrame = false; // todo
-	
+	#ifdef ENABLE_INTERLACING
+	static int iInterlaceFlicker = 0;
+	iInterlaceFlicker ^= nCharWidth;
+	#endif
 	for ( int y = 0 ; y < nScreenHeight; y++ )
 	{
 		int lastChar				= 0x20;
@@ -295,16 +307,33 @@ void SAA5050::RenderScreen()
 			{
 				lookupChar += 30 * 4;
 			}
+			#ifdef ENABLE_INTERLACING
+			lookupChar += iInterlaceFlicker;
+			#endif
+
 			for ( int dy = 0; dy < nCharHeight; dy++ )
 			{
 				for ( int dx = 0; dx < nCharWidth; dx++ )
 				{
 					pFrameBufferPtr1[ dx ] = ( lookupChar[dx] & uCurrentColorMask ) | uBackgroundColorMask;
 				}
+				#ifdef ENABLE_INTERLACING
+				if (!bDoubleHeight)
+				{
+					if ( dy & 1 )
+						lookupChar += nCharWidth * 2;
+				}
+				else
+				{
+					if ( ( dy & 3 ) == 3 )
+						lookupChar += nCharWidth * 2;
+				}
+				#else
 				if ((!bDoubleHeight)||(dy&1))
 				{
-					lookupChar += nCharWidth;
+					lookupChar += nCharWidth ;
 				}
+				#endif
 				pFrameBufferPtr1 += fbInfo.m_pitch;
 			}
 			lastChar = displayChar;

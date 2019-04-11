@@ -15,6 +15,7 @@ BBC_Emulator::BBC_Emulator()
 	, m_systemVIA( m_keyboard, m_videoULA, m_ti76489 )
 	, m_keyboard( m_systemVIA )
 	, m_crtc( m_videoULA )
+	, m_debugServer()
 {
 	m_floppies[ 0 ] = nullptr;
 	m_floppies[ 1 ] = nullptr;

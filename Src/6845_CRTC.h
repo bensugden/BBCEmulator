@@ -15,9 +15,9 @@ public:
 		Horizontal_Total = 0,					// R0. Total length of line (displayed and non-displayed cycles (retrace) in CCLK cycles minus 1 )
 		Horizontal_displayed_character_lines,	// R1. Number of characters displayed in a line
 		Horizontal_Sync_position,				// R2. The position of the horizontal sync pulse start in distance from line start
-		Horizontal_Sync_Width,					// R3. (Bits 0-3) The width of the horizontal sync pulse in CCLK cycles (0 means 16) .
+		Sync_Width,								// R3. (Bits 0-3) The width of the horizontal sync pulse in CCLK cycles (0 means 16) .
 												//     (Bits 4-7) Length of vertical sync pulse in times of a rasterline (Bits 4-7)
-		Vertical_total_character_lines,			// R4. (7_bit) The number of character lines of the screen minus 1
+		Vertical_Total,							// R4. (7_bit) The number of character lines of the screen minus 1
 		Vertical_total_adjust_rasterlines,		// R5. (5_bit) The additional number of scanlines to complete a screen
 		Vertical_displayed_character_lines,		// R6. (7_bit) Number character lines that are displayed
 		Vertical_Sync_position,					// R7. (7_bit) Position of the vertical sync pulse in character lines.

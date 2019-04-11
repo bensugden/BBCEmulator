@@ -126,6 +126,7 @@ private:
 	I8271_FDC					m_fdc;
 	BBC_Keyboard				m_keyboard;
 	XAudio2						m_audioPlayer;
+	DebugServer					m_debugServer;
 	u64							m_nClockCounter = 0;
 	u64							m_nLastClockCounter = 0;
 	CPUStateHistory				m_history;

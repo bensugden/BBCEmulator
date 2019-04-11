@@ -365,6 +365,46 @@ exit:
 
 	GFXSystem::UnlockFrameBuffer();
 	GFXSystem::SetAnisotropicFiltering( false );
+
+	//-------------------------------------------------------------------------------------------------
+	
+	int nHorizontalTotal		= m_CRTC.GetRegisterValue( CRTC_6845::Horizontal_Total );
+	int nHorizontalDisplayed	= m_CRTC.GetRegisterValue( CRTC_6845::Horizontal_displayed_character_lines );
+	int nHorizontalSyncPos		= m_CRTC.GetRegisterValue( CRTC_6845::Horizontal_Sync_position );
+	int nHorizontalSyncWidth	= m_CRTC.GetRegisterValue( CRTC_6845::Sync_Width ) & 15; if ( nHorizontalSyncWidth == 0 ) nHorizontalSyncWidth = 16;
+
+	int nNumCyclesPerScanline	= ( nHorizontalTotal + 1 ) * ( m_ulaState.bHighFrequencyClock ? 2 : 1 );
+
+	int nVerticalTotal			= m_CRTC.GetRegisterValue( CRTC_6845::Vertical_Total ) + 1;
+	int nVerticalDisplayed		= m_CRTC.GetRegisterValue( CRTC_6845::Vertical_displayed_character_lines );
+	int nVerticalSyncPos		= m_CRTC.GetRegisterValue( CRTC_6845::Vertical_Sync_position );
+	int nVerticalSyncWidth		= m_CRTC.GetRegisterValue( CRTC_6845::Sync_Width ) >> 4; if ( nVerticalSyncWidth == 0 ) nVerticalSyncWidth = 16;
+	
+	//-------------------------------------------------------------------------------------------------
+   
+	//int nVScreenAdjust=-100+(((CRTC_VerticalTotal+1)-(CRTC_VerticalSyncPos-1))*(20/TeletextStyle));
+	int nHSyncModifier = 16;
+	if ( m_ulaState.bHighFrequencyClock ) nHSyncModifier=8;
+	if ( m_ulaState.bTeletextMode )		  nHSyncModifier=12;
+
+	int nActualScreenWidth = nHorizontalDisplayed * nHSyncModifier;
+
+	if ( nActualScreenWidth < 640 ) nActualScreenWidth = 640;
+	if ( nActualScreenWidth > 800 ) nActualScreenWidth = 800;
+
+	int nInitialOffset = 0 - ( ( ( nHorizontalTotal + 1 ) / 2 ) - ( ( nHSyncModifier == 8 ) ? 40 : 20 ) );
+
+	int nHStart = nInitialOffset + ( ( nHorizontalTotal + 1 ) - ( nHorizontalSyncPos + ( nHorizontalSyncWidth ) ) ) + 1;
+	if ( m_ulaState.bHighFrequencyClock ) 
+		nHStart++;
+	if ( m_ulaState.bTeletextMode ) 
+		nHStart += 2;
+	if ( nHStart < 0 ) 
+		nHStart = 0;
+
+	int nScreenAdjust = ( nHStart * nHSyncModifier ) ;// + ( ( VScreenAdjust > 0 ) ? ( VScreenAdjust * 800 ) : 0 );
+
 }
+
 
 //-------------------------------------------------------------------------------------------------

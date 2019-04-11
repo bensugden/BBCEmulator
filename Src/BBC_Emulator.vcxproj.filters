@@ -5,10 +5,6 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
-    </Filter>
     <Filter Include="Resource Files">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
@@ -22,32 +18,17 @@
     <Filter Include="Emulator\Headers">
       <UniqueIdentifier>{c655ae9e-ccf6-4913-a2f1-4c65f26a5919}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Framework">
+      <UniqueIdentifier>{3aa0499c-5eee-4eae-a5d2-ffcd00523b76}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Windows">
+      <UniqueIdentifier>{c7231825-16e2-4060-b91b-d1ff3c5c2ffd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DirectX">
+      <UniqueIdentifier>{42601df7-f0a6-4d63-9868-e51dc53f292c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="stdafx.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="targetver.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Resource.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Win32.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Types.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="File.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DirectX.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="MyAssert.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="6502_CPU.h">
       <Filter>Emulator\Headers</Filter>
     </ClInclude>
@@ -105,29 +86,44 @@
     <ClInclude Include="TI_76489.h">
       <Filter>Emulator\Headers</Filter>
     </ClInclude>
-    <ClInclude Include="XAudio2.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="6502_Disassembler.h">
+      <Filter>Emulator\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="DirectX.h">
+      <Filter>DirectX</Filter>
     </ClInclude>
     <ClInclude Include="SDKwavefile.h">
-      <Filter>Source Files</Filter>
+      <Filter>DirectX</Filter>
     </ClInclude>
-    <ClInclude Include="6502_Disassembler.h">
+    <ClInclude Include="XAudio2.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="File.h">
+      <Filter>Framework</Filter>
+    </ClInclude>
+    <ClInclude Include="MyAssert.h">
+      <Filter>Framework</Filter>
+    </ClInclude>
+    <ClInclude Include="Types.h">
+      <Filter>Framework</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="Win32.h">
+      <Filter>Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource.h">
+      <Filter>Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="stdafx.h">
+      <Filter>Framework</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugServer.h">
       <Filter>Emulator\Headers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="stdafx.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="File.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="DirectX.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="6502_CPU.cpp">
       <Filter>Emulator\Source</Filter>
     </ClCompile>
@@ -182,17 +178,32 @@
     <ClCompile Include="I8271_FDC.cpp">
       <Filter>Emulator\Source</Filter>
     </ClCompile>
-    <ClCompile Include="XAudio2.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="SDKwavefile.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="6502_Disassembler.cpp">
       <Filter>Emulator\Source</Filter>
     </ClCompile>
+    <ClCompile Include="DirectX.cpp">
+      <Filter>DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="SDKwavefile.cpp">
+      <Filter>DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="XAudio2.cpp">
+      <Filter>DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="File.cpp">
+      <Filter>Framework</Filter>
+    </ClCompile>
+    <ClCompile Include="Win32.cpp">
+      <Filter>Windows</Filter>
+    </ClCompile>
     <ClCompile Include="DisassemblyWindow.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="stdafx.cpp">
+      <Filter>Framework</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugServer.cpp">
+      <Filter>Emulator\Source</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -210,7 +221,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Display.fx">
-      <Filter>Source Files</Filter>
+      <Filter>DirectX</Filter>
     </None>
   </ItemGroup>
 </Project>

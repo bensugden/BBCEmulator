@@ -7,7 +7,6 @@
  #pragma warning(disable: 4577)
  #pragma warning(disable: 4530)
 #include "targetver.h"
-
 #define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
 // Windows Header Files:
 #include <windows.h>
@@ -24,6 +23,7 @@
 #include <iostream>
 #include <conio.h>
 #include <functional>
+#include <thread>
 
 using namespace std;
 
@@ -35,10 +35,14 @@ using namespace std;
 #include "resource.h"
 #include "DirectX.h"
 #include "XAudio2.h"
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <functional>
 
 #include "File.h"
 #include "myAssert.h"
 #include "MiscUtils.h"
+#include "DebugServer.h"
 
 using namespace Utils;
 using std::placeholders::_1;

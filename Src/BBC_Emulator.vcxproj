@@ -171,6 +171,7 @@
     <ClInclude Include="6522_VIA_System.h" />
     <ClInclude Include="6522_VIA_Ports.h" />
     <ClInclude Include="6845_CRTC.h" />
+    <ClInclude Include="DebugServer.h" />
     <ClInclude Include="I8271_FDC.h" />
     <ClInclude Include="BBC_Keyboard.h" />
     <ClInclude Include="BBC_Emulator.h" />
@@ -215,6 +216,7 @@
     <ClCompile Include="File.cpp" />
     <ClCompile Include="LS161_PagedRomController.cpp" />
     <ClCompile Include="MiscUtils.cpp" />
+    <ClCompile Include="DebugServer.cpp" />
     <ClCompile Include="SAA5050.cpp" />
     <ClCompile Include="SDKwavefile.cpp" />
     <ClCompile Include="SHEILA.cpp" />
