@@ -9,8 +9,9 @@
 class Disassembler
 {
 public:
-	Disassembler( int memorySize );
-	void DisassembleFrom( int entry_point );
+	Disassembler( );
+
+	void DisassembleFrom( int entry_point, std::string& code );
 
 private:	
 	struct MemReference
@@ -28,11 +29,14 @@ private:
 		u8		data;
 		EType	type;
 	};
-	bool IsMemoryAlreadyDisassembled( int pc, const CommandInfo& command );
-	const CommandInfo& DecodeAt( int pc );
-	void MarkAsDecoded( int pc, const CommandInfo& command );
-	void CrawlCodeFrom( int pc );
-	int GetDestAddress( int pc, const CommandInfo& command );
+
+	void				GenerateCode( std::string& code );
+	bool				IsMemoryAlreadyDisassembled( int pc, const CommandInfo& command );
+	const CommandInfo&	DecodeAt( int pc );
+	void				MarkAsDecoded( int pc, const CommandInfo& command );
+	void				CrawlCodeFrom( int pc );
+	int					GetDestAddress( int pc, const CommandInfo& command );
+
 	std::vector<MemReference> m_memory;
 };
 

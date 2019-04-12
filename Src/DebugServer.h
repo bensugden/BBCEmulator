@@ -9,17 +9,45 @@
 class DebugServer
 {
 public:
-	DebugServer();
+	DebugServer( class BBC_Emulator& emulator );
 	~DebugServer();
 private:
-	int						InitWinsock();
-	int						ExitWinsock();
-	int						Run();
-	static void				RunDispatch(DebugServer* server);
+	int									Run();
+	static void							RunDispatch(DebugServer* server);
+	
+	//
+	// Network Stuff
+	//
+	int									InitWinsock();
+	int									ExitWinsock();
+	bool								Send( const std::string& data );
 
-	std::thread*			m_pThread;
-    SOCKET					m_ListenSocket;
-	SOCKET					m_ClientSocket;
+	std::thread*						m_pThread;
+	SOCKET								m_ListenSocket;
+	SOCKET								m_ClientSocket;
+
+	//
+	// Emulator / Disassembler Etc.
+	//
+
+	void								GetEmulatorStatus();
+	class Disassembler					m_disassembler;
+	class BBC_Emulator&					m_emulator;
+
+	//
+	// Event Handling
+	//
+	typedef bool (DebugServer::*EventHandler) (const std::string&);
+	void								RegisterEventHandlers();
+	bool								HandleEvent( const string& packet );
+	void								AddEventHandler( EventHandler, const std::string& );
+
+	//
+	// Event Handlers
+	//
+	bool								OnStep( const std::string& data );
+
+	std::map<std::string, EventHandler>	m_eventHandlers;
 
 };
 

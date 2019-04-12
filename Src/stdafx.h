@@ -42,7 +42,6 @@ using namespace std;
 #include "File.h"
 #include "myAssert.h"
 #include "MiscUtils.h"
-#include "DebugServer.h"
 
 using namespace Utils;
 using std::placeholders::_1;
@@ -53,6 +52,7 @@ using std::placeholders::_4;
 #include "6502_CPU.h"
 #include "6502_Memory.h"
 #include "6502_OpcodeTable.h"
+#include "6502_Disassembler.h"
 #include "SHEILA.h"
 #include "VideoULA.h"
 #include "SAA5050.h"
@@ -66,6 +66,7 @@ using std::placeholders::_4;
 #include "SystemClock.h"
 #include "LS161_PagedRomController.h"
 
+#include "DebugServer.h"
 #include "BBC_Keyboard.h"
 #include "BBC_Emulator.h"
 

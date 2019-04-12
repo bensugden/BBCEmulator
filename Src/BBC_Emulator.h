@@ -28,6 +28,12 @@ public:
 	bool	ProcessInstructions( int nCount, std::string* pDisassemblyHistory, bool bDebug, bool bForceDebugPC = false, bool bAlwaysSpewToOutputWindow = false );
 	void	SetBreakpoint( u16 address );
 
+	//
+	// These block until critical section is free ( will wait for a frame boundary if in run mode )
+	//
+	void	EnterEmulatorCriticalSection();
+	void	ExitEmulatorCriticalSection();
+
 	void	InsertDisk( int drive, const std::string& filename );
 	void	EjectDisk( int drive );
 	//-------------------------------------------------------------------------------------------------
@@ -76,7 +82,7 @@ public:
 		{
 			int cCount = GetCount();
 			const State& state = GetStateAtTime( 0 );
-			cpu.Disassemble( state.reg_state, state.pc_state, disassemble, nullptr );
+			cpu.DisassembleAtCPUState( state.reg_state, disassemble, nullptr );
 		}
 
 		void GetHistory( std::string& DisassemblyHistory ) const
@@ -87,7 +93,7 @@ public:
 			{
 				const State& state = GetStateAtTime( i );
 				string disassemble;
-				cpu.Disassemble( state.reg_state, state.pc_state, disassemble, nullptr );
+				cpu.DisassembleAtCPUState( state.reg_state, disassemble, nullptr );
 				DisassemblyHistory += disassemble;
 			}
 		}
@@ -134,6 +140,7 @@ private:
 	LARGE_INTEGER				m_lastTime;
 	LARGE_INTEGER				m_timerFreq;
 	double						m_lastTimeInSeconds;
+	CRITICAL_SECTION			m_csForBreak;
 
 	FloppyDisk*					m_floppies[2];
 	bool						m_bStarted = false;

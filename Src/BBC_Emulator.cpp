@@ -15,11 +15,11 @@ BBC_Emulator::BBC_Emulator()
 	, m_systemVIA( m_keyboard, m_videoULA, m_ti76489 )
 	, m_keyboard( m_systemVIA )
 	, m_crtc( m_videoULA )
-	, m_debugServer()
+	, m_debugServer( *this )
 {
 	m_floppies[ 0 ] = nullptr;
 	m_floppies[ 1 ] = nullptr;
-
+	InitializeCriticalSection( &m_csForBreak );
 	Reset();
 	cpu.SetClock( this );
 }
@@ -80,12 +80,28 @@ void BBC_Emulator::Reset()
 
 //-------------------------------------------------------------------------------------------------
 
+void BBC_Emulator::EnterEmulatorCriticalSection()
+{
+	EnterCriticalSection( &m_csForBreak );
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void BBC_Emulator::ExitEmulatorCriticalSection()
+{
+	LeaveCriticalSection( &m_csForBreak );
+}
+
+//-------------------------------------------------------------------------------------------------
+
 bool BBC_Emulator::RunFrame( std::string* pDisassemblyString, bool bDebug )
 {
 	if ( m_bPaused )
 	{
 		return false;
 	}
+
+	EnterEmulatorCriticalSection();
 	LARGE_INTEGER thisTime;
 	QueryPerformanceCounter(&thisTime);
 	if ( m_bStarted )
@@ -96,6 +112,7 @@ bool BBC_Emulator::RunFrame( std::string* pDisassemblyString, bool bDebug )
 		double elapsed = ((double)(thisTime.QuadPart-m_lastTime.QuadPart)) / ((double)m_timerFreq.QuadPart);
 		if ( elapsed < 1.0f / 50.f )
 		{
+			ExitEmulatorCriticalSection();
 			return false;
 		}
 	}
@@ -118,6 +135,8 @@ bool BBC_Emulator::RunFrame( std::string* pDisassemblyString, bool bDebug )
 		m_history.GetHistory(*pDisassemblyString);
 		OutputDebugStringA( pDisassemblyString->c_str() );
 	}
+
+	ExitEmulatorCriticalSection();
 	return bBreakpoint;
 }
 

@@ -9,9 +9,9 @@
 
 //-------------------------------------------------------------------------------------------------
 
-Disassembler::Disassembler( int nMemorySize )
+Disassembler::Disassembler( )
 {
-	m_memory.resize( nMemorySize );
+	m_memory.resize( mem.GetAllocatedMemorySize() );
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -81,7 +81,7 @@ bool Disassembler::IsMemoryAlreadyDisassembled( int pc, const CommandInfo& comma
 
 //-------------------------------------------------------------------------------------------------
 
-void Disassembler::DisassembleFrom( int entry_point )
+void Disassembler::DisassembleFrom( int entry_point, std::string& code )
 {
 	//
 	// First crawl from entry point PC
@@ -94,7 +94,9 @@ void Disassembler::DisassembleFrom( int entry_point )
 	for ( u32 pc = 0; pc < mem.GetAllocatedMemorySize(); )
 	{
 		const CommandInfo& command = DecodeAt( pc );
-		if ( IsMemoryAlreadyDisassembled( pc, command ) || command.IsIllegalOpcode() )
+		if ( IsMemoryAlreadyDisassembled( pc, command ) || 
+			 command.IsIllegalOpcode() || 
+			 ( command.m_nSize + pc >= mem.GetAllocatedMemorySize() ) )
 		{
 			pc++;
 		}
@@ -104,7 +106,43 @@ void Disassembler::DisassembleFrom( int entry_point )
 			pc += command.m_nSize;
 		}
 	}
+
+	//
+	// Now spew this out to a memory string 
+	//
+	GenerateCode( code );
 }
+
+//-------------------------------------------------------------------------------------------------
+
+void Disassembler::GenerateCode( std::string& code )
+{
+	for ( u32 pc = 0; pc < mem.GetAllocatedMemorySize(); )
+	{
+		code += toHex( u16(pc), true ) + " ";
+
+		//
+		// Instruction ?
+		//
+		if ( m_memory[ pc ].type == MemReference::MEM_INSTRUCTION )
+		{
+			const CommandInfo* pCommand;
+			cpu.DisassembleInstruction( (u16)pc, code, &pCommand );
+
+			pc += pCommand->m_nSize;
+		}
+		else
+		{
+			//
+			// Data
+			//
+			code += "EQUB " + toHex( m_memory[ pc ].data, true );
+			pc++;
+		}
+		code += "\n";
+	}
+}
+
 //-------------------------------------------------------------------------------------------------
 
 void Disassembler::CrawlCodeFrom( int pc )

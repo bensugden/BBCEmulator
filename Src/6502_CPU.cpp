@@ -199,11 +199,9 @@ int CPU::GetBytesAtPC( int pc, u8* bytes )
 }
 
 //-------------------------------------------------------------------------------------------------
-void CPU::Disassemble( const CPU::Registers& reg, const u8* bytes, string& dissassemble, const CommandInfo** ppOutCommand )
+int CPU::DisassembleInstruction( u16 PC, string& dissassemble, const CommandInfo** ppOutCommand )
 {
-	dissassemble = toHex( (u16)reg.PC, false ) + " ";
-
-	u8 opcode = *bytes++;
+	u8 opcode = mem.Read_Internal( PC );
 
 	const CommandInfo& command = m_opcodeTable.GetCommandForOpcode( opcode );
 	EAddressingMode addrmode = command.m_addressingMode;
@@ -212,7 +210,7 @@ void CPU::Disassemble( const CPU::Registers& reg, const u8* bytes, string& dissa
 	int nSize = GetMemSizePerEA( addrmode );
 	if ( nSize == 1 )
 	{
-		u8 address = *bytes++;
+		u8 address = mem.Read_Internal( PC + 1 );
 
 		dissassemble += toHex( (u8)address, false ) + "    ";
 		dissassemble += "    " + command.m_name + " ";
@@ -245,7 +243,7 @@ void CPU::Disassemble( const CPU::Registers& reg, const u8* bytes, string& dissa
 			break;
 		case mode_rel:
 			//"rel = $0000 (PC-relative)"
-			dissassemble += toHex( (u16)(reg.PC + 2 + ((s8)address)) )+" (PC-relative)"; 
+			dissassemble += toHex( (u16)(PC + 2 + ((s8)address)) )+" (PC-relative)"; 
 			break;
 		default:
 			break;
@@ -253,8 +251,8 @@ void CPU::Disassemble( const CPU::Registers& reg, const u8* bytes, string& dissa
 	}
 	else if ( nSize == 2 )
 	{
-		u8 lo = *bytes++;
-		u8 hi = *bytes++;
+		u8 lo =  mem.Read_Internal( PC + 1 );
+		u8 hi =  mem.Read_Internal( PC + 2 );
 
 		dissassemble += toHex( (u8)lo, false ) + " " +toHex( (u8)hi, false ) + " ";
 
@@ -288,6 +286,22 @@ void CPU::Disassemble( const CPU::Registers& reg, const u8* bytes, string& dissa
 	{
 		dissassemble += "          " + command.m_name + " ";
 	}
+
+	if ( ppOutCommand != nullptr )
+	{
+		*ppOutCommand = &command;
+	}
+	return nSize + 1; 
+}
+
+//-------------------------------------------------------------------------------------------------
+
+int CPU::DisassembleAtCPUState( const Registers& reg, string& dissassemble, const CommandInfo** ppOutCommand )
+{
+	dissassemble = toHex( (u16)reg.PC, false ) + " ";
+
+	int iSize = DisassembleInstruction( reg.PC, dissassemble, ppOutCommand );
+
 	int iExtraSpaces = 48 - (int)dissassemble.length();
 	while ( iExtraSpaces-- > 0 )
 		dissassemble +=" ";
@@ -306,11 +320,9 @@ void CPU::Disassemble( const CPU::Registers& reg, const u8* bytes, string& dissa
 	dissassemble += " C:"; dissassemble += ( reg.GetFlag( flag_C ) ? "1" : "0" );
 
 	dissassemble += " P:="; dissassemble += toHex( (u8)reg.P );
-	if ( ppOutCommand != nullptr )
-	{
-		*ppOutCommand = &command;
-	}
+
 	dissassemble += "\n";
+	return iSize;
 }
 
 

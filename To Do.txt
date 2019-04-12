@@ -1,6 +1,8 @@
 To Do:
 ----------------------------------------------
 
+add labels to disassembly
+clean up emulator run control - move it out from win32.cpp and into bbc_emulator
 rewrite ula stuff so it operates on ticks (there are more cycles than one frame right now!)
 use registers properly for video ula
 add cursor!

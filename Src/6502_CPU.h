@@ -284,7 +284,8 @@ struct CPU
 		u16 address;
 	};
 
-	void						Disassemble( const Registers& reg, const u8* bytes, string& dissassemble, const CommandInfo** ppOutCommand );
+	int							DisassembleAtCPUState( const Registers& reg_state, string& dissassemble, const CommandInfo** ppOutCommand );
+	int							DisassembleInstruction( u16 PC, string& dissassemble, const CommandInfo** ppOutCommand = nullptr );
 
 	void						SetBreakpoint( u16 address );
 	void						ClearBreakpoints();
