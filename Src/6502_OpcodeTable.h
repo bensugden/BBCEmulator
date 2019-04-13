@@ -62,6 +62,10 @@ struct CommandInfo
 		return ( m_instruction >= FIRST_ILLEGAL_OPCODE );  
 	}
 
+	bool IsBranch() const
+	{
+		return ( m_isConditionalBranch || m_instruction == JSR || m_instruction == JMP );
+	}
 	string				m_name;
 	string				m_functionName;
 	int					m_index;

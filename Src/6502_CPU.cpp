@@ -199,13 +199,29 @@ int CPU::GetBytesAtPC( int pc, u8* bytes )
 }
 
 //-------------------------------------------------------------------------------------------------
-int CPU::DisassembleInstruction( u16 PC, string& dissassemble, const CommandInfo** ppOutCommand )
+
+inline std::string* CheckLabelMap(std::map<int,std::string>* pLabelMap,int nImmediateAddress)
+{
+	if ( pLabelMap )
+	{
+		auto it = pLabelMap->find( nImmediateAddress );
+		if ( it != pLabelMap->end() )
+		{
+			return &(*it).second ;
+		}
+	}
+	return nullptr;
+}
+//-------------------------------------------------------------------------------------------------
+
+int CPU::DisassembleInstruction( u16 PC, string& dissassemble, const CommandInfo** ppOutCommand, std::map<int,std::string>* pLabelMap )
 {
 	u8 opcode = mem.Read_Internal( PC );
 
 	const CommandInfo& command = m_opcodeTable.GetCommandForOpcode( opcode );
 	EAddressingMode addrmode = command.m_addressingMode;
 	dissassemble += toHex( (u8)opcode, false ) + " ";
+	std::string* label = nullptr;
 
 	int nSize = GetMemSizePerEA( addrmode );
 	if ( nSize == 1 )
@@ -214,7 +230,6 @@ int CPU::DisassembleInstruction( u16 PC, string& dissassemble, const CommandInfo
 
 		dissassemble += toHex( (u8)address, false ) + "    ";
 		dissassemble += "    " + command.m_name + " ";
-
 		switch ( addrmode )
 		{
 		case mode_imm:
@@ -242,9 +257,17 @@ int CPU::DisassembleInstruction( u16 PC, string& dissassemble, const CommandInfo
 			dissassemble += "("+toHex( address )+"),Y";
 			break;
 		case mode_rel:
+		{
 			//"rel = $0000 (PC-relative)"
-			dissassemble += toHex( (u16)(PC + 2 + ((s8)address)) )+" (PC-relative)"; 
+			u16 nImmediateAddress= (u16)(PC + 2 + ((s8)address));
+			if ( label = CheckLabelMap( pLabelMap, nImmediateAddress ) )
+			{
+				dissassemble += *label + "   ;";
+				break;
+			}
+			dissassemble += toHex( nImmediateAddress )+" (PC-relative)"; 
 			break;
+		}
 		default:
 			break;
 		}
@@ -264,18 +287,38 @@ int CPU::DisassembleInstruction( u16 PC, string& dissassemble, const CommandInfo
 		{
 		case mode_abs:
 			//"abs = $0000"
+			if ( label = CheckLabelMap( pLabelMap, address ) )
+			{
+				dissassemble += *label + "   ;";
+				break;
+			}
 			dissassemble += toHex( address ); 
 			break;
 		case mode_abx:
 			//"abx = $0000,X"
+			if ( label = CheckLabelMap( pLabelMap, address ) )
+			{
+				dissassemble += *label +",X ;";
+				break;
+			}
 			dissassemble += toHex( address )+",X"; 
 			break;
 		case mode_aby:
 			//"aby = $0000,Y"
+			if ( label = CheckLabelMap( pLabelMap, address ) )
+			{
+				dissassemble += *label +",Y ;";
+				break;
+			}
 			dissassemble += toHex( address )+",Y"; 
 			break;
 		case mode_ind:
 			//"ind = ($0000)"
+			if ( label = CheckLabelMap( pLabelMap, address ) )
+			{
+				dissassemble += "("+ *label +") ;";
+				break;
+			}
 			dissassemble += "("+toHex( address )+")"; 
 			break;
 		default:

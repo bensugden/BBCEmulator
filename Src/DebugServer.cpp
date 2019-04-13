@@ -166,7 +166,7 @@ void DebugServer::GetEmulatorStatus()
 
 	string code;
 	dc.GetDisassembler().GenerateCode( code );
-	FILE* fp = fopen( "D:\\test.txt", "w" );
+	FILE* fp = fopen( "disassembly\\_session.6502", "w" );
 	fwrite( code.c_str(), code.length() + 1, 1, fp );
 	fclose( fp );
 }

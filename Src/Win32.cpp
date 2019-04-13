@@ -163,7 +163,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			{
 				g_emulator->RefreshDisplay();
 			}
-			GFXSystem::Render();
+		}
+		else
+		{
+			g_emulator->RunFrame();
 		}
     }
 
@@ -240,7 +243,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	g_mainHWND = hWnd;
 	g_debuggerHWND = CreateDialog(hInst, MAKEINTRESOURCE(IDD_DEBUGGER), hWnd, Debugger);
-	g_bDebuggerActive = true;
+	g_bDebuggerActive = false;
 
 	g_debuggerDisassemblyHWND	= GetDlgItem( g_debuggerHWND, IDC_DEBUG_OUTPUT );
 	g_debuggerP_HWND			= GetDlgItem( g_debuggerHWND, IDC_SET_P );
@@ -255,7 +258,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	ShowWindow( g_debuggerHWND, nCmdShow&&g_bDebuggerActive );
 	CheckMenuItem( GetMenu(hWnd), IDM_SHOW_DEBUGGER, g_bDebuggerActive ? MF_CHECKED : MF_UNCHECKED );
 
-	g_emulator = new BBC_Emulator();
+	g_emulator = new BBC_Emulator( g_bRun );
 //	g_emulator->InsertDisk( 0, "disks\\test.ssd" );
 //	g_emulator->InsertDisk( 0, "disks\\all games\\r\\Revs-267.ssd" );
 	g_emulator->InsertDisk( 0, "disks\\all games\\p\\Planetoid-11.ssd" );

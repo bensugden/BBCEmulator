@@ -40,8 +40,14 @@ private:
 	const CommandInfo&	DecodeAt( int pc );
 	void				MarkAsDecoded( int pc, const CommandInfo& command, bool bConfirmed );
 	int					GetDestAddress( int pc, const CommandInfo& command );
+	void				CreateLabel( int address );
+	void				RegenerateLabelNameInAddressOrder();
 
-	std::vector<MemReference> m_memory;
+	std::vector<MemReference>	m_memory;
+	std::map<int,std::string>	m_memToLabelMap;
+	std::vector<int>			m_pcToLineMap;
+	std::vector<int>			m_lineToPCMap;
+	int							m_currentLabelIndex;
 };
 
 //-------------------------------------------------------------------------------------------------

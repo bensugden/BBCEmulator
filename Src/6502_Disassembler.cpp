@@ -35,36 +35,60 @@ DisassemblerContext::~DisassemblerContext()
 Disassembler::Disassembler( )
 {
 	m_memory.resize( mem.GetAllocatedMemorySize() );
+	m_currentLabelIndex = 0 ;
 }
 //-------------------------------------------------------------------------------------------------
 
 int Disassembler::GetDestAddress( int pc, const CommandInfo& command )
 {
+	int nAddress = -1;
+
 	u8 lo = mem.Read_Internal( pc + 1 );
 	if ( command.m_addressingMode == mode_rel )
 	{
-		return (int)(pc + 2 + ((s8)lo)); 
+		nAddress = (int)(pc + 2 + ((s8)lo));
+		if ( command.IsBranch() )
+			CreateLabel( nAddress );
 	}
 	else if ( command.m_addressingMode == mode_imm )
 	{
-		return lo;
+		nAddress= lo;
 	}
 	else if ( command.m_addressingMode == mode_abs )
 	{
 		u8 hi = mem.Read_Internal( pc + 2 );
-		return int( lo + ( u16( hi ) <<8 ) );
+		nAddress = int( lo + ( u16( hi ) <<8 ) );
+		if ( command.IsBranch() )
+			CreateLabel( nAddress );
 	}
-	return -1;
+	else if (( command.m_addressingMode == mode_abx )||
+		     ( command.m_addressingMode == mode_aby )||
+			 ( command.m_addressingMode == mode_ind ))
+	{
+		// don't take branch because we don't know the offset - just create a label
+		u8 hi = mem.Read_Internal( pc + 2 );
+		int tempAddress = int( lo + ( u16( hi ) <<8 ) );
+		if ( command.IsBranch() )
+			CreateLabel( tempAddress );
+	}
+
+	return nAddress;
 }
 
 //-------------------------------------------------------------------------------------------------
 
 const CommandInfo& Disassembler::DecodeAt( int pc )
 {
+	if ( pc == 0xd514 )
+	{
+		int i =0 ; i++;
+	}
 	//
 	// Decode and read extra bytes for instruction
 	//
-	return cpu.GetOpcodeTable().GetCommandForOpcode( mem.Read_Internal( pc ) );
+	const CommandInfo& command = cpu.GetOpcodeTable().GetCommandForOpcode( mem.Read_Internal( pc ) );
+	GetDestAddress( pc, command ); // call this to potentially cache any labels
+	return command;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -109,6 +133,24 @@ bool Disassembler::IsMemoryAlreadyDisassembled( int pc, const CommandInfo& comma
 
 //-------------------------------------------------------------------------------------------------
 
+void Disassembler::RegenerateLabelNameInAddressOrder()
+{
+	std::vector< int > addresses;
+	addresses.reserve( m_memToLabelMap.size() );
+	for ( auto  it = m_memToLabelMap.begin(); it != m_memToLabelMap.end(); it++ )
+	{
+		addresses.push_back( (*it).first );
+	}
+	m_currentLabelIndex = 0;
+	m_memToLabelMap.clear();
+	for ( size_t i = 0; i < addresses.size(); i++ )
+	{
+		CreateLabel( addresses[ i ] );
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+
 void Disassembler::GenerateCode( std::string& code )
 {
 	//
@@ -144,23 +186,45 @@ void Disassembler::GenerateCode( std::string& code )
 			}
 		}
 	}
+	//
+	// Would prefer labels in address order for easy reading...
+	//
+	RegenerateLabelNameInAddressOrder();
+
+	int nLine = 0;
+	
+	m_pcToLineMap.resize(0);
+	m_lineToPCMap.resize(0);
 
 	for ( u32 pc = 0; pc < mem.GetAllocatedMemorySize(); )
 	{
-		code += toHex( u16(pc), true ) + " ";
-		if ( pc == 0xfff4)
+		//
+		// Label ?
+		//
+		auto it = m_memToLabelMap.find( pc );
+		if ( it != m_memToLabelMap.end() )
 		{
-			int i = 0;i++;
+			code += "."+(*it).second + "\n";
+
+			m_lineToPCMap.push_back( pc );
+			nLine++;
 		}
+
+		//
+		// Address
+		//
+		code += "    " + toHex( u16(pc), false ) + "   ";
+		
 		//
 		// Instruction ?
 		//
+		int nInstructionSize = 0;
 		if ( m_memory[ pc ].flags & MemReference::MEM_INSTRUCTION )
 		{
 			const CommandInfo* pCommand;
-			cpu.DisassembleInstruction( (u16)pc, code, &pCommand );
+			cpu.DisassembleInstruction( (u16)pc, code, &pCommand, &m_memToLabelMap );
 
-			pc += pCommand->m_nSize;
+			nInstructionSize = pCommand->m_nSize;
 		}
 		else
 		{
@@ -173,7 +237,7 @@ void Disassembler::GenerateCode( std::string& code )
 				u8 bytehi = m_memory[ pc + 1 ].data;
 				u16 word = ( u16( bytehi ) << 8 ) + u16( bytelo );
 				code += toHex( bytelo, false ) + " " + toHex( bytehi, false ) + "        EQUW " + toHex( word, true );
-				pc+=2;
+				nInstructionSize = 2;
 			}
 			else
 			{
@@ -182,11 +246,37 @@ void Disassembler::GenerateCode( std::string& code )
 				//
 				u8 byte = m_memory[ pc ].data;
 				code += toHex( byte, false ) + "           EQUB " + toHex( byte, true );
-				pc++;
+				nInstructionSize = 1;
 			}
 		}
+
 		code += "\n";
+
+		assert( m_pcToLineMap.size() == pc );
+		assert( m_lineToPCMap.size() == nLine );
+		
+		for ( int i =0 ; i < nInstructionSize; i++ )
+		{
+			m_pcToLineMap.push_back( nLine );
+		}
+		m_lineToPCMap.push_back( pc );
+
+		pc += nInstructionSize;
+		nLine++;
 	}
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void Disassembler::CreateLabel( int address )
+{
+	auto it = m_memToLabelMap.find( address );
+	if ( it != m_memToLabelMap.end() )
+	{
+		return;
+	}
+	std::string labelname = "_"+toHex(u16(address), false);//+std::to_string(m_currentLabelIndex++);
+	m_memToLabelMap.insert(std::pair<int,std::string>(address,labelname));
 }
 
 //-------------------------------------------------------------------------------------------------

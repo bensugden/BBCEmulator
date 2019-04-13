@@ -9,13 +9,14 @@ CPU			cpu;
 
 //-------------------------------------------------------------------------------------------------
 
-BBC_Emulator::BBC_Emulator()
+BBC_Emulator::BBC_Emulator( bool bBreakOnStartup )
 	: m_videoULA( m_teletext, m_crtc, m_systemVIA )
 	, m_teletext( m_crtc )
 	, m_systemVIA( m_keyboard, m_videoULA, m_ti76489 )
 	, m_keyboard( m_systemVIA )
 	, m_crtc( m_videoULA )
 	, m_debugServer( *this )
+	, m_bPaused( bBreakOnStartup )
 {
 	m_floppies[ 0 ] = nullptr;
 	m_floppies[ 1 ] = nullptr;
@@ -91,7 +92,7 @@ void BBC_Emulator::Reset()
 	// test
 	std::string code;
 	m_disassembler.GenerateCode( code );
-	FILE* fp = fopen( "D:\\test.txt", "w" );
+	FILE* fp = fopen( "disassembly\\_session.6502", "w" );
 	fwrite( code.c_str(), code.length() + 1, 1, fp );
 	fclose( fp );
 }
@@ -277,9 +278,18 @@ void BBC_Emulator::EjectDisk( int drive )
 
 //-------------------------------------------------------------------------------------------------
 
+void BBC_Emulator::RunFrame()
+{
+	bool bBreak = RunFrame( nullptr, false );
+	RefreshDisplay();
+}
+
+//-------------------------------------------------------------------------------------------------
+
 void BBC_Emulator::RefreshDisplay()
 {
 	m_videoULA.RefreshDisplay();
+	GFXSystem::Render();
 }
 
 //-------------------------------------------------------------------------------------------------

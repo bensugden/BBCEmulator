@@ -9,7 +9,7 @@ extern CPU cpu;
 class BBC_Emulator : public ISystemClock
 {
 public:
-	BBC_Emulator();
+	BBC_Emulator( bool bBreakOnStartup );
 	~BBC_Emulator( );
 
 	virtual void Tick();
@@ -23,7 +23,14 @@ public:
 	//-------------------------------------------------------------------------------------------------
 
 	void	Reset();
+
+	void	StepOver();
+	void	StepInto();
+	void	StepOut();
+	void	RunFrame();
+
 	void	RefreshDisplay();
+
 	bool	RunFrame( std::string* pDisassemblyString, bool bDebug );
 	bool	ProcessInstructions( int nCount, std::string* pDisassemblyHistory, bool bDebug, bool bForceDebugPC = false, bool bAlwaysSpewToOutputWindow = false );
 	void	SetBreakpoint( u16 address );
