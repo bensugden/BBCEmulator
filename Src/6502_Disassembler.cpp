@@ -7,13 +7,35 @@
 #include "stdafx.h"
 #include "6502_Disassembler.h"
 
+
+//-------------------------------------------------------------------------------------------------
+
+DisassemblerContext::DisassemblerContext( Disassembler& disassembler, BBC_Emulator& emulator )
+	: m_disassembler( disassembler )
+	, m_emulator( emulator )
+{
+	//
+	// Pause the emulator so we can disassemble, grab PC, etc
+	//
+	m_emulator.EnterEmulatorCriticalSection();
+}
+
+//-------------------------------------------------------------------------------------------------
+
+DisassemblerContext::~DisassemblerContext()
+{
+	//
+	// Release emulator so we can disassemble, grab PC, etc
+	//
+	m_emulator.EnterEmulatorCriticalSection();
+}
+
 //-------------------------------------------------------------------------------------------------
 
 Disassembler::Disassembler( )
 {
 	m_memory.resize( mem.GetAllocatedMemorySize() );
 }
-
 //-------------------------------------------------------------------------------------------------
 
 int Disassembler::GetDestAddress( int pc, const CommandInfo& command )
@@ -47,12 +69,14 @@ const CommandInfo& Disassembler::DecodeAt( int pc )
 
 //-------------------------------------------------------------------------------------------------
 
-void Disassembler::MarkAsDecoded( int pc, const CommandInfo& command )
+void Disassembler::MarkAsDecoded( int pc, const CommandInfo& command, bool bConfirmed )
 {
+	u32 uConfimed = bConfirmed ? MemReference::MEM_CONFIRMED : 0;
 	for ( int i = 0; i< command.m_nSize; i++ )
 	{
 		m_memory[ pc  + i ].data = mem.Read_Internal( pc + i );
-		m_memory[ pc  + i ].type =  i == 0 ? MemReference::MEM_INSTRUCTION : MemReference::MEM_EA;
+		m_memory[ pc  + i ].flags =  i == 0 ? MemReference::MEM_INSTRUCTION : MemReference::MEM_EA;
+		m_memory[ pc  + i ].flags |= uConfimed;
 	}
 }
 
@@ -60,71 +84,78 @@ void Disassembler::MarkAsDecoded( int pc, const CommandInfo& command )
 
 bool Disassembler::IsMemoryAlreadyDisassembled( int pc, const CommandInfo& command )
 {
+	u32 nFlags =  MemReference::MEM_CONFIRMED | MemReference::MEM_INSTRUCTION ;
 	for ( int i = 0; i < command.m_nSize; i++ )
 	{
 		//
 		// Already processed?
 		//
-		if ( m_memory[ pc ].type != MemReference::MEM_UNKNOWN )
+		if (( m_memory[ pc ].flags & nFlags ) != nFlags )
 		{
-			//
-			// Memory not changed
-			//
-			if ( m_memory[ pc ].data == mem.Read_Internal( pc ) )
-			{
-				return true;
-			}
+			return false;
 		}
+		//
+		// Memory changed
+		//
+		if ( m_memory[ pc ].data != mem.Read_Internal( pc ) )
+		{
+			return false;
+		}
+		nFlags = MemReference::MEM_CONFIRMED | MemReference::MEM_EA ;
+		pc++;
 	}
-	return false;
-}
-
-//-------------------------------------------------------------------------------------------------
-
-void Disassembler::DisassembleFrom( int entry_point, std::string& code )
-{
-	//
-	// First crawl from entry point PC
-	//
-	CrawlCodeFrom( entry_point );
-
-	//
-	// Then take a stab at disassembling raw memory
-	//
-	for ( u32 pc = 0; pc < mem.GetAllocatedMemorySize(); )
-	{
-		const CommandInfo& command = DecodeAt( pc );
-		if ( IsMemoryAlreadyDisassembled( pc, command ) || 
-			 command.IsIllegalOpcode() || 
-			 ( command.m_nSize + pc >= mem.GetAllocatedMemorySize() ) )
-		{
-			pc++;
-		}
-		else
-		{
-			MarkAsDecoded( pc, command );
-			pc += command.m_nSize;
-		}
-	}
-
-	//
-	// Now spew this out to a memory string 
-	//
-	GenerateCode( code );
+	return true;
 }
 
 //-------------------------------------------------------------------------------------------------
 
 void Disassembler::GenerateCode( std::string& code )
 {
+	//
+	// Take a stab at disassembling any remaining raw memory
+	//
+	for ( u32 pc = 0; pc < mem.GetAllocatedMemorySize(); pc++ )
+	{
+		if ( m_memory[ pc ].flags == MemReference::MEM_UNKNOWN )
+		{
+			m_memory[ pc ].data = mem.Read_Internal( pc );
+		}
+	}
+
+	for ( u32 pc = 0; pc < mem.GetAllocatedMemorySize(); )
+	{
+		const CommandInfo& command = DecodeAt( pc );
+		if ( IsMemoryAlreadyDisassembled( pc, command ) )
+		{
+			pc += command.m_nSize;
+		}
+		else
+		{
+			if ( command.IsIllegalOpcode() || 
+				 ( command.m_instruction == BRK ) ||
+				 ( command.m_nSize + pc >= mem.GetAllocatedMemorySize() ) )
+			{
+				pc++;
+			}
+			else
+			{
+				MarkAsDecoded( pc, command, false );
+				pc += command.m_nSize;
+			}
+		}
+	}
+
 	for ( u32 pc = 0; pc < mem.GetAllocatedMemorySize(); )
 	{
 		code += toHex( u16(pc), true ) + " ";
-
+		if ( pc == 0xfff4)
+		{
+			int i = 0;i++;
+		}
 		//
 		// Instruction ?
 		//
-		if ( m_memory[ pc ].type == MemReference::MEM_INSTRUCTION )
+		if ( m_memory[ pc ].flags & MemReference::MEM_INSTRUCTION )
 		{
 			const CommandInfo* pCommand;
 			cpu.DisassembleInstruction( (u16)pc, code, &pCommand );
@@ -136,8 +167,23 @@ void Disassembler::GenerateCode( std::string& code )
 			//
 			// Data
 			//
-			code += "EQUB " + toHex( m_memory[ pc ].data, true );
-			pc++;
+			if ( ( pc < mem.GetAllocatedMemorySize( ) - 1 ) && ( ( m_memory[ pc + 1 ].flags & MemReference::MEM_INSTRUCTION ) == 0 ) )
+			{
+				u8 bytelo = m_memory[ pc ].data;
+				u8 bytehi = m_memory[ pc + 1 ].data;
+				u16 word = ( u16( bytehi ) << 8 ) + u16( bytelo );
+				code += toHex( bytelo, false ) + " " + toHex( bytehi, false ) + "        EQUW " + toHex( word, true );
+				pc+=2;
+			}
+			else
+			{
+				//
+				// Data
+				//
+				u8 byte = m_memory[ pc ].data;
+				code += toHex( byte, false ) + "           EQUB " + toHex( byte, true );
+				pc++;
+			}
 		}
 		code += "\n";
 	}
@@ -145,7 +191,7 @@ void Disassembler::GenerateCode( std::string& code )
 
 //-------------------------------------------------------------------------------------------------
 
-void Disassembler::CrawlCodeFrom( int pc )
+void Disassembler::DisassembleFrom( int pc )
 {
 	while ( true )
 	{
@@ -159,7 +205,7 @@ void Disassembler::CrawlCodeFrom( int pc )
 			return;
 		}
 
-		MarkAsDecoded( pc, command );
+		MarkAsDecoded( pc, command, true );
 
 		//
 		// Check for branching, jumping or termination
@@ -180,7 +226,7 @@ void Disassembler::CrawlCodeFrom( int pc )
 				int address = GetDestAddress( pc, command );
 				if ( address != -1 )
 				{
-					CrawlCodeFrom( address );
+					DisassembleFrom( address );
 				}
 				pc += command.m_nSize;
 				break;

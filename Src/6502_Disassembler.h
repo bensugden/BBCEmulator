@@ -6,38 +6,61 @@
 //
 //-------------------------------------------------------------------------------------------------
 
+
+//-------------------------------------------------------------------------------------------------
+
 class Disassembler
 {
 public:
 	Disassembler( );
 
-	void DisassembleFrom( int entry_point, std::string& code );
+	void				DisassembleFrom( int );
+	void				GenerateCode( std::string& code );
+
 
 private:	
 	struct MemReference
 	{
 		MemReference()
 		{
-			type = MEM_UNKNOWN;
+			flags = MEM_UNKNOWN;
 		}
-		enum EType
+		enum ETypeFlags
 		{
-			MEM_UNKNOWN = 0,
-			MEM_INSTRUCTION,
-			MEM_EA,
+			MEM_UNKNOWN			= 0,
+			MEM_INSTRUCTION		= 1<<1,
+			MEM_EA				= 1<<2,
+			MEM_CONFIRMED		= 1<<3
 		};
 		u8		data;
-		EType	type;
+		u8		flags;
 	};
 
-	void				GenerateCode( std::string& code );
 	bool				IsMemoryAlreadyDisassembled( int pc, const CommandInfo& command );
 	const CommandInfo&	DecodeAt( int pc );
-	void				MarkAsDecoded( int pc, const CommandInfo& command );
-	void				CrawlCodeFrom( int pc );
+	void				MarkAsDecoded( int pc, const CommandInfo& command, bool bConfirmed );
 	int					GetDestAddress( int pc, const CommandInfo& command );
 
 	std::vector<MemReference> m_memory;
 };
 
+//-------------------------------------------------------------------------------------------------
+// 
+// NOTE: Getting disassembler requires us to lock the CPU when done via another thread, so
+//		 I've wrapped this behind a little struct to lock and unlock automatically
+//
+//-------------------------------------------------------------------------------------------------
+
+struct DisassemblerContext
+{
+	DisassemblerContext( Disassembler&, class BBC_Emulator& );
+	~DisassemblerContext();
+	Disassembler& GetDisassembler()
+	{
+		return m_disassembler;
+	}
+private:
+	Disassembler& m_disassembler;
+	BBC_Emulator& m_emulator;
+};
 //-------------------------------------------------------------------------------------------------

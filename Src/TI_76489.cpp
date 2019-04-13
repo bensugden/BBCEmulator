@@ -26,6 +26,7 @@ TI_76489::TI_76489()
 		memset( &m_streams[ i ], 128, c_streamSize );
 	}
 	m_storedRegisterValue = 0;
+	m_masterVolume = 255;
 	srand(12345);
 }
 
@@ -36,6 +37,8 @@ void TI_76489::Tick( int nCyclesElapsed )
 	m_cycles += (double)nCyclesElapsed;
 	while ( m_cycles >= m_skipCount )
 	{
+		if ( m_masterVolume == 0 )
+			return;
 		m_cycles -= m_skipCount;
 
 		for ( int channel = 0;  channel < 3; channel++ )
@@ -102,7 +105,7 @@ void TI_76489::Tick( int nCyclesElapsed )
 		if ( total_value < 0 )
 			total_value = 0;
 
-		m_streams[ m_currentBuffer ][ m_currentBufferIndex++ ] = (u8)total_value;
+		m_streams[ m_currentBuffer ][ m_currentBufferIndex++ ] = (u8)((total_value*m_masterVolume)>>8);
 
 		if ( m_currentBufferIndex == c_streamSize )
 		{
@@ -111,6 +114,13 @@ void TI_76489::Tick( int nCyclesElapsed )
 			m_currentBufferIndex = 0;
 		}
 	}
+}
+
+//-------------------------------------------------------------------------------------------------
+
+void TI_76489::SetVolume( u8 volume )
+{
+	m_masterVolume = volume;
 }
 
 //-------------------------------------------------------------------------------------------------

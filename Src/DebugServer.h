@@ -31,7 +31,6 @@ private:
 	//
 
 	void								GetEmulatorStatus();
-	class Disassembler					m_disassembler;
 	class BBC_Emulator&					m_emulator;
 
 	//

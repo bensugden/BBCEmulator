@@ -16,7 +16,7 @@ public:
 
 	void				UpdateSoundRegister( u8 value );
 	void				Tick( int nCyclesElapsed );
-
+	void				SetVolume( u8 nVolume );
 private:
 	static const int	c_playerFrequency = 44100;
 	static const int	c_streamSize = c_playerFrequency / 50;
@@ -26,6 +26,7 @@ private:
 	u8					m_storedRegisterValue;
 	XAudio2				m_audioPlayer;
 
+	u8					m_masterVolume;
 	double				m_frequency[ 4 ];
 	u8					m_volume[ 4 ];
 	double				m_cycleCounter[ 4 ];

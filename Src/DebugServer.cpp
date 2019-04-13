@@ -52,7 +52,6 @@ static void SetThreadName(uint32_t dwThreadID, const char* threadName)
 
 DebugServer::DebugServer( BBC_Emulator& emulator )
 	: m_emulator( emulator )
-	, m_disassembler( )
 {
 	m_pThread = new std::thread( RunDispatch, this );
 	
@@ -162,18 +161,14 @@ bool DebugServer::HandleEvent( const string& packet )
 
 void DebugServer::GetEmulatorStatus()
 {
-	//
-	// Pause the emulator so we can disassemble, grab PC, etc
-	//
-	m_emulator.EnterEmulatorCriticalSection();
-	
+	DisassemblerContext dc = m_emulator.GetDisassemblerContext();
+	dc.GetDisassembler().DisassembleFrom( cpu.reg.PC );
+
 	string code;
-	m_disassembler.DisassembleFrom( cpu.reg.PC, code );
+	dc.GetDisassembler().GenerateCode( code );
 	FILE* fp = fopen( "D:\\test.txt", "w" );
 	fwrite( code.c_str(), code.length() + 1, 1, fp );
 	fclose( fp );
-
-	m_emulator.ExitEmulatorCriticalSection();
 }
 
 //-------------------------------------------------------------------------------------------------

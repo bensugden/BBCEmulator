@@ -36,6 +36,11 @@ public:
 
 	void	InsertDisk( int drive, const std::string& filename );
 	void	EjectDisk( int drive );
+
+	//-------------------------------------------------------------------------------------------------
+
+	DisassemblerContext GetDisassemblerContext() { return DisassemblerContext(m_disassembler,*this); }
+
 	//-------------------------------------------------------------------------------------------------
 
 	struct CPUStateHistory
@@ -136,6 +141,7 @@ private:
 	u64							m_nClockCounter = 0;
 	u64							m_nLastClockCounter = 0;
 	CPUStateHistory				m_history;
+	Disassembler				m_disassembler;
 
 	LARGE_INTEGER				m_lastTime;
 	LARGE_INTEGER				m_timerFreq;
@@ -145,6 +151,7 @@ private:
 	FloppyDisk*					m_floppies[2];
 	bool						m_bStarted = false;
 	bool						m_bPaused = false;
+	bool						m_bEnableSound = false;
 };
 
 //-------------------------------------------------------------------------------------------------

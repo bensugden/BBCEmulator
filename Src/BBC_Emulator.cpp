@@ -22,6 +22,7 @@ BBC_Emulator::BBC_Emulator()
 	InitializeCriticalSection( &m_csForBreak );
 	Reset();
 	cpu.SetClock( this );
+
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -76,6 +77,23 @@ void BBC_Emulator::Reset()
 	QueryPerformanceFrequency(&m_timerFreq);
 	m_lastTimeInSeconds =  (((double)(m_lastTime.QuadPart)) / ((double)m_timerFreq.QuadPart)); 
 
+	if ( m_bEnableSound )
+		m_ti76489.SetVolume( 255 );
+	else
+		m_ti76489.SetVolume( 0 );
+
+	//
+	// Prime disassembler
+	//
+	m_disassembler.DisassembleFrom( mem.ReadAddress( CPU::c_Reset_Vector ) );
+	m_disassembler.DisassembleFrom( mem.ReadAddress( CPU::c_IRQ_Vector ) );
+	m_disassembler.DisassembleFrom( mem.ReadAddress( CPU::c_NMI_Vector ) );
+	// test
+	std::string code;
+	m_disassembler.GenerateCode( code );
+	FILE* fp = fopen( "D:\\test.txt", "w" );
+	fwrite( code.c_str(), code.length() + 1, 1, fp );
+	fclose( fp );
 }
 
 //-------------------------------------------------------------------------------------------------
